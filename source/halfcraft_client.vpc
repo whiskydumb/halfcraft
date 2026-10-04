@@ -1,0 +1,72 @@
+//-----------------------------------------------------------------------------
+//	HALFCRAFT_CLIENT.VPC
+//
+//	halfcraft's code in client.dll. included from game\client\client_hl2.vpc
+//	(source\sdk\halfcraft-sdk.patch). expects the sdk checked out at
+//	<halfcraft>\source-sdk-2013.
+//-----------------------------------------------------------------------------
+
+$Macro HALFCRAFTDIR		"$SRCDIR\..\..\source"
+$Macro HALFCRAFTPROTO	"$SRCDIR\..\..\protocol"
+
+$Configuration
+{
+	$Compiler
+	{
+		$AdditionalIncludeDirectories	"$BASE;$HALFCRAFTDIR\src;$HALFCRAFTPROTO"
+		$AdditionalOptions				"$BASE /std:c++17"
+	}
+}
+
+$Project
+{
+	$Folder	"Source Files"
+	{
+		$Folder	"HalfCraft"
+		{
+			$File	"$HALFCRAFTDIR\src\shared\hc_hooks.h"
+			$File	"$HALFCRAFTDIR\src\shared\hc_bridge.h"
+			$File	"$HALFCRAFTDIR\src\shared\hc_movement.cpp"
+			$File	"$HALFCRAFTDIR\src\client\hc_blocks.h"
+			$File	"$HALFCRAFTDIR\src\client\hc_blocks.cpp"
+			$File	"$HALFCRAFTDIR\src\client\hc_client.h"
+			$File	"$HALFCRAFTDIR\src\client\hc_client.cpp"
+			$File	"$HALFCRAFTDIR\src\client\hc_input.cpp"
+			$File	"$HALFCRAFTDIR\src\client\hc_overlay.cpp"
+			$File	"$HALFCRAFTDIR\src\client\hc_light.h"
+			$File	"$HALFCRAFTDIR\src\client\hc_light.cpp"
+			$File	"$HALFCRAFTDIR\src\client\hc_mesh.h"
+			$File	"$HALFCRAFTDIR\src\client\hc_mesh.cpp"
+			$File	"$HALFCRAFTDIR\src\client\hc_texture.h"
+			$File	"$HALFCRAFTDIR\src\client\hc_texture.cpp"
+			$File	"$HALFCRAFTDIR\src\client\hc_things.h"
+			$File	"$HALFCRAFTDIR\src\client\hc_things.cpp"
+			$File	"$HALFCRAFTDIR\src\client\hc_block_lights.h"
+			$File	"$HALFCRAFTDIR\src\client\hc_block_lights.cpp"
+			$File	"$HALFCRAFTDIR\src\client\hc_water.cpp"
+
+			$Folder	"Core"
+			{
+				$File	"$HALFCRAFTPROTO\halfcraft_protocol.h"
+				$File	"$HALFCRAFTDIR\src\core\hc_atomic.h"
+				$File	"$HALFCRAFTDIR\src\core\hc_link.h"
+				$File	"$HALFCRAFTDIR\src\core\hc_log.h"
+				$File	"$HALFCRAFTDIR\src\core\hc_ticks.h"
+				$File	"$HALFCRAFTDIR\src\core\hc_units.h"
+				$File	"$HALFCRAFTDIR\src\core\hc_link.cpp" \
+						"$HALFCRAFTDIR\src\core\hc_log.cpp" \
+						"$HALFCRAFTDIR\src\core\hc_ticks.cpp" \
+						"$HALFCRAFTDIR\src\core\hc_units.cpp"
+				{
+					$Configuration
+					{
+						$Compiler
+						{
+							$Create/UsePrecompiledHeader	"Not Using Precompiled Headers"
+						}
+					}
+				}
+			}
+		}
+	}
+}

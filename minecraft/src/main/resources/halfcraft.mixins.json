@@ -1,0 +1,23 @@
+{
+  "required": true,
+  "package": "dev.halfcraft.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "AbstractArrowMixin",
+    "BlockCollisionsMixin",
+    "BlockStateBaseMixin",
+    "EntityFluidInteractionMixin",
+    "EntityPickMixin",
+    "EntitySwimMixin",
+    "FallingBlockMixin",
+    "FlowingFluidMixin",
+    "ItemMixin",
+    "PlayerEdgeMixin",
+    "PressurePlateMixin",
+    "ProjectileMixin",
+    "ProjectileUtilMixin",
+    "ServerExplosionMixin",
+    "ServerPlayerMixin"
+  ],
+  "injectors": { "defaultRequire": 1 }
+}

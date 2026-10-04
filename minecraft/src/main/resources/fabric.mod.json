@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "halfcraft",
+  "version": "${version}",
+  "name": "HalfCraft",
+  "description": "Play Half-Life 2 with Minecraft physics, inventory, blocks and combat.",
+  "authors": ["whisky"],
+  "contributors": ["chasmlol (SkyCraft, which HalfCraft is based on)"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "main": ["dev.halfcraft.HalfCraft"],
+    "client": ["dev.halfcraft.client.HalfCraftClient"]
+  },
+  "mixins": [
+    "halfcraft.mixins.json",
+    { "config": "halfcraft.client.mixins.json", "environment": "client" }
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "~26.3",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}

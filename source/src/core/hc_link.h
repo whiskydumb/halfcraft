@@ -1,0 +1,82 @@
+#pragma once
+
+#include <cstdint>
+#include <functional>
+
+#include "halfcraft_protocol.h"
+
+// the shared-memory link to minecraft (protocol/halfcraft_protocol.h). the host (source) creates
+// the mapping, minecraft opens it.
+//
+// client.dll and server.dll each map it. every region has exactly one writer and one reader:
+//   client.dll - header/heartbeat, host state, input ring, overlay, world entities, render ring
+//   server.dll - collision ring, actor table, event ring, water grid
+// only client.dll resets the mapping (create()); server.dll just attaches (attach()).
+
+namespace halfcraft
+{
+
+	class Link
+	{
+	public:
+		Link() = default;
+		~Link();
+		Link(const Link&) = delete;
+		Link& operator=(const Link&) = delete;
+
+		/// creates (or reuses) the mapping and resets every region the host owns. client.dll only.
+		/// @return true when the mapping is usable
+		bool create();
+		/// maps the same memory without resetting anything. server.dll only.
+		/// @return true when the mapping is usable
+		bool attach();
+		[[nodiscard]] bool valid() const { return base_ != nullptr; }
+
+		/// minecraft wrote its heartbeat within the last few seconds.
+		[[nodiscard]] bool mc_alive() const;
+		/// process id minecraft wrote when it opened the mapping (changes when it restarts).
+		[[nodiscard]] std::uint32_t mc_pid() const;
+		void heartbeat();
+
+		// host <-> minecraft state (seqlocks)
+		void write_host_state(const proto::HostState& state);
+		bool read_host_state(proto::HostState& out) const;
+		bool read_mc_state(proto::McState& out) const;
+		void write_water_grid(const proto::WaterGrid& grid);
+
+		/// input ring, producer side. drops the event if minecraft is a whole ring behind.
+		void push_input(proto::InputType type, std::uint16_t code, std::int32_t a = 0, std::int32_t b = 0, std::int32_t c = 0);
+
+		/// collision ring, producer side (one thread only).
+		/// @return false when the ring is full
+		bool write_collision(proto::ColType type, const void* payload, std::uint32_t bytes);
+
+		void write_actors(const proto::ActorRecord* records, std::uint32_t count);
+		/// event ring, consumer side.
+		/// @return false when there is nothing to pop
+		bool pop_event(proto::McEvent& out);
+		bool read_world_entities(proto::WorldEntities& out) const;
+
+		/// render ring, consumer side: calls fn(type, payload, bytes) per pending message, up to
+		/// about max_bytes of payload. payload points into shared memory.
+		void drain_render(const std::function<void(std::uint32_t, const std::uint8_t*, std::uint32_t)>& fn, std::uint64_t max_bytes);
+
+		/// overlay triple buffer, consumer side. swaps a newer frame (if any) into the front slot.
+		/// @return true when the front slot changed
+		bool acquire_overlay_frame();
+		/// minecraft (re)connected: its writer starts over, so the swap does too.
+		void reset_overlay();
+		[[nodiscard]] const std::uint8_t*          front_pixels() const;
+		[[nodiscard]] const proto::OverlaySlotHdr* front_header() const;
+
+	private:
+		bool map(bool reset);
+
+		template <class T>
+		T* at(std::uint64_t offset) const { return reinterpret_cast<T*>(base_ + offset); }
+
+		void*         mapping_{ nullptr };
+		std::uint8_t* base_{ nullptr };
+		std::uint32_t overlay_front_{ 2 };
+	};
+}

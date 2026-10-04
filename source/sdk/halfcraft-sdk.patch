@@ -1,0 +1,291 @@
+diff --git a/src/game/client/cdll_client_int.cpp b/src/game/client/cdll_client_int.cpp
+index 41f2d0e0..57ed651b 100644
+--- a/src/game/client/cdll_client_int.cpp
++++ b/src/game/client/cdll_client_int.cpp
+@@ -175,6 +175,8 @@ extern vgui::IInputInternal *g_InputInternal;
+ #include "sixense/in_sixense.h"
+ #endif
+ 
++#include "shared/hc_hooks.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -2559,6 +2561,10 @@ void CHLClient::ReloadFilesInList( IFileList *pFilesToReload )
+ 
+ bool CHLClient::HandleUiToggle()
+ {
++	// halfcraft: esc closes minecraft's screen (inventory, chat, ...) instead of opening source's menu
++	if ( halfcraft::client_ui_toggle() )
++		return true;
++
+ #if defined( REPLAY_ENABLED )
+ 	if ( !g_pEngineReplay || !g_pEngineReplay->IsSupportedModAndPlatform() )
+ 		return false;
+diff --git a/src/game/client/client_hl2.vpc b/src/game/client/client_hl2.vpc
+index d9cfcd3f..b8ce511b 100644
+--- a/src/game/client/client_hl2.vpc
++++ b/src/game/client/client_hl2.vpc
+@@ -10,6 +10,7 @@ $Macro GAMENAME 	"mod_hl2" [$SOURCESDK]
+ 
+ $Include "$SRCDIR\game\client\client_base.vpc"
+ $Include "$SRCDIR\game\protobuf_include.vpc"
++$Include "$SRCDIR\..\..\source\halfcraft_client.vpc"
+ 
+ $Configuration
+ {
+diff --git a/src/game/client/clientmode_shared.cpp b/src/game/client/clientmode_shared.cpp
+index 54933d24..a4e66484 100644
+--- a/src/game/client/clientmode_shared.cpp
++++ b/src/game/client/clientmode_shared.cpp
+@@ -67,6 +67,8 @@ extern ConVar replay_rendersetting_renderglow;
+ #include "c_tf_team.h"
+ #endif
+ 
++#include "shared/hc_hooks.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -424,7 +426,11 @@ bool ClientModeShared::CreateMove( float flInputSampleTime, CUserCmd *cmd )
+ 		return true;
+ 
+ 	// Let the player at it
+-	return pPlayer->CreateMove( flInputSampleTime, cmd );
++	bool bResult = pPlayer->CreateMove( flInputSampleTime, cmd );
++
++	// halfcraft: minecraft's player position goes into the command
++	halfcraft::client_create_move( cmd );
++	return bResult;
+ }
+ 
+ //-----------------------------------------------------------------------------
+@@ -442,6 +448,9 @@ void ClientModeShared::OverrideView( CViewSetup *pSetup )
+ 
+ 	pPlayer->OverrideView( pSetup );
+ 
++	// halfcraft: the camera sits where minecraft's player looks from
++	halfcraft::client_override_view( pSetup );
++
+ 	if( ::input->CAM_IsThirdPerson() )
+ 	{
+ 		const Vector& cam_ofs = g_ThirdPersonManager.GetCameraOffsetAngles();
+@@ -663,6 +672,10 @@ int	ClientModeShared::KeyInput( int down, ButtonCode_t keynum, const char *pszCu
+ {
+ 	if ( engine->Con_IsVisible() )
+ 		return 1;
++
++	// halfcraft: keys minecraft takes never reach source's bindings
++	if ( !halfcraft::client_key_event( down, keynum, pszCurrentBinding ) )
++		return 0;
+ 	
+ 	// Should we start typing a message?
+ 	if ( pszCurrentBinding &&
+diff --git a/src/game/client/in_mouse.cpp b/src/game/client/in_mouse.cpp
+index 8d503c26..2d47245a 100644
+--- a/src/game/client/in_mouse.cpp
++++ b/src/game/client/in_mouse.cpp
+@@ -34,6 +34,8 @@
+ #endif
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
++#include "shared/hc_hooks.h"
++
+ #include "tier0/memdbgon.h"
+ 
+ // up / down
+@@ -724,6 +726,14 @@ void CInput::MouseMove( CUserCmd *cmd )
+ 		// Latch accumulated mouse movements and reset accumulators
+ 		GetAccumulatedMouseDeltasAndResetAccumulators( &mx, &my );
+ 
++		// halfcraft: minecraft's look (or cursor) takes the raw mouse instead
++		if ( halfcraft::client_mouse_move( mx, my, viewangles ) )
++		{
++			ResetMouse();
++			engine->SetViewAngles( viewangles );
++			return;
++		}
++
+ 		// Filter, etc. the delta values and place into mouse_x and mouse_y
+ 		GetMouseDelta( mx, my, &mouse_x, &mouse_y );
+ 
+diff --git a/src/game/server/player.cpp b/src/game/server/player.cpp
+index 2c0fa74f..fc314f6a 100644
+--- a/src/game/server/player.cpp
++++ b/src/game/server/player.cpp
+@@ -102,6 +102,8 @@ ConVar sv_chat_seconds_per_msg_tier2( "sv_chat_seconds_per_msg_tier2", "10", FCV
+ 
+ static ConVar sv_maxusrcmdprocessticks( "sv_maxusrcmdprocessticks", "24", FCVAR_NOTIFY, "Maximum number of client-issued usrcmd ticks that can be replayed in packet loss conditions, 0 to allow no restrictions" );
+ 
++#include "shared/hc_hooks.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -1109,6 +1111,10 @@ int CBasePlayer::OnTakeDamage( const CTakeDamageInfo &inputInfo )
+ 	if ( GetFlags() & FL_GODMODE )
+ 		return 0;
+ 
++	// halfcraft: while minecraft drives the player, minecraft's health takes the hit
++	if ( halfcraft::server_player_damage( this, info ) )
++		return 0;
++
+ 	if ( m_debugOverlays & OVERLAY_BUDDHA_MODE ) 
+ 	{
+ 		if ((m_iHealth - info.GetDamage()) <= 0)
+diff --git a/src/game/server/server_hl2.vpc b/src/game/server/server_hl2.vpc
+index 0fc2e64b..c7a4cbba 100644
+--- a/src/game/server/server_hl2.vpc
++++ b/src/game/server/server_hl2.vpc
+@@ -9,6 +9,7 @@ $Macro GAMENAME 	"hl2" [!$SOURCESDK]
+ $Macro GAMENAME 	"mod_hl2" [$SOURCESDK]
+ 
+ $Include "$SRCDIR\game\server\server_base.vpc"
++$Include "$SRCDIR\..\..\source\halfcraft_server.vpc"
+ 
+ $Configuration
+ {
+diff --git a/src/game/shared/gamemovement.cpp b/src/game/shared/gamemovement.cpp
+index 4b79f72c..5ad95652 100644
+--- a/src/game/shared/gamemovement.cpp
++++ b/src/game/shared/gamemovement.cpp
+@@ -4583,6 +4583,10 @@ void CGameMovement::PlayerMove( void )
+ 
+ 	AngleVectors (mv->m_vecViewAngles, &m_vecForward, &m_vecRight, &m_vecUp );  // Determine movement angles
+ 
++	// halfcraft: minecraft's physics already moved the player
++	if ( HalfCraftMove() )
++		return;
++
+ 	// Always try and unstick us unless we are using a couple of the movement modes
+ 	if ( player->GetMoveType() != MOVETYPE_NOCLIP && 
+ 		 player->GetMoveType() != MOVETYPE_NONE && 		 
+diff --git a/src/game/shared/gamemovement.h b/src/game/shared/gamemovement.h
+index 8c9b7d9a..262b7988 100644
+--- a/src/game/shared/gamemovement.h
++++ b/src/game/shared/gamemovement.h
+@@ -202,6 +202,9 @@ protected:
+ 	// Determine if player is in water, on ground, etc.
+ 	virtual void CategorizePosition( void );
+ 
++	// halfcraft: minecraft moved the player this command (source/src/shared/hc_movement.cpp)
++	bool			HalfCraftMove( void );
++
+ 	virtual void	CheckParameters( void );
+ 
+ 	virtual	void	ReduceTimers( void );
+diff --git a/src/game/shared/usercmd.cpp b/src/game/shared/usercmd.cpp
+index 84ffa243..0e0d20f4 100644
+--- a/src/game/shared/usercmd.cpp
++++ b/src/game/shared/usercmd.cpp
+@@ -169,6 +169,37 @@ void WriteUsercmd( bf_write *buf, const CUserCmd *to, const CUserCmd *from )
+ 		buf->WriteOneBit( 0 );
+ 	}
+ 
++	// halfcraft
++	if ( to->hc_flags != from->hc_flags )
++	{
++		buf->WriteOneBit( 1 );
++		buf->WriteUBitLong( to->hc_flags, 8 );
++	}
++	else
++	{
++		buf->WriteOneBit( 0 );
++	}
++
++	if ( to->hc_origin != from->hc_origin )
++	{
++		buf->WriteOneBit( 1 );
++		buf->WriteBitVec3Coord( to->hc_origin );
++	}
++	else
++	{
++		buf->WriteOneBit( 0 );
++	}
++
++	if ( to->hc_velocity != from->hc_velocity )
++	{
++		buf->WriteOneBit( 1 );
++		buf->WriteBitVec3Coord( to->hc_velocity );
++	}
++	else
++	{
++		buf->WriteOneBit( 0 );
++	}
++
+ #if defined( HL2_CLIENT_DLL )
+ 	if ( to->entitygroundcontact.Count() != 0 )
+ 	{
+@@ -289,6 +320,22 @@ void ReadUsercmd( bf_read *buf, CUserCmd *move, CUserCmd *from )
+ 		move->mousedy = buf->ReadShort();
+ 	}
+ 
++	// halfcraft
++	if ( buf->ReadOneBit() )
++	{
++		move->hc_flags = buf->ReadUBitLong( 8 );
++	}
++
++	if ( buf->ReadOneBit() )
++	{
++		buf->ReadBitVec3Coord( move->hc_origin );
++	}
++
++	if ( buf->ReadOneBit() )
++	{
++		buf->ReadBitVec3Coord( move->hc_velocity );
++	}
++
+ #if defined( HL2_DLL )
+ 	if ( buf->ReadOneBit() )
+ 	{
+diff --git a/src/game/shared/usercmd.h b/src/game/shared/usercmd.h
+index 0005bde9..200ea0a6 100644
+--- a/src/game/shared/usercmd.h
++++ b/src/game/shared/usercmd.h
+@@ -56,6 +56,9 @@ public:
+ #endif
+ 		mousedx = 0;
+ 		mousedy = 0;
++		hc_flags = 0;
++		hc_origin.Init();
++		hc_velocity.Init();
+ 
+ 		hasbeenpredicted = false;
+ #if defined( HL2_DLL ) || defined( HL2_CLIENT_DLL )
+@@ -84,6 +87,9 @@ public:
+ #endif
+ 		mousedx				= src.mousedx;
+ 		mousedy				= src.mousedy;
++		hc_flags			= src.hc_flags;
++		hc_origin			= src.hc_origin;
++		hc_velocity			= src.hc_velocity;
+ 
+ 		hasbeenpredicted	= src.hasbeenpredicted;
+ 
+@@ -164,6 +170,11 @@ public:
+ 	short	mousedx;		// mouse accum in x from create move
+ 	short	mousedy;		// mouse accum in y from create move
+ 
++	// halfcraft: where minecraft's physics put the player (halfcraft::UserCmdFlag)
++	int		hc_flags;
++	Vector	hc_origin;
++	Vector	hc_velocity;
++
+ 	// Client only, tracks whether we've predicted this command at least once
+ 	bool	hasbeenpredicted;
+ 
+diff --git a/src/public/const.h b/src/public/const.h
+index 84f28527..9beeb1c5 100644
+--- a/src/public/const.h
++++ b/src/public/const.h
+@@ -107,7 +107,8 @@
+ // CBaseEntity::m_fFlags
+ // PLAYER SPECIFIC FLAGS FIRST BECAUSE WE USE ONLY A FEW BITS OF NETWORK PRECISION
+ // This top block is for singleplayer games only....no HL2:DM (which defines HL2_DLL)
+-#if !defined( HL2MP ) && ( defined( PORTAL ) || defined( HL2_EPISODIC ) || defined ( HL2_DLL ) || defined( HL2_LOSTCOAST ) )
++// halfcraft: the singleplayer client (HL2_CLIENT_DLL) must read the server's flags with the same bits
++#if !defined( HL2MP ) && ( defined( PORTAL ) || defined( HL2_EPISODIC ) || defined ( HL2_DLL ) || defined( HL2_CLIENT_DLL ) || defined( HL2_LOSTCOAST ) )
+ #define	FL_ONGROUND				(1<<0)	// At rest / on the ground
+ #define FL_DUCKING				(1<<1)	// Player flag -- Player is fully crouched
+ #define	FL_WATERJUMP			(1<<2)	// player jumping out of water

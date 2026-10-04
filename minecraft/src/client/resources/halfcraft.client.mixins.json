@@ -1,0 +1,26 @@
+{
+  "required": true,
+  "package": "dev.halfcraft.client.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "CameraZoomMixin",
+    "ClientLevelAccessor",
+    "EntityCollideMixin",
+    "FramerateLimitTrackerMixin",
+    "InputConstantsMixin",
+    "LevelExtractorMixin",
+    "LevelRendererMixin",
+    "MinecraftMixin",
+    "RenderSetupAccessor",
+    "RenderTypeAccessor",
+    "ScreenMixin",
+    "SpriteContentsAccessor",
+    "TextureAtlasAccessor",
+    "TextureBindingAccessor",
+    "TextureManagerAccessor",
+    "WaitingForPlayerChunkMixin",
+    "WindowMixin",
+    "WorldOpenFlowsMixin"
+  ],
+  "injectors": { "defaultRequire": 1 }
+}

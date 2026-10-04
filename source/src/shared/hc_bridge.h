@@ -1,0 +1,72 @@
+#pragma once
+
+// what client.dll and server.dll hand each other directly. both live in the same process: client.dll
+// exports these functions and server.dll looks them up by name.
+//   solids - minecraft's solid blocks, read off the render ring by the client; the server turns them
+//            into collision for npcs, physics and bullets
+//   hurts  - half-life's hits on the player, caught by the server; the client puts them on the input
+//            ring it owns
+//   heals  - half-life's health kits, chargers and suit batteries on the player, seen by the server;
+//            likewise
+//   holding - whether the player carries a prop with use (server knows); the client sends the mouse
+//            buttons to source then, to throw or drop it
+//   hazards - minecraft's fire, lava and magma blocks (they come with its block lights); the server
+//            burns npcs that stand in them
+//   arrows - minecraft's arrows that stuck in an npc (an event the server reads); the client draws
+//            them on the npc's bones
+
+#include <cstdint>
+
+namespace halfcraft
+{
+	/// one 16x16x16 section's solid blocks (plain layout: it crosses a dll boundary).
+	struct SolidSection
+	{
+		std::int32_t  sx, sy, sz;  // section coords (minecraft)
+		std::uint32_t count;       // solid blocks; 0: none (the section's collision is gone)
+		std::uint8_t  bits[512];   // bit (x + 16 z + 256 y), minecraft axes
+	};
+
+	/// sections whose solids changed after version since.
+	/// @param out - up to max of them
+	/// @param now - the current version (pass it back as since next time)
+	/// @return how many changed (may exceed max: call again with room for all)
+	using SolidsSinceFn = int (*)(std::uint32_t since, SolidSection* out, int max, std::uint32_t* now);
+
+	inline constexpr char HC_SOLIDS_EXPORT[] = "HalfCraft_SolidsSince";
+
+	/// server.dll -> client.dll: half-life hit the player; goes to minecraft as proto::kInHurt
+	/// (client.dll owns the input ring).
+	/// @param kind - proto::HurtKind
+	/// @param damage - half-life's damage (minecraft divides it by 5: 100 hp -> 20)
+	/// @param attacker - the attacker's actor id (proto::ActorRecord::id), 0 for none
+	using PushHurtFn = void (*)(int kind, float damage, std::uint32_t attacker, std::uint32_t flags);
+
+	inline constexpr char HC_PUSH_HURT_EXPORT[] = "HalfCraft_PushHurt";
+
+	/// server.dll -> client.dll: half-life healed the player; goes to minecraft as proto::kInHeal.
+	/// @param kind - proto::HealKind
+	/// @param amount - half-life points (minecraft divides them by 5)
+	using PushHealFn = void (*)(int kind, float amount);
+
+	inline constexpr char HC_PUSH_HEAL_EXPORT[] = "HalfCraft_PushHeal";
+
+	/// server.dll -> client.dll, every frame: the player carries a prop (half-life's use pickup).
+	using SetHoldingFn = void (*)(int holding);
+
+	inline constexpr char HC_SET_HOLDING_EXPORT[] = "HalfCraft_SetHolding";
+
+	/// what hurts at a minecraft block.
+	/// @return proto::BlockHazard (kHazardNone for nothing)
+	using HazardAtFn = int (*)(int x, int y, int z);
+
+	inline constexpr char HC_HAZARD_AT_EXPORT[] = "HalfCraft_HazardAt";
+
+	/// server.dll -> client.dll: a minecraft arrow stuck in an npc (proto::kEvArrowStuck).
+	/// @param entindex - the npc's entity index (the same on both sides)
+	/// @param hit - where it hit, source units
+	/// @param direction - its flight direction, source axes, unit length
+	using StickArrowFn = void (*)(int entindex, const float hit[3], const float direction[3]);
+
+	inline constexpr char HC_STICK_ARROW_EXPORT[] = "HalfCraft_StickArrow";
+}

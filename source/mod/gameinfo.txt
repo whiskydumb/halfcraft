@@ -1,0 +1,37 @@
+"GameInfo"
+{
+	game		"HalfCraft"
+	title		"HALF-LIFE'"
+	title2		"halfcraft"
+	type		singleplayer_only
+
+	FileSystem
+	{
+		// runs on half-life 2: deathmatch's 64-bit engine (app 320): unlike source sdk base 2013
+		// multiplayer's (february 2025), it carries valve's 2026 fixes singleplayer needs.
+		// half-life 2 itself (app 220) has to be installed for its maps, models and sounds.
+		SteamAppId				320
+
+		SearchPaths
+		{
+			game+mod			|gameinfo_path|custom/*
+			game+mod+mod_write+default_write_path		|gameinfo_path|.
+			gamebin				|gameinfo_path|bin
+
+			game				|appid_320|hl2/hl2_misc_dir.vpk
+			game				|appid_220|hl2/hl2_textures_dir.vpk
+			game				|appid_220|hl2/hl2_sound_vo_english_dir.vpk
+			game				|appid_220|hl2/hl2_sound_misc_dir.vpk
+			game				|appid_220|hl2/hl2_misc_dir.vpk
+			game				|appid_220|hl2/hl2_pak_dir.vpk
+			game				|appid_220|hl2_complete/hl2_complete_misc_dir.vpk
+			platform			|appid_220|platform/platform_misc_dir.vpk
+
+			game				|appid_220|hl2
+			game				|appid_220|hl2_complete
+			platform			|appid_220|platform
+
+			game+download		|gameinfo_path|download
+		}
+	}
+}

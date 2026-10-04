@@ -1,0 +1,22 @@
+# the sdk checkouts (tools/setup_sdk.ps1 makes source-sdk-2013; the other is a local reference copy)
+source-sdk-2013/
+source-sdk-2013-valve/
+
+# gradle / loom
+minecraft/.gradle/
+minecraft/build/
+minecraft/run/
+minecraft/out/
+
+# ide
+.vs/
+.vscode/
+.idea/
+*.iml
+
+# release packaging
+dist/
+
+# python
+__pycache__/
+*.pyc

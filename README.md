@@ -1,0 +1,83 @@
+# HalfCraft
+
+Play Half-Life 2 with Minecraft. Real Minecraft (26.3 with the Fabric mod in `minecraft/`) runs
+hidden and does the player's physics, inventory, blocks and combat math; Half-Life 2 renders and
+runs its world, NPCs and scripts around it. Build on Half-Life's maps, fight its NPCs with a
+diamond sword, light City 17 with torches.
+
+The two games talk over shared memory (`protocol/halfcraft_protocol.h`). Half-Life 2's game code
+is open source (Source SDK 2013), so the Half-Life side is a regular Source mod with a handful of
+hooks into Valve's code.
+
+## Layout
+
+```
+minecraft/       the Fabric mod (Java): Minecraft's side of the link, its exporters and physics hooks
+source/          the Source mod (C++)
+  src/core/        engine-agnostic: shared memory link, coordinates, tick interpolation, collision streamer
+  src/client/      client.dll: host state, input, camera, Minecraft overlay, blocks, entities, particles, lights, water
+  src/server/      server.dll: Half-Life's collision as Minecraft geometry, block collision, combat, health, hazards
+  src/shared/      the hook entry points, the puppet movement (CGameMovement::HalfCraftMove), the client/server bridge
+  sdk/             halfcraft-sdk.patch: the hooks into Valve's game code
+  mod/             files laid over the mod folder (gameinfo.txt, cfg)
+  halfcraft_*.vpc  pulled into Valve's client/server projects
+protocol/        the shared memory layout, the one source of truth for both sides
+tools/           setup, build and run scripts, link and crash-dump debugging helpers, the Prism bundle template
+docs/            screenshots
+```
+
+## How it maps
+
+| | |
+|---|---|
+| Scale | 1 block = 40 units: Minecraft's player is 72 units tall with eyes at 64.8, Source's is 72 / 64 |
+| Axes | source (x, y, z) = minecraft (x, -z, y); yaw: `mc = -source - 90` |
+| Maps | each map gets its own 1024-block slot along x (`map_slot`), so builds stay on their map. Every level load (a map change, a transition, a save, also of the same map) starts a new collision epoch, so Minecraft drops what it had and gets the doors and lifts where they are now, and its player goes where Source's is |
+| Player | Minecraft's position rides in the user command (`CUserCmd::hc_origin`), so server and client prediction agree. Source takes the player (and the keyboard) for what Minecraft can't do: ladders (G looking at one, or walking into one with W, mounts it the way Half-Life does), lifts and trains while they move, vehicles, scripted cameras; Minecraft picks up where Source leaves the player |
+| Camera | Minecraft's camera: its eye, FOV and walk bob; F5 puts the view behind the player (or in front, looking back) at Minecraft's own zoom distance, which already stops at Half-Life's walls, and draws the player's body (Minecraft's own model, skin, armour and held items) at the interpolated feet |
+| Health | Minecraft owns the player's health while its player is in its world (on ladders and rides too): every Half-Life hit goes to it, and its health and absorption are mirrored onto Half-Life's player, so health kits, wall chargers, suit batteries and medics work as usual; what they add goes back to Minecraft (health heals, suit armour becomes absorption, x1/5 like damage) |
+| Collision | world brushes (engine planes, player clips included), displacements, static props and solid entities, streamed in 8x8x8-block regions; moving doors and lifts are re-sent while they move |
+| Blocks | each 16x16x16 section Minecraft meshes becomes a Source renderable (atlas as a point-sampled procedural texture, lit by the map's lightmaps plus block light), and an invisible `halfcraft_blocks` entity whose traces and static physics stop NPCs, bullets and props |
+| Things | dropped items, arrows, tridents, block cracks and the targeted block's outline (Minecraft's world entities), plus whatever its entity renderer and particle engine draw (lit TNT, falling blocks, minecarts, chests, particles, with their entity textures); soft shadows under mobs; Minecraft arrows that stick in NPCs stay on the bone they hit and follow their ragdolls. One renderable rebuilt every frame, lit like the blocks |
+| Light | Minecraft's torches, lava and glowstone become Source dynamic lights: the nearest ones light the map (`hc_torch_lights`, default 8), the next ones its characters; `hc_torch_light` sets the brightness |
+| Water | Half-Life's water and slime around the player go to Minecraft as a surface height per block column, so Minecraft swims, floats and drowns in them |
+| Combat | NPCs and breakable props near the player become Minecraft's invisible stand-ins; Minecraft's hits come back as Half-Life damage (`hc_damage_to_npc`, default 3), Half-Life's hits on the player go to Minecraft's health (it divides by 5: 100 hp -> 20), Minecraft's death kills Gordon, TNT and creepers explode in Half-Life too (`hc_explosion_damage`), Minecraft's fire and lava set NPCs alight and magma stings them |
+| Input | everything goes to Minecraft except the console, Esc (when no Minecraft screen is open), F6/F7/F9/F10, Source's use (G, or whatever key Half-Life's keyboard options bind to it) and V (flashlight). Carrying a prop picked up with use, the left mouse button throws it and the right one drops it; it's left out of Minecraft's collision meanwhile |
+
+## Build and run
+
+Needs Visual Studio 2022+ (C++ desktop workload), Python 3, Git, JDK 25, a Minecraft: Java Edition
+account, and on Steam: Half-Life 2 and Half-Life 2: Deathmatch (its 64-bit engine runs the mod).
+
+```powershell
+tools/setup_sdk.ps1          # clones the SDK (hl2dm-sp) into source-sdk-2013 and applies the patch
+tools/build_hl2.ps1          # client.dll + server.dll into source-sdk-2013/game/mod_hl2
+tools/launch_minecraft.bat   # the Minecraft dev client (JAVA_HOME on JDK 25); waits for the game
+tools/run_hl2.ps1 -Map d1_trainstation_02
+```
+
+Minecraft waits on its title screen, then hides its window and loads its mirror world once the
+game is up.
+
+Console variables: `hc_block_light` (block brightness in the map's light, default 2 = Source's
+overbright), `hc_torch_light` / `hc_torch_lights` (Minecraft's lights on the map),
+`hc_damage_to_npc`, `hc_explosion_damage`; for debugging `hc_debug_blocks 1` (outline the blocks'
+collision), `hc_debug_drop 1` (drop a watermelon onto the blocks), `hc_debug_use 1` (log what use
+finds), and the commands `hc_look <pitch> <yaw>` and `hc_click <1|2|3>`.
+
+## Not done yet
+
+- loading an older save doesn't rewind the Minecraft world (in progress)
+- Half-Life 2: Episode One and Two
+- a one-click package (the game, Minecraft through Prism Launcher, set up together)
+- multiplayer
+
+## Credits
+
+HalfCraft is based on [SkyCraft](https://github.com/chasmlol/SkyCraft) by chasmlol, which plays
+Skyrim the same way. The Minecraft mod, the shared memory protocol and much of the Source side's
+design (the link, the collision streamer, tick interpolation, the world renderer's entities) come
+from it, under the MIT license (see `LICENSE`).
+
+HalfCraft isn't affiliated with or endorsed by Valve, Mojang or Microsoft. See
+`THIRD-PARTY-NOTICES.md` for what it's built from.
