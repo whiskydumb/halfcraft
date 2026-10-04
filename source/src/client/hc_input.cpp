@@ -291,3 +291,9 @@ CON_COMMAND( hc_click, "halfcraft: click a minecraft mouse button: hc_click <1 l
 	s.link.push_input( halfcraft::proto::kInMouseButton, static_cast<std::uint16_t>( nButton ), 1 );
 	s.link.push_input( halfcraft::proto::kInMouseButton, static_cast<std::uint16_t>( nButton ), 0 );
 }
+
+CON_COMMAND( hc_scroll, "halfcraft: turn minecraft's mouse wheel: hc_scroll <notches> (positive = up, the hotbar slot before)" )
+{
+	const int nNotches = args.ArgC() > 1 ? atoi( args[1] ) : -1;
+	halfcraft::client_session().link.push_input( halfcraft::proto::kInScroll, 0, nNotches * 120 );
+}

@@ -42,7 +42,7 @@ docs/            screenshots
 | Collision | world brushes (engine planes, player clips included), displacements, static props and solid entities, streamed in 8x8x8-block regions; moving doors and lifts are re-sent while they move |
 | Blocks | each 16x16x16 section Minecraft meshes becomes a Source renderable (atlas as a point-sampled procedural texture, lit by the map's lightmaps plus block light), and an invisible `halfcraft_blocks` entity whose traces and static physics stop NPCs, bullets and props |
 | Things | dropped items, arrows, tridents, block cracks and the targeted block's outline (Minecraft's world entities), plus whatever its entity renderer and particle engine draw (lit TNT, falling blocks, minecarts, chests, particles, with their entity textures); soft shadows under mobs; Minecraft arrows that stick in NPCs stay on the bone they hit and follow their ragdolls. One renderable rebuilt every frame, lit like the blocks |
-| Light | Minecraft's torches, lava and glowstone become Source dynamic lights: the nearest ones light the map (`hc_torch_lights`, default 8), the next ones its characters; `hc_torch_light` sets the brightness |
+| Light | Minecraft's torches, lava and glowstone become Source lights. The nearest ones (`hc_torch_light_count`, default 4) are point lights made of six shadow-casting projected textures (Source's flashlight, one per cube face, cross-faded at the seams) that light the map and its characters per pixel in their colour; the next ones light only characters; `hc_torch_light` sets the brightness |
 | Water | Half-Life's water and slime around the player go to Minecraft as a surface height per block column, so Minecraft swims, floats and drowns in them |
 | Combat | NPCs and breakable props near the player become Minecraft's invisible stand-ins; Minecraft's hits come back as Half-Life damage (`hc_damage_to_npc`, default 3), Half-Life's hits on the player go to Minecraft's health (it divides by 5: 100 hp -> 20), Minecraft's death kills Gordon, TNT and creepers explode in Half-Life too (`hc_explosion_damage`), Minecraft's fire and lava set NPCs alight and magma stings them |
 | Input | everything goes to Minecraft except the console, Esc (when no Minecraft screen is open), F6/F7/F9/F10, Source's use (G, or whatever key Half-Life's keyboard options bind to it) and V (flashlight). Carrying a prop picked up with use, the left mouse button throws it and the right one drops it; it's left out of Minecraft's collision meanwhile |
@@ -76,10 +76,10 @@ Minecraft too when nothing else did, and again if it quits on its own, and says 
 it's doing until it connects. Prism Launcher and Fabric API downloads are pinned by hash.
 
 Console variables: `hc_block_light` (block brightness in the map's light, default 2 = Source's
-overbright), `hc_torch_light` / `hc_torch_lights` (Minecraft's lights on the map),
+overbright), `hc_torch_light` / `hc_torch_light_count` (Minecraft's lights on the map),
 `hc_damage_to_npc`, `hc_explosion_damage`; for debugging `hc_debug_blocks 1` (outline the blocks'
 collision), `hc_debug_drop 1` (drop a watermelon onto the blocks), `hc_debug_use 1` (log what use
-finds), and the commands `hc_look <pitch> <yaw>` and `hc_click <1|2|3>`. `tools/hl2_command.ps1 "save test" "load test"`
+finds), `hc_debug_torch` (a torch light where you look, without Minecraft), and the commands `hc_look <pitch> <yaw>`, `hc_click <1|2|3>` and `hc_scroll <notches>`. `tools/hl2_command.ps1 "save test" "load test"`
 sends console commands to the running game.
 
 ## Not done yet

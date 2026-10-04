@@ -1,10 +1,11 @@
 #pragma once
 
-// client.dll: minecraft's light-emitting blocks (torches, lava, glowstone, ...) as source dynamic
-// lights, so they light half-life's world and its characters the way a flare would. the nearest
-// few light the world (dlights: they cost lightmap updates), the next ones only characters
-// (elights). minecraft's own blocks carry its block light in their vertex colours already.
-// ported from SkyCraft's BlockLights.cpp.
+// client.dll: minecraft's light-emitting blocks (torches, lava, glowstone, ...) as source lights. the
+// nearest few (hc_torch_light_count) are point lights made of source's projected textures (its
+// flashlight), so they light half-life's world and characters per pixel in their colour; the next
+// ones light only characters (elights). minecraft's own blocks carry its block light in their
+// vertex colours already. hc_debug_torch puts one where the player looks, for tuning without
+// minecraft.
 
 #include <cstdint>
 

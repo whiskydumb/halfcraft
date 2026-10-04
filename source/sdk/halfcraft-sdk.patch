@@ -81,6 +81,29 @@ index 54933d24..a4e66484 100644
  	
  	// Should we start typing a message?
  	if ( pszCurrentBinding &&
+diff --git a/src/game/client/clientshadowmgr.cpp b/src/game/client/clientshadowmgr.cpp
+index 8daa9f65..5d380480 100644
+--- a/src/game/client/clientshadowmgr.cpp
++++ b/src/game/client/clientshadowmgr.cpp
+@@ -83,6 +83,8 @@
+ #include "cmodel.h"
+ 
+ 
++#include "shared/hc_hooks.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -1291,7 +1293,8 @@ bool CClientShadowMgr::Init()
+ 	SetShadowBlobbyCutoffArea( 0.005 );
+ 
+ 	bool bTools = CommandLine()->CheckParm( "-tools" ) != NULL;
+-	m_nMaxDepthTextureShadows = bTools ? 4 : 1;	// Just one shadow depth texture in games, more in tools
++	// one shadow depth texture in games, more in tools; halfcraft adds six for each of minecraft's shadowed lights
++	m_nMaxDepthTextureShadows = bTools ? 4 : 1 + 6 * halfcraft::SHADOWED_LIGHTS;
+ 
+ 	bool bLowEnd = ( g_pMaterialSystemHardwareConfig->GetDXSupportLevel() < 80 );
+ 
 diff --git a/src/game/client/in_mouse.cpp b/src/game/client/in_mouse.cpp
 index 8d503c26..2d47245a 100644
 --- a/src/game/client/in_mouse.cpp
@@ -109,6 +132,29 @@ index 8d503c26..2d47245a 100644
  		// Filter, etc. the delta values and place into mouse_x and mouse_y
  		GetMouseDelta( mx, my, &mouse_x, &mouse_y );
  
+diff --git a/src/game/client/viewrender.cpp b/src/game/client/viewrender.cpp
+index b4011e28..6563bc5d 100644
+--- a/src/game/client/viewrender.cpp
++++ b/src/game/client/viewrender.cpp
+@@ -80,6 +80,8 @@
+ // Projective textures
+ #include "C_Env_Projected_Texture.h"
+ 
++#include "shared/hc_hooks.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -5152,6 +5154,9 @@ void CShadowDepthView::Draw()
+ 
+ 	modelrender->ForcedMaterialOverride( 0 );
+ 
++	// halfcraft: a far cap, so that what lies behind the light is always in shadow
++	halfcraft::client_shadow_depth_view( *this );
++
+ 	m_DrawFlags = 0;
+ 
+ 	pRenderContext.GetFrom( materials );
 diff --git a/src/game/server/player.cpp b/src/game/server/player.cpp
 index 2c0fa74f..fc314f6a 100644
 --- a/src/game/server/player.cpp

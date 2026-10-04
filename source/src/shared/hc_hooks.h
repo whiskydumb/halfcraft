@@ -23,6 +23,10 @@ namespace halfcraft
 	};
 
 #ifdef CLIENT_DLL
+	/// minecraft's lights that cast shadows (hc_block_lights.cpp): six shadow depth textures each, on
+	/// top of the one for the player's flashlight (CClientShadowMgr::Init).
+	inline constexpr int SHADOWED_LIGHTS = 4;
+
 	/// ClientModeShared::KeyInput.
 	/// @return false to swallow the key (it went to minecraft)
 	bool client_key_event(int down, ButtonCode_t code, const char* binding);
@@ -41,6 +45,9 @@ namespace halfcraft
 	/// CHLClient::HandleUiToggle (esc).
 	/// @return true when esc went to minecraft (closing its screen) instead of opening source's menu
 	bool client_ui_toggle();
+
+	/// CShadowDepthView::Draw, after the scene went into a projected texture's shadow depth texture.
+	void client_shadow_depth_view(const CViewSetup& view);
 #endif
 
 #ifdef GAME_DLL
