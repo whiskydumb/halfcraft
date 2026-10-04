@@ -16,6 +16,8 @@
 #include "tier0/valve_minmax_off.h"
 #include <algorithm>
 #include <array>
+#include <bitset>
+#include <climits>
 #include <cmath>
 #include <cstring>
 #include <mutex>
@@ -36,7 +38,7 @@ namespace halfcraft
 	namespace
 	{
 		constexpr int   CELL_BLOCKS = 3;          // nearby emitters merge into one light per cell (a lava lake would be hundreds)
-		constexpr int   MAX_POINT_LIGHTS = SHADOWED_LIGHTS;  // six projected textures each, with shadow maps (hc_hooks.h)
+		constexpr int   MAX_POINT_LIGHTS = SHADOWED_LIGHTS;  // twelve projected textures each, with shadow maps (hc_hooks.h)
 		constexpr int   MAX_LIGHTS = 24;          // point lights + character-only lights (elights) for the rest
 		constexpr float RANGE_BLOCKS = 48.0f;     // emitters further than this from the player stay dark
 		constexpr float MAX_RADIUS_BLOCKS = 14.0f;
@@ -49,11 +51,11 @@ namespace halfcraft
 		constexpr float COLOUR_DEPTH = 2.2f;        // minecraft's light colours raised to this: flame-coloured light, not a washed-out white
 		constexpr float ELIGHT_INTENSITY = 0.6f;    // the same for characters lit by the lights further away
 
-		// a point light is six projected textures (source's flashlight) looking down the cube's axes. each
-		// sees a little past 90 degrees, and its cookie fades out across the seam so that two neighbours
-		// add up to one. they cast shadows: besides walls stopping the light, the shadow test is what
-		// keeps a face off what's behind it (source's shaders don't clip, so a surface reaching into a
-		// face's frustum would also be lit mirrored behind the light)
+		// a point light's faces are projected textures (source's flashlight) looking down the cube's axes.
+		// each sees a little past 90 degrees, and its cookie fades out across the seam so that two
+		// neighbours add up to one. they all cast shadows: besides walls stopping the light, the shadow test
+		// is what keeps a face off what's behind it (source's shaders don't clip, so a surface reaching into
+		// a face's frustum would also be lit mirrored behind the light)
 		constexpr float FACE_HALF_FOV = 48.0f;               // degrees; tan(48) > SEAM_WIDTH
 		constexpr float SEAM_WIDTH = 1.1f;                   // the fade runs from tan 1/1.1 to 1.1 off the face's axis
 		constexpr int   COOKIE_SIZE = 128;
@@ -65,10 +67,15 @@ namespace halfcraft
 		constexpr float FACE_NEAR = 8.0f;           // units
 		constexpr float SHADOW_DEPTH_BIAS = 0.0002f;
 		constexpr float SHADOW_SLOPE_BIAS = 16.0f;  // source's flashlight's
+		constexpr float WALL_CLEARANCE = FACE_NEAR + 6.0f;  // units (clear_of_walls)
 
 		ConVar hc_torch_light("hc_torch_light", "1", FCVAR_ARCHIVE, "halfcraft: brightness of minecraft's torches, lava and glowstone (0 = off)");
+		ConVar hc_torch_light_wrap("hc_torch_light_wrap", "0.35", FCVAR_ARCHIVE,
+			"halfcraft: the part of the nearest lights' brightness that half-life's walls don't stop (0 = hard shadows, 1 = none; above 0 doubles their cost)");
+		ConVar hc_torch_light_pvs("hc_torch_light_pvs", "1", 0, "halfcraft: only lights in the camera's potentially visible set get shadowed point lights");
+		constexpr float PVS_EXTENT = 24.0f;  // units around a light's origin that have to be in the camera's pvs
 		ConVar hc_torch_light_count("hc_torch_light_count", "4", FCVAR_ARCHIVE,
-			"halfcraft: how many of the nearest minecraft lights light half-life's world and characters per pixel, with shadows (up to 4; each renders six shadow maps a frame)");
+			"halfcraft: how many of the nearest minecraft lights light half-life's world and characters per pixel, with shadows (up to 4; each renders up to twelve shadow maps a frame)");
 
 		struct LightSource
 		{
@@ -83,11 +90,13 @@ namespace halfcraft
 		{
 			std::uint64_t cell = 0;
 			double        x = 0, y = 0, z = 0, weight = 0;  // weighted minecraft position
+			int           top = INT_MIN;                    // the highest emitter's block y
 			float         r = 0, g = 0, b = 0;
 			int           level = 0, count = 0;
 			std::uint8_t  kind = proto::kLightSteady;
 			float         radius = 0;  // units
 			float         score = 0;   // nearest first
+			bool          visible = true;  // in the camera's pvs: only those get the expensive shadowed point lights
 			Vector        origin;      // source
 		};
 
@@ -163,65 +172,151 @@ namespace halfcraft
 
 		SeamCookie g_cookie;
 
-		/// a light that shines every way, made of six of source's projected textures.
+		IMaterial* g_shadow_cap = nullptr;  // client_shadow_depth_view's depth-only material
+
+		/// the engine clips each projected texture's lighting to a screen rectangle around its frustum
+		/// (r_flashlightscissor). it gets that rectangle wrong for our wide faces whenever one reaches
+		/// past the camera: the light ended in straight horizontal and vertical edges across the screen.
+		void disable_flashlight_scissor()
+		{
+			ConVarRef scissor("r_flashlightscissor");
+			if (scissor.IsValid() && scissor.GetBool()) {
+				scissor.SetValue(0);
+			}
+		}
+
+		/// the size of the shadow depth textures (the shaders scale the shadow filter by it).
+		float shadow_map_resolution()
+		{
+			static ConVarRef resolution("r_flashlightdepthres");
+			return resolution.IsValid() ? resolution.GetFloat() : 1024.0f;
+		}
+
+		/// made at a level load: creating and caching a material in the middle of rendering a shadow
+		/// map upsets the frame being drawn.
+		void prepare_shadow_cap()
+		{
+			if (g_shadow_cap) {
+				return;
+			}
+			auto* values = new KeyValues("DepthWrite");
+			values->SetInt("$no_fullbright", 1);
+			values->SetInt("$alphatest", 0);
+			values->SetInt("$nocull", 1);
+			g_shadow_cap = materials->FindProceduralMaterial("__halfcraft_shadow_cap", TEXTURE_GROUP_OTHER, values);
+			g_shadow_cap->IncrementReferenceCount();
+			if (!g_shadow_cap->IsPrecached()) {
+				materials->CacheUsedMaterials();
+			}
+		}
+
+		/// the faces whose shadow depth textures hold nothing but the cap (client_shadow_depth_scene), by
+		/// ClientShadowHandle_t.
+		std::bitset<1 << 16> g_open_faces;
+		bool                 g_depth_scene = true;  // the shadow depth texture being drawn gets the scene
+
+		/// a light that shines every way, made of source's projected textures: six faces whose light
+		/// half-life's walls stop, and six whose light they don't (hc_torch_light_wrap of it), so that what
+		/// a light can't see directly isn't left pitch black. minecraft's light floods around corners too.
 		class PointLight
 		{
 		public:
-			/// @param moved - origin or reach changed: which surfaces each face lights has to be found again
-			void update(const Vector& origin, float radius, const Vector& color, bool moved)
+			/// @param wrap - the part of the light that walls don't stop
+			/// @param moved - another cluster took the light over: which surfaces each face lights has to be found again
+			void update(const Vector& origin, float radius, const Vector& color, float wrap, bool moved)
 			{
-				static const Vector FORWARD[6] = { Vector(1, 0, 0), Vector(-1, 0, 0), Vector(0, 1, 0), Vector(0, -1, 0), Vector(0, 0, 1), Vector(0, 0, -1) };
+				// the engine takes a face's world-to-texture matrix (and which surfaces it lights) only from
+				// UpdateProjectedTexture, while its shadow map is drawn from the current state every frame. a
+				// reach or origin changed without it (lava spreading, a cluster's centre moving) compared
+				// every pixel against a shadow map of another frustum: whole faces in shadow
+				if (origin != last_origin_ || radius != last_radius_) {
+					last_origin_ = origin;
+					last_radius_ = radius;
+					moved = true;
+				}
+				wrap = std::clamp(wrap, 0.0f, 1.0f);
 				for (int face = 0; face < 6; ++face) {
-					const Vector& forward = FORWARD[face];
-					const Vector  up = forward.z != 0.0f ? Vector(1, 0, 0) : Vector(0, 0, 1);
-					const Vector  right = CrossProduct(forward, up);
-					FlashlightState_t state;
-					state.m_vecLightOrigin = origin;
-					BasisToQuaternion(forward, right, up, state.m_quatOrientation);
-					state.m_fHorizontalFOVDegrees = 2.0f * FACE_HALF_FOV;
-					state.m_fVerticalFOVDegrees = 2.0f * FACE_HALF_FOV;
-					state.m_fConstantAtten = 0.0f;
-					state.m_fLinearAtten = radius * CORE_FRACTION;  // saturates to 1 inside the core
-					state.m_fQuadraticAtten = 0.0f;
-					state.m_Color[0] = color.x;
-					state.m_Color[1] = color.y;
-					state.m_Color[2] = color.z;
-					state.m_Color[3] = 0.0f;
-					state.m_NearZ = FACE_NEAR;
-					state.m_FarZ = radius;  // fades out from 0.6 of it
-					state.m_pSpotlightTexture = g_cookie.texture();
-					state.m_nSpotlightTextureFrame = 0;
-					state.m_bEnableShadows = true;  // only read when the projected texture is created
-					state.m_flShadowDepthBias = SHADOW_DEPTH_BIAS;
-					state.m_flShadowSlopeScaleDepthBias = SHADOW_SLOPE_BIAS;
-					state.m_flShadowAtten = 0.0f;  // nothing of the light in its shadows
-					auto& handle = faces_[face];
-					if (handle == CLIENTSHADOW_INVALID_HANDLE) {
-						handle = g_pClientShadowMgr->CreateFlashlight(state);
-						g_pClientShadowMgr->UpdateProjectedTexture(handle, true);
-					} else {
-						g_pClientShadowMgr->UpdateFlashlightState(handle, state);
-						if (moved) {
-							g_pClientShadowMgr->UpdateProjectedTexture(handle, true);
-						}
-					}
+					place(walled_[face], face, wrap < 1.0f, false, origin, radius, color * (1.0f - wrap), moved);
+					place(open_[face], face, wrap > 0.0f, true, origin, radius, color * wrap, moved);
 				}
 			}
 
 			void destroy()
 			{
-				for (auto& handle : faces_) {
-					if (handle != CLIENTSHADOW_INVALID_HANDLE) {
-						g_pClientShadowMgr->DestroyFlashlight(handle);
-						handle = CLIENTSHADOW_INVALID_HANDLE;
+				for (auto& handle : walled_) {
+					release(handle);
+				}
+				for (auto& handle : open_) {
+					release(handle);
+				}
+			}
+
+			[[nodiscard]] bool alive() const
+			{
+				const auto valid = [](ClientShadowHandle_t h) { return h != CLIENTSHADOW_INVALID_HANDLE; };
+				return std::any_of(std::begin(walled_), std::end(walled_), valid) || std::any_of(std::begin(open_), std::end(open_), valid);
+			}
+
+		private:
+			static void release(ClientShadowHandle_t& handle)
+			{
+				if (handle != CLIENTSHADOW_INVALID_HANDLE) {
+					g_open_faces.reset(handle);
+					g_pClientShadowMgr->DestroyFlashlight(handle);
+					handle = CLIENTSHADOW_INVALID_HANDLE;
+				}
+			}
+
+			/// creates, updates or (not wanted) removes one face.
+			/// @param open - walls don't stop its light (its shadow map holds only the cap)
+			static void place(ClientShadowHandle_t& handle, int face, bool wanted, bool open, const Vector& origin, float radius, const Vector& color, bool moved)
+			{
+				if (!wanted) {
+					release(handle);
+					return;
+				}
+				static const Vector FORWARD[6] = { Vector(1, 0, 0), Vector(-1, 0, 0), Vector(0, 1, 0), Vector(0, -1, 0), Vector(0, 0, 1), Vector(0, 0, -1) };
+				const Vector& forward = FORWARD[face];
+				const Vector  up = forward.z != 0.0f ? Vector(1, 0, 0) : Vector(0, 0, 1);
+				const Vector  right = CrossProduct(forward, up);
+				FlashlightState_t state;
+				state.m_vecLightOrigin = origin;
+				BasisToQuaternion(forward, right, up, state.m_quatOrientation);
+				state.m_fHorizontalFOVDegrees = 2.0f * FACE_HALF_FOV;
+				state.m_fVerticalFOVDegrees = 2.0f * FACE_HALF_FOV;
+				state.m_fConstantAtten = 0.0f;
+				state.m_fLinearAtten = radius * CORE_FRACTION;  // saturates to 1 inside the core
+				state.m_fQuadraticAtten = 0.0f;
+				state.m_Color[0] = color.x;
+				state.m_Color[1] = color.y;
+				state.m_Color[2] = color.z;
+				state.m_Color[3] = 0.0f;
+				state.m_NearZ = FACE_NEAR;
+				state.m_FarZ = radius;  // fades out from 0.6 of it
+				state.m_pSpotlightTexture = g_cookie.texture();
+				state.m_nSpotlightTextureFrame = 0;
+				state.m_bEnableShadows = true;  // only read when the projected texture is created
+				state.m_flShadowDepthBias = SHADOW_DEPTH_BIAS;
+				state.m_flShadowSlopeScaleDepthBias = SHADOW_SLOPE_BIAS;
+				state.m_flShadowAtten = 0.0f;  // nothing of the light in its shadows
+				state.m_flShadowMapResolution = shadow_map_resolution();
+				if (handle == CLIENTSHADOW_INVALID_HANDLE) {
+					handle = g_pClientShadowMgr->CreateFlashlight(state);
+					g_open_faces.set(handle, open);
+					g_pClientShadowMgr->UpdateProjectedTexture(handle, true);
+				} else {
+					g_pClientShadowMgr->UpdateFlashlightState(handle, state);
+					if (moved) {
+						g_pClientShadowMgr->UpdateProjectedTexture(handle, true);
 					}
 				}
 			}
 
-			[[nodiscard]] bool alive() const { return faces_[0] != CLIENTSHADOW_INVALID_HANDLE; }
-
-		private:
-			ClientShadowHandle_t faces_[6] = { CLIENTSHADOW_INVALID_HANDLE, CLIENTSHADOW_INVALID_HANDLE, CLIENTSHADOW_INVALID_HANDLE,
+			float                last_radius_ = 0.0f;
+			Vector               last_origin_ = vec3_origin;
+			ClientShadowHandle_t walled_[6] = { CLIENTSHADOW_INVALID_HANDLE, CLIENTSHADOW_INVALID_HANDLE, CLIENTSHADOW_INVALID_HANDLE,
+				CLIENTSHADOW_INVALID_HANDLE, CLIENTSHADOW_INVALID_HANDLE, CLIENTSHADOW_INVALID_HANDLE };
+			ClientShadowHandle_t open_[6] = { CLIENTSHADOW_INVALID_HANDLE, CLIENTSHADOW_INVALID_HANDLE, CLIENTSHADOW_INVALID_HANDLE,
 				CLIENTSHADOW_INVALID_HANDLE, CLIENTSHADOW_INVALID_HANDLE, CLIENTSHADOW_INVALID_HANDLE };
 		};
 
@@ -321,6 +416,8 @@ namespace halfcraft
 
 			void update(float frametime);
 
+			void dump() const;
+
 		private:
 			void rebuild(const Vector& eye, bool with_minecraft, int slot);
 			void refresh(float now);
@@ -356,6 +453,69 @@ namespace halfcraft
 			return origin;
 		}
 
+		/// how far half-life's walls are from a point along an axis, up to a limit.
+		float wall_distance(const Vector& from, const Vector& axis, float limit)
+		{
+			trace_t trace;
+			UTIL_TraceLine(from, from + axis * limit, MASK_SOLID_BRUSHONLY, nullptr, COLLISION_GROUP_NONE, &trace);
+			return trace.startsolid ? 0.0f : trace.fraction * limit;
+		}
+
+		/// a light keeps WALL_CLEARANCE from half-life's walls and floors where there's room: whatever is
+		/// nearer than a face's near plane neither casts shadows nor stops the light (a lantern 4 units
+		/// from a wall shone through it), and a light in a surface's plane doesn't light it at all
+		/// (torches sunk into the canal's floor had their flames right in it). in a gap narrower than
+		/// twice that it sits in the middle.
+		Vector clear_of_walls(Vector origin)
+		{
+			static const Vector AXES[3] = { Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1) };
+			// a point right in a surface's plane traces as inside it: off it first (minecraft's grid puts
+			// torch flames exactly at the height of half-life's floors that sit on it)
+			if (wall_distance(origin, AXES[2], 1.0f) == 0.0f) {
+				for (const float step : { 1.0f, 2.0f, 4.0f }) {
+					const Vector candidates[6] = { origin + AXES[2] * step, origin - AXES[2] * step, origin + AXES[0] * step, origin - AXES[0] * step,
+						origin + AXES[1] * step, origin - AXES[1] * step };
+					const auto clear = std::find_if(std::begin(candidates), std::end(candidates), [](const Vector& p) { return wall_distance(p, AXES[2], 1.0f) > 0.0f; });
+					if (clear != std::end(candidates)) {
+						origin = *clear;
+						break;
+					}
+				}
+			}
+			for (const auto& axis : AXES) {
+				const float ahead = wall_distance(origin, axis, 2.0f * WALL_CLEARANCE);
+				const float behind = wall_distance(origin, -axis, 2.0f * WALL_CLEARANCE);
+				if (ahead + behind < 2.0f * WALL_CLEARANCE) {
+					origin += axis * ((ahead - behind) * 0.5f);
+				} else if (ahead < WALL_CLEARANCE) {
+					origin -= axis * (WALL_CLEARANCE - ahead);
+				} else if (behind < WALL_CLEARANCE) {
+					origin += axis * (WALL_CLEARANCE - behind);
+				}
+			}
+			return origin;
+		}
+
+		/// hc_debug_light_dump: what the point lights are and where.
+		void BlockLights::dump() const
+		{
+			Msg("halfcraft lights: %d chosen\n", static_cast<int>(chosen_.size()));
+			static const Vector AXES[6] = { Vector(1, 0, 0), Vector(-1, 0, 0), Vector(0, 1, 0), Vector(0, -1, 0), Vector(0, 0, 1), Vector(0, 0, -1) };
+			for (std::size_t i = 0; i < chosen_.size(); ++i) {
+				const Cluster& c = chosen_[i];
+				char           walls[128] = {};
+				for (int f = 0; f < 6; ++f) {
+					const float d = wall_distance(c.origin, AXES[f], c.radius);
+					Q_snprintf(walls + Q_strlen(walls), sizeof(walls) - Q_strlen(walls), " %.0f", d);
+				}
+				Msg("  %2d: kind %d level %2d count %3d origin %.1f %.1f %.1f radius %.0f %s walls(+x -x +y -y +z -z)%s\n", static_cast<int>(i), c.kind, c.level,
+					c.count, c.origin.x, c.origin.y, c.origin.z, c.radius, c.visible ? "in pvs" : "hidden", walls);
+			}
+			for (std::size_t i = 0; i < points_.size(); ++i) {
+				Msg("  point light %d: %s, cluster %llx\n", static_cast<int>(i), points_[i].alive() ? "on" : "off", i < placed_.size() ? placed_[i] : 0ull);
+			}
+		}
+
 		/// how far a light of this level (and this many merged emitters) reaches, in units.
 		float reach(int level, int count)
 		{
@@ -389,6 +549,7 @@ namespace halfcraft
 						c.g += float((e.rgb >> 8) & 0xFF) / 255.0f * float(w);
 						c.b += float((e.rgb >> 16) & 0xFF) / 255.0f * float(w);
 						c.level = std::max<int>(c.level, e.level);
+						c.top = std::max<int>(c.top, e.y);
 						c.kind = std::max(c.kind, e.kind);
 						++c.count;
 					}
@@ -400,21 +561,32 @@ namespace halfcraft
 				const float w = float(c.weight);
 				c.r /= w, c.g /= w, c.b /= w;
 				c.radius = reach(c.level, c.count);
-				// emitters sit a little above the blocks' centre (a torch's flame, lava's surface)
-				float origin[3];
-				mc_to_source(c.x / c.weight, c.y / c.weight + 0.3, c.z / c.weight, slot, origin);
+				// emitters sit a little above the blocks' centre (a torch's flame). lava shines from just above
+				// its top surface: a pool's middle is down in half-life's floor and stairs, which its blocks
+				// sink into
+				const double y = c.kind == proto::kLightLava ? c.top + 1.0 : c.y / c.weight + 0.3;
+				float        origin[3];
+				mc_to_source(c.x / c.weight, y, c.z / c.weight, slot, origin);
 				c.origin = out_of_solid(Vector(origin[0], origin[1], origin[2]));
 				c.score = c.origin.DistTo(eye) - c.radius;
 				chosen_.push_back(c);
 			}
 			for (Cluster c : debug_) {
 				c.radius = reach(c.level, c.count);
-				c.score = c.origin.DistTo(eye) - c.radius;
+				c.score = -1.0e9f;  // hc_debug_torch's come first, whatever minecraft has around
 				chosen_.push_back(c);
 			}
 			const auto keep = std::min<std::size_t>(chosen_.size(), MAX_LIGHTS);
 			std::partial_sort(chosen_.begin(), chosen_.begin() + keep, chosen_.end(), [](const Cluster& a, const Cluster& b) { return a.score < b.score; });
 			chosen_.resize(keep);
+			const bool pvs_only = hc_torch_light_pvs.GetBool();
+			for (Cluster& c : chosen_) {
+				c.origin = clear_of_walls(c.origin);
+				// a light whose spot the camera's cluster can't see lights little on screen: the shadowed
+				// point lights (twelve shadow maps each) go to the ones it can
+				const Vector extent(PVS_EXTENT, PVS_EXTENT, PVS_EXTENT);
+				c.visible = !pvs_only || engine->IsBoxInViewCluster(c.origin - extent, c.origin + extent);
+			}
 		}
 
 		void BlockLights::refresh(float now)
@@ -422,6 +594,7 @@ namespace halfcraft
 			const float brightness = std::max(0.0f, hc_torch_light.GetFloat());
 			const int   point_count = std::clamp(hc_torch_light_count.GetInt(), 0, MAX_POINT_LIGHTS);
 			placed_.resize(MAX_POINT_LIGHTS, 0);
+			int slot = 0;  // the next point light
 			for (std::size_t i = 0; i < chosen_.size(); ++i) {
 				const Cluster& c = chosen_[i];
 				// flames flicker, lava glows slowly, the rest stay put
@@ -435,10 +608,11 @@ namespace halfcraft
 				// brighter emitters shine harder as well as further
 				const float  strength = brightness * (0.35f + 0.65f * float(c.level) / 15.0f) * k;
 				const Vector color(std::pow(c.r, COLOUR_DEPTH), std::pow(c.g, COLOUR_DEPTH), std::pow(c.b, COLOUR_DEPTH));
-				if (static_cast<int>(i) < point_count) {
-					const bool moved = !points_[i].alive() || placed_[i] != c.cell;
-					placed_[i] = c.cell;
-					points_[i].update(c.origin, c.radius, color * (POINT_INTENSITY * strength), moved);
+				if (slot < point_count && c.visible) {
+					const bool moved = !points_[slot].alive() || placed_[slot] != c.cell;
+					placed_[slot] = c.cell;
+					points_[slot].update(c.origin, c.radius, color * (POINT_INTENSITY * strength), hc_torch_light_wrap.GetFloat(), moved);
+					++slot;
 					continue;
 				}
 				// the rest light only characters
@@ -455,7 +629,7 @@ namespace halfcraft
 				light->style = 0;
 				light->flags = 0;
 			}
-			for (std::size_t i = std::min<std::size_t>(chosen_.size(), point_count); i < points_.size(); ++i) {
+			for (std::size_t i = slot; i < points_.size(); ++i) {
 				points_[i].destroy();
 			}
 		}
@@ -493,6 +667,11 @@ namespace halfcraft
 			HalfCraftBlockLightsSystem() : CAutoGameSystemPerFrame("HalfCraftBlockLights") {}
 
 			void Update(float frametime) override { block_lights().update(frametime); }
+			void LevelInitPostEntity() override
+			{
+				disable_flashlight_scissor();
+				prepare_shadow_cap();
+			}
 			void LevelShutdownPreEntity() override { block_lights().release_lights(); }
 			void Shutdown() override { block_lights().shutdown(); }
 		};
@@ -530,27 +709,40 @@ CON_COMMAND(hc_debug_torch, "halfcraft: a torch light where you look, without mi
 
 namespace halfcraft
 {
+	void client_shadow_depth_begin(unsigned short shadow)
+	{
+		g_depth_scene = !g_open_faces.test(shadow);
+	}
+
+	bool client_shadow_depth_scene()
+	{
+		return g_depth_scene;
+	}
+}
+
+CON_COMMAND(hc_debug_light_dump, "halfcraft (debug): list the block lights")
+{
+	halfcraft::block_lights().dump();
+}
+
+namespace halfcraft
+{
 	void client_shadow_depth_view(const CViewSetup& view)
 	{
-		static IMaterial* material = [] {
-			auto* values = new KeyValues("DepthWrite");
-			values->SetInt("$no_fullbright", 1);
-			values->SetInt("$alphatest", 0);
-			values->SetInt("$nocull", 1);
-			IMaterial* created = materials->FindProceduralMaterial("__halfcraft_shadow_cap", TEXTURE_GROUP_OTHER, values);
-			created->IncrementReferenceCount();
-			if (!created->IsPrecached()) {
-				materials->CacheUsedMaterials();  // as make_unlit_material does: drawn before any level load cached it
-			}
-			return created;
-		}();
+		if (!g_shadow_cap) {
+			return;
+		}
 		Vector forward, right, up;
 		AngleVectors(view.angles, &forward, &right, &up);
 		const float  distance = view.zFar * SHADOW_CAP_FRACTION;
 		const float  half = distance * std::tan(DEG2RAD(view.fov * 0.5f)) * 1.1f;  // a bit past the frustum's edges
 		const Vector centre = view.origin + forward * distance;
 		CMatRenderContextPtr context(materials);
-		context->Bind(material);
+		// world space: whatever was drawn last may have left its own model matrix behind
+		context->MatrixMode(MATERIAL_MODEL);
+		context->PushMatrix();
+		context->LoadIdentity();
+		context->Bind(g_shadow_cap);
 		IMesh*       mesh = context->GetDynamicMesh(true);
 		CMeshBuilder builder;
 		builder.Begin(mesh, MATERIAL_QUADS, 1);
@@ -561,6 +753,8 @@ namespace halfcraft
 		}
 		builder.End();
 		mesh->Draw();
+		context->MatrixMode(MATERIAL_MODEL);
+		context->PopMatrix();
 	}
 }
 

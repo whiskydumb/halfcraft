@@ -140,6 +140,27 @@ public final class HostCollision {
 		return fill == null ? 0.0F : (((fill >> FILL_TOP_SHIFT) & 7) + 1) / 8.0F;
 	}
 
+	/** A fluid keeps at least this much of its cell above the Half-Life floor it rests on. */
+	private static final float MAX_FLUID_FLOOR = 0.95F;
+
+	/**
+	 * Height (0..1) of the Half-Life floor under the middle of this cell, below {@code surface} (a
+	 * fluid's own height there): the highest walkable triangle, or 0. Unlike {@link #groundTop}, walls,
+	 * stair risers and solid brushes reaching the top of the cell don't count.
+	 */
+	public static float floorTop(BlockPos pos, float surface) {
+		if (!hasGeometry(pos)) {
+			return 0.0F;
+		}
+		double cx = pos.getX() + 0.5, cz = pos.getZ() + 0.5, y0 = pos.getY();
+		double top = y0 + Math.max(0.05, surface);
+		java.util.List<HostTri> tris = new java.util.ArrayList<>();
+		trianglesNear(new net.minecraft.world.phys.AABB(cx - 0.01, y0, cz - 0.01, cx + 0.01, top, cz + 0.01), tris);
+		tris.removeIf(t -> !t.walkable);
+		HostRay.Hit hit = HostRay.cast(tris, cx, top, cz, cx, y0, cz);
+		return hit == null ? 0.0F : (float) Math.clamp(hit.y() - y0, 0.0, MAX_FLUID_FLOOR);
+	}
+
 	/** True if Half-Life ground holds up whatever is in this cell (terrain in its lower half or the top of the cell below). */
 	public static boolean supportsFromBelow(BlockPos pos) {
 		if (FILL.isEmpty()) {

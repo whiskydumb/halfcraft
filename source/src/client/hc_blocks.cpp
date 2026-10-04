@@ -169,6 +169,12 @@ namespace halfcraft
 
 		int Section::DrawModel(int flags)
 		{
+			// minecraft's blocks stay out of the block lights' shadow maps: a light sits inside its own
+			// block (lava, glowstone) or among its model (a lantern, a campfire's flames), which would
+			// shut it in. minecraft lights its blocks itself.
+			if (flags & STUDIO_SHADOWDEPTHTEXTURE) {
+				return 0;
+			}
 			const bool translucent_pass = (flags & STUDIO_TRANSPARENCY) != 0;
 			const auto& meshes = translucent_pass ? translucent_ : opaque_;
 			if (meshes.empty()) {

@@ -82,7 +82,7 @@ index 54933d24..a4e66484 100644
  	// Should we start typing a message?
  	if ( pszCurrentBinding &&
 diff --git a/src/game/client/clientshadowmgr.cpp b/src/game/client/clientshadowmgr.cpp
-index 8daa9f65..5d380480 100644
+index 8daa9f65..a9d8beba 100644
 --- a/src/game/client/clientshadowmgr.cpp
 +++ b/src/game/client/clientshadowmgr.cpp
 @@ -83,6 +83,8 @@
@@ -99,11 +99,19 @@ index 8daa9f65..5d380480 100644
  
  	bool bTools = CommandLine()->CheckParm( "-tools" ) != NULL;
 -	m_nMaxDepthTextureShadows = bTools ? 4 : 1;	// Just one shadow depth texture in games, more in tools
-+	// one shadow depth texture in games, more in tools; halfcraft adds six for each of minecraft's shadowed lights
-+	m_nMaxDepthTextureShadows = bTools ? 4 : 1 + 6 * halfcraft::SHADOWED_LIGHTS;
++	// one shadow depth texture in games, more in tools; halfcraft adds its block lights' faces
++	m_nMaxDepthTextureShadows = bTools ? 4 : 1 + halfcraft::SHADOWED_FACES;
  
  	bool bLowEnd = ( g_pMaterialSystemHardwareConfig->GetDXSupportLevel() < 80 );
  
+@@ -3979,6 +3982,7 @@ void CClientShadowMgr::ComputeShadowDepthTextures( const CViewSetup &viewSetup )
+ 		pRenderContextMat->SetShadowDepthBiasFactors( flashlightState.m_flShadowSlopeScaleDepthBias, flashlightState.m_flShadowDepthBias );
+ 
+ 		// Render to the shadow depth texture with appropriate view
++		halfcraft::client_shadow_depth_begin( pActiveDepthShadows[j] );
+ 		view->UpdateShadowDepthTexture( m_DummyColorTexture, shadowDepthTexture, shadowView );
+ 
+ 		// Associate the shadow depth texture and stencil bit with the flashlight for use during scene rendering
 diff --git a/src/game/client/in_mouse.cpp b/src/game/client/in_mouse.cpp
 index 8d503c26..2d47245a 100644
 --- a/src/game/client/in_mouse.cpp
@@ -133,7 +141,7 @@ index 8d503c26..2d47245a 100644
  		GetMouseDelta( mx, my, &mouse_x, &mouse_y );
  
 diff --git a/src/game/client/viewrender.cpp b/src/game/client/viewrender.cpp
-index b4011e28..6563bc5d 100644
+index b4011e28..cbc45f2c 100644
 --- a/src/game/client/viewrender.cpp
 +++ b/src/game/client/viewrender.cpp
 @@ -80,6 +80,8 @@
@@ -145,16 +153,61 @@ index b4011e28..6563bc5d 100644
  // memdbgon must be the last include file in a .cpp file!!!
  #include "tier0/memdbgon.h"
  
-@@ -5152,6 +5154,9 @@ void CShadowDepthView::Draw()
+@@ -5122,11 +5124,16 @@ void CShadowDepthView::Draw()
  
- 	modelrender->ForcedMaterialOverride( 0 );
+ 	MDLCACHE_CRITICAL_SECTION();
  
++	// halfcraft: some of its lights' shadow maps hold nothing but the far cap
++	const bool bDrawScene = halfcraft::client_shadow_depth_scene();
++
++	if ( bDrawScene )
+ 	{
+ 		VPROF_BUDGET( "BuildWorldRenderLists", VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING );
+ 		BuildWorldRenderLists( true, -1, true, true ); // @MULTICORE (toml 8/9/2006): Portal problem, not sending custom vis down
+ 	}
+ 
++	if ( bDrawScene )
+ 	{
+ 		VPROF_BUDGET( "BuildRenderableRenderLists", VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING );
+ 		BuildRenderableRenderLists( CurrentViewID() );
+@@ -5136,21 +5143,27 @@ void CShadowDepthView::Draw()
+ 
+ 	m_DrawFlags = m_pMainView->GetBaseDrawFlags() | DF_RENDER_UNDERWATER | DF_RENDER_ABOVEWATER | DF_SHADOW_DEPTH_MAP;	// Don't draw water surface...
+ 
++	if ( bDrawScene )
+ 	{
+-		VPROF_BUDGET( "DrawWorld", VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING );
+-		DrawWorld( 0.0f );
+-	}
++		{
++			VPROF_BUDGET( "DrawWorld", VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING );
++			DrawWorld( 0.0f );
++		}
+ 
+-	// Draw opaque and translucent renderables with appropriate override materials
+-	// OVERRIDE_DEPTH_WRITE is OK with a NULL material pointer
+-	modelrender->ForcedMaterialOverride( NULL, OVERRIDE_DEPTH_WRITE );	
++		// Draw opaque and translucent renderables with appropriate override materials
++		// OVERRIDE_DEPTH_WRITE is OK with a NULL material pointer
++		modelrender->ForcedMaterialOverride( NULL, OVERRIDE_DEPTH_WRITE );
+ 
+-	{
+-		VPROF_BUDGET( "DrawOpaqueRenderables", VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING );
+-		DrawOpaqueRenderables( DEPTH_MODE_SHADOW );
++		{
++			VPROF_BUDGET( "DrawOpaqueRenderables", VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING );
++			DrawOpaqueRenderables( DEPTH_MODE_SHADOW );
++		}
++
++		modelrender->ForcedMaterialOverride( 0 );
+ 	}
+ 
+-	modelrender->ForcedMaterialOverride( 0 );
 +	// halfcraft: a far cap, so that what lies behind the light is always in shadow
 +	halfcraft::client_shadow_depth_view( *this );
-+
+ 
  	m_DrawFlags = 0;
  
- 	pRenderContext.GetFrom( materials );
 diff --git a/src/game/server/player.cpp b/src/game/server/player.cpp
 index 2c0fa74f..fc314f6a 100644
 --- a/src/game/server/player.cpp

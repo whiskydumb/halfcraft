@@ -133,17 +133,20 @@ namespace halfcraft
 			return true;
 		}
 
-		// a stale mapping survives while minecraft still has it open from an earlier game run:
-		// reset everything the host owns so rings and the overlay swap start from a known state.
+		// a stale mapping survives while minecraft still has it open from an earlier game run: reset
+		// what the host owns so the overlay swap and our tables start from a known state. the rings
+		// keep their indices: minecraft goes on writing for a while after a game run ends (until the
+		// host's heartbeat times out), and zeroing an index it owns between its read and its write sent
+		// it back to the old value, leaving this run chewing through stale messages (old clear-alls
+		// among them) while minecraft took its resend as delivered: an empty world until it restarted.
+		// its rings skip what's pending; ours go on from where the last run stopped.
 		auto* header = at<proto::Header>(proto::kOffHeader);
 		std::memset(base_ + proto::kOffHostState, 0, sizeof(proto::HostState));
 		std::memset(base_ + proto::kOffOverlayCtl, 0, 0x100);
-		std::memset(base_ + proto::kOffInputRing, 0, proto::kInputRingDataOff);
-		std::memset(base_ + proto::kOffCollisionRing, 0, proto::kColRingDataOff);
 		std::memset(base_ + proto::kOffActorTable, 0, sizeof(proto::ActorTable));
-		std::memset(base_ + proto::kOffEventRing, 0, proto::kEventRingDataOff);
 		std::memset(base_ + proto::kOffWorldEntities, 0, sizeof(proto::WorldEntities));
-		std::memset(base_ + proto::kOffRenderRing, 0, proto::kRenRingDataOff);
+		skip_pending(proto::kOffRenderRing + proto::kRenRingHeadOff, proto::kOffRenderRing + proto::kRenRingTailOff);
+		skip_pending(proto::kOffEventRing + proto::kEventRingHeadOff, proto::kOffEventRing + proto::kEventRingTailOff);
 		header->version = proto::kVersion;
 		header->hostPid = ::GetCurrentProcessId();
 		header->hostHeartbeatMs = ::GetTickCount64();
@@ -151,6 +154,12 @@ namespace halfcraft
 
 		log_info("shared memory created (%llu MB, %s)", static_cast<unsigned long long>(size >> 20), existed ? "reused" : "new");
 		return true;
+	}
+
+	void Link::skip_pending(std::uint64_t head_offset, std::uint64_t tail_offset)
+	{
+		const auto head = as_atomic(*at<std::uint64_t>(head_offset)).load(std::memory_order_acquire);
+		as_atomic(*at<std::uint64_t>(tail_offset)).store(head, std::memory_order_release);
 	}
 
 	bool Link::mc_alive() const
@@ -332,6 +341,13 @@ namespace halfcraft
 			if (hdr->type == proto::kRenPad) {
 				tail += size - pos;
 				continue;
+			}
+			if (size - pos < sizeof(proto::ColMsgHeader) || hdr->payloadBytes > size - pos - sizeof(proto::ColMsgHeader)) {
+				// not a message minecraft wrote (the ring lost its place): drop what's pending, it resends
+				log_error("render ring out of step at %llu (message of %u bytes): skipping to %llu", static_cast<unsigned long long>(tail), hdr->payloadBytes,
+					static_cast<unsigned long long>(head));
+				tail = head;
+				break;
 			}
 			fn(hdr->type, data + pos + sizeof(proto::ColMsgHeader), hdr->payloadBytes);
 			const auto msg_bytes = (sizeof(proto::ColMsgHeader) + hdr->payloadBytes + 7) & ~7ull;

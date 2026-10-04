@@ -45,7 +45,8 @@ public final class HostClient {
 	private static long frameCounter;
 	private static int lastPacedSeq;
 	private static boolean hostStalled;
-	private static int exporterErrors;
+	private static int exporterErrors;      // since the last one logged
+	private static long exporterErrorLogged; // when (ms)
 
 	private HostClient() {
 	}
@@ -393,8 +394,13 @@ public final class HostClient {
 			try {
 				WorldExporter.frame(minecraft, minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(false));
 			} catch (RuntimeException e) {
-				if (exporterErrors++ < 5) {
-					HalfCraft.LOG.error("HalfCraft: world export failed", e);
+				// at most one a few seconds, but never silent for good: a resend that keeps failing left Half-Life empty
+				exporterErrors++;
+				long now = System.currentTimeMillis();
+				if (now - exporterErrorLogged >= 10_000L) {
+					HalfCraft.LOG.error("HalfCraft: world export failed ({} times since the last report)", exporterErrors, e);
+					exporterErrors = 0;
+					exporterErrorLogged = now;
 				}
 			}
 			FrameExporter.capture(minecraft);

@@ -134,6 +134,7 @@ public final class WorldExporter {
 		SENT.clear();
 		LIT.clear();
 		SOLID.clear();
+		meshesSent = 0; // the first meshes of every resend get logged, not just of the first one
 		// Everything already loaded needs meshing again; later chunk loads mark themselves dirty.
 		int radius = minecraft.options.getEffectiveRenderDistance() + 1;
 		int pcx = SectionPos.blockToSectionCoord(minecraft.player.getBlockX()), pcz = SectionPos.blockToSectionCoord(minecraft.player.getBlockZ());
@@ -220,9 +221,13 @@ public final class WorldExporter {
 						}
 						FluidState fluid = state.getFluidState();
 						if (!fluid.isEmpty()) {
-							// Half-Life ground in the cell: the fluid is drawn in the space above it.
-							MESH.fluidGround = dev.halfcraft.world.HostCollision.groundTop(pos);
+							// The Half-Life floor in the cell: the fluid is drawn in the space above it. Not
+							// groundTop: a wall or stair anywhere in the cell put that at the top, which
+							// flattened the fluid into a sheet there (its faces fighting, the flow texture lost).
+							MESH.fluidGround = dev.halfcraft.world.HostCollision.floorTop(pos, fluid.getOwnHeight());
+							MESH.fluidBaseX = x;
 							MESH.fluidBaseY = y;
+							MESH.fluidBaseZ = z;
 							fluidRenderer.tesselate(level, pos, MESH, state, fluid);
 							MESH.fluidGround = 0.0F;
 						}
@@ -523,7 +528,7 @@ public final class WorldExporter {
 		// Minecraft fluid level counts from the cell's floor, so on Half-Life ground partway up the cell
 		// the fluid is squeezed into the space above it (thin edges stay visible on the ground).
 		float fluidGround;
-		int fluidBaseY;
+		int fluidBaseX, fluidBaseY, fluidBaseZ;
 
 		@Override
 		public VertexConsumer getBuilder(ChunkSectionLayer layer) {
@@ -534,31 +539,62 @@ public final class WorldExporter {
 		@Override
 		public void addVertex(float x, float y, float z, int color, float u, float v, int overlay, int light, float nx, float ny, float nz) {
 			int o = this.fqCount * 8;
-			if (this.fluidGround > 0.0F) {
-				float t = Math.max(0.0F, Math.min(1.0F, y - this.fluidBaseY));
-				y = this.fluidBaseY + this.fluidGround + t * (1.0F - this.fluidGround);
-			}
 			this.fq[o] = x;
-			this.fq[o + 1] = y;
+			this.fq[o + 1] = y; // as minecraft has it: squeezed above Half-Life ground once the quad is whole
 			this.fq[o + 2] = z;
 			this.fq[o + 3] = atlas.blockU(u);
 			this.fq[o + 4] = atlas.blockV(v);
 			this.fq[o + 5] = Float.intBitsToFloat(color);
 			this.fq[o + 6] = Float.intBitsToFloat(light);
-			if (++this.fqCount == 4) {
-				this.fqCount = 0;
-				this.ensure(6 * Proto.REN_VERTEX_BYTES);
-				// Fluid faces are shaded like block faces (up, down, or the side's brightness).
-				Direction normal = nx == 0 && ny == 0 && nz == 0 ? null : Direction.getApproximateNearest(nx, ny, nz);
-				float shade = normal == null ? 1.0F
-					: normal.getAxis() == Direction.Axis.Y ? this.cardinal.byFace(normal) : this.cardinal.up() * this.cardinal.byFace(normal);
-				int flags = flags(this.fluidTranslucent, normal);
-				for (int k : new int[] { 0, 1, 2, 0, 2, 3 }) {
-					int b = k * 8;
-					this.vertex(this.fq[b], this.fq[b + 1], this.fq[b + 2], this.fq[b + 3], this.fq[b + 4],
-						unshade(Float.floatToRawIntBits(this.fq[b + 5]), shade), Float.floatToRawIntBits(this.fq[b + 6]), flags);
-				}
+			if (++this.fqCount < 4) {
+				return;
 			}
+			this.fqCount = 0;
+			// Minecraft's fluid renderer gives every vertex an up normal: tell the faces apart by where they lie.
+			Direction face = this.fluidFace();
+			if (face == Direction.DOWN && this.fluidGround > 0.0F) {
+				return; // resting on Half-Life ground, the bottom is inside it
+			}
+			this.ensure(6 * Proto.REN_VERTEX_BYTES);
+			// the brightness FluidRenderer baked in, which Half-Life's lighting replaces
+			float shade = face.getAxis() == Direction.Axis.Y ? this.cardinal.byFace(face)
+				: this.cardinal.byFace(Direction.UP) * this.cardinal.byFace(face.getAxis() == Direction.Axis.Z ? Direction.NORTH : Direction.WEST);
+			int flags = flags(this.fluidTranslucent, face);
+			for (int k : new int[] { 0, 1, 2, 0, 2, 3 }) {
+				int b = k * 8;
+				this.vertex(this.fq[b], this.squash(this.fq[b + 1]), this.fq[b + 2], this.fq[b + 3], this.fq[b + 4],
+					unshade(Float.floatToRawIntBits(this.fq[b + 5]), shade), Float.floatToRawIntBits(this.fq[b + 6]), flags);
+			}
+		}
+
+		/** A Minecraft fluid level counts from its cell's floor; on Half-Life ground partway up the cell it's squeezed into the space above. */
+		private float squash(float y) {
+			if (this.fluidGround <= 0.0F) {
+				return y;
+			}
+			float t = Math.clamp(y - this.fluidBaseY, 0.0F, 1.0F);
+			return this.fluidBaseY + this.fluidGround + t * (1.0F - this.fluidGround);
+		}
+
+		/** Which face of its cell the assembled fluid quad is, from its cell-relative corners. */
+		private Direction fluidFace() {
+			float minX = 1, maxX = 0, minZ = 1, maxZ = 0, maxY = 0;
+			for (int k = 0; k < 4; k++) {
+				int b = k * 8;
+				float lx = this.fq[b] - this.fluidBaseX, ly = this.fq[b + 1] - this.fluidBaseY, lz = this.fq[b + 2] - this.fluidBaseZ;
+				minX = Math.min(minX, lx);
+				maxX = Math.max(maxX, lx);
+				minZ = Math.min(minZ, lz);
+				maxZ = Math.max(maxZ, lz);
+				maxY = Math.max(maxY, ly);
+			}
+			if (maxX - minX < 0.01F) {
+				return minX < 0.5F ? Direction.WEST : Direction.EAST; // x sides sit just inside the cell
+			}
+			if (maxZ - minZ < 0.01F) {
+				return minZ < 0.5F ? Direction.NORTH : Direction.SOUTH;
+			}
+			return maxY < 0.01F ? Direction.DOWN : Direction.UP; // the bottom sits just above the cell's floor
 		}
 
 		@Override

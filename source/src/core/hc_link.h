@@ -71,6 +71,8 @@ namespace halfcraft
 
 	private:
 		bool map(bool reset);
+		/// a ring minecraft writes: our consumer index catches up with its producer index.
+		void skip_pending(std::uint64_t head_offset, std::uint64_t tail_offset);
 
 		template <class T>
 		T* at(std::uint64_t offset) const { return reinterpret_cast<T*>(base_ + offset); }

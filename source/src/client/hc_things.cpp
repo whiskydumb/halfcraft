@@ -1006,7 +1006,9 @@ namespace halfcraft
 
 		int Things::DrawModel(int flags)
 		{
-			if (!visible_) {
+			// out of the block lights' shadow maps: particles right at a torch (its smoke, lava's pops)
+			// threw big square shadows, and these materials don't take the shadow depth bias
+			if (!visible_ || (flags & STUDIO_SHADOWDEPTHTEXTURE)) {
 				return 0;
 			}
 			const bool           translucent_pass = (flags & STUDIO_TRANSPARENCY) != 0;
