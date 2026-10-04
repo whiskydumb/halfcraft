@@ -15,6 +15,7 @@
 #include "core/hc_log.h"
 #include "core/hc_module.h"
 #include "server/hc_block_solids.h"
+#include "server/hc_checkpoints.h"
 #include "server/hc_combat.h"
 #include "server/hc_hazards.h"
 #include "server/hc_vitals.h"
@@ -75,8 +76,12 @@ namespace halfcraft
 				world_.reset(slot_);
 				solids_.reset(slot_);
 				vitals_.reset();
+				checkpoints_.on_level_loaded();
 				g_last_puppet_move = -1.0f;  // the clock starts over with the map
 			}
+
+			// a save is being written (its entities come next)
+			void OnSave() override { checkpoints_.on_save(); }
 
 			void LevelShutdownPreEntity() override
 			{
@@ -97,6 +102,7 @@ namespace halfcraft
 			Combat                             combat_;
 			Vitals                             vitals_;
 			Hazards                            hazards_;
+			Checkpoints                        checkpoints_;
 			int                                slot_ = 0;
 			std::uint32_t                      epoch_ = ~0u;
 		};

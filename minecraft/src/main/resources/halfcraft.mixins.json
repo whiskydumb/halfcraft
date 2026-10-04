@@ -12,6 +12,7 @@
     "FallingBlockMixin",
     "FlowingFluidMixin",
     "ItemMixin",
+    "LevelChunkMixin",
     "PlayerEdgeMixin",
     "PressurePlateMixin",
     "ProjectileMixin",

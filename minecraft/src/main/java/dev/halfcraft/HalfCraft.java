@@ -23,6 +23,10 @@ public final class HalfCraft implements ModInitializer {
 	public void onInitialize() {
 		HostCombat.init();
 		ServerLifecycleEvents.SERVER_STARTED.register(HalfCraft::configureServer);
+		// Half-Life's saves roll Minecraft's world and player back too
+		ServerLifecycleEvents.SERVER_STARTED.register(dev.halfcraft.world.Rollback::load);
+		ServerLifecycleEvents.SERVER_STOPPING.register(dev.halfcraft.world.Rollback::unload);
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents.CHUNK_UNLOAD.register(dev.halfcraft.world.Rollback::chunkUnloading);
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			giveStarterKit(handler.getPlayer());
 			giveBuilderKit(handler.getPlayer());

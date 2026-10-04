@@ -8,6 +8,7 @@
 //            ring it owns
 //   heals  - half-life's health kits, chargers and suit batteries on the player, seen by the server;
 //            likewise
+//   inputs - anything else the server has for minecraft's input ring (save checkpoints)
 //   holding - whether the player carries a prop with use (server knows); the client sends the mouse
 //            buttons to source then, to throw or drop it
 //   hazards - minecraft's fire, lava and magma blocks (they come with its block lights); the server
@@ -50,6 +51,11 @@ namespace halfcraft
 	using PushHealFn = void (*)(int kind, float amount);
 
 	inline constexpr char HC_PUSH_HEAL_EXPORT[] = "HalfCraft_PushHeal";
+
+	/// server.dll -> client.dll: an event for minecraft's input ring (proto::InputEvent).
+	using PushInputFn = void (*)(int type, int code, int a, int b, int c);
+
+	inline constexpr char HC_PUSH_INPUT_EXPORT[] = "HalfCraft_PushInput";
 
 	/// server.dll -> client.dll, every frame: the player carries a prop (half-life's use pickup).
 	using SetHoldingFn = void (*)(int holding);

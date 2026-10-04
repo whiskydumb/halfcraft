@@ -14,7 +14,7 @@
 namespace halfcraft::proto
 {
 	inline constexpr std::uint32_t kMagic = 0x464C4148;  // "HALF"
-	inline constexpr std::uint32_t kVersion = 1;
+	inline constexpr std::uint32_t kVersion = 2;
 	inline constexpr wchar_t       kMappingName[] = L"Local\\HalfCraft_v1";
 
 	// ---- region offsets ---------------------------------------------------------------------
@@ -185,6 +185,9 @@ namespace halfcraft::proto
 		kInHurt = 7,         // the host hit the player: code = HurtKind, a = host damage * 100, b = attacker actor id, c = HurtFlags
 		kInOpenMenu = 8,     // open Minecraft's pause/options menu
 		kInHeal = 9,         // the host healed the player: code = HealKind, a = host points * 100 (Minecraft divides by 5, like damage)
+		kInCheckpoint = 10,  // the host saved its game: a/b = the save's checkpoint id (low/high 32 bits); Minecraft
+		                     // keeps its world's changed blocks and its player as they are now under that id
+		kInRestore = 11,     // the host loaded a save: a/b = its checkpoint id; Minecraft goes back to that checkpoint
 	};
 
 	enum HealKind : std::uint16_t

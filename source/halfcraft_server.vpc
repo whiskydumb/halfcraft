@@ -29,6 +29,8 @@ $Project
 			$File	"$HALFCRAFTDIR\src\shared\hc_bridge.h"
 			$File	"$HALFCRAFTDIR\src\server\hc_block_solids.h"
 			$File	"$HALFCRAFTDIR\src\server\hc_block_solids.cpp"
+			$File	"$HALFCRAFTDIR\src\server\hc_checkpoints.h"
+			$File	"$HALFCRAFTDIR\src\server\hc_checkpoints.cpp"
 			$File	"$HALFCRAFTDIR\src\server\hc_combat.h"
 			$File	"$HALFCRAFTDIR\src\server\hc_combat.cpp"
 			$File	"$HALFCRAFTDIR\src\server\hc_hazards.h"

@@ -76,6 +76,29 @@ namespace
 		}
 		return boxes;
 	}
+
+	// the server deletes physics objects at the end of the frame (CleanupDeleteList), and the object
+	// still reads its collision model then: a section's old model is freed a frame after its object
+	// went, never at once
+	struct DeadCollide
+	{
+		CPhysCollide* collide;
+		int           frame;
+	};
+	std::vector<DeadCollide> g_dead_collides;
+
+	void free_dead_collides(bool all)
+	{
+		auto it = g_dead_collides.begin();
+		while (it != g_dead_collides.end()) {
+			if (all || it->frame < gpGlobals->framecount) {
+				physcollision->DestroyCollide(it->collide);
+				it = g_dead_collides.erase(it);
+			} else {
+				++it;
+			}
+		}
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -149,7 +172,7 @@ private:
 		VPhysicsDestroyObject();
 		if ( m_pCollide )
 		{
-			physcollision->DestroyCollide( m_pCollide );
+			g_dead_collides.push_back( { m_pCollide, gpGlobals->framecount } );
 			m_pCollide = nullptr;
 		}
 	}
@@ -163,6 +186,7 @@ namespace halfcraft
 {
 	void BlockSolids::reset(int slot)
 	{
+		free_dead_collides(true);  // a new level: the old one's physics objects are gone
 		slot_ = slot;
 		version_ = 0;  // ask for everything again
 		entities_.clear();
@@ -242,6 +266,7 @@ namespace halfcraft
 
 	void BlockSolids::update()
 	{
+		free_dead_collides(false);
 		debug_draw();
 		if (!solids_since_) {
 			solids_since_ = reinterpret_cast<SolidsSinceFn>(find_export("client.dll", HC_SOLIDS_EXPORT));

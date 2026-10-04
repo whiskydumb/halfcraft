@@ -20,6 +20,8 @@ public final class InputBridge {
 	private static double cursorX, cursorY;
 	private static int modifiers;
 	private static int clickLogs;
+	// A restore that came before Minecraft's world was open (Half-Life loaded a save first thing).
+	private static long pendingRestore;
 
 	private InputBridge() {
 	}
@@ -64,6 +66,8 @@ public final class InputBridge {
 			case Proto.IN_RELEASE_ALL -> releaseAll();
 			case Proto.IN_HURT -> hurt(minecraft, code, a / 100.0F, b, c);
 			case Proto.IN_HEAL -> heal(minecraft, code, a / 100.0F);
+			case Proto.IN_CHECKPOINT -> rollback(minecraft, checkpointId(a, b), false);
+			case Proto.IN_RESTORE -> rollback(minecraft, checkpointId(a, b), true);
 			case Proto.IN_OPEN_MENU -> {
 				if (minecraft.gui.screen() == null && minecraft.player != null) {
 					releaseAll();
@@ -72,6 +76,41 @@ public final class InputBridge {
 			}
 			default -> {
 			}
+		}
+	}
+
+	private static long checkpointId(int low, int high) {
+		return (high & 0xFFFFFFFFL) << 32 | (low & 0xFFFFFFFFL);
+	}
+
+	/** Half-Life saved (a checkpoint) or loaded a save (a restore): Rollback, on the integrated server. */
+	private static void rollback(Minecraft minecraft, long id, boolean restore) {
+		var server = minecraft.getSingleplayerServer();
+		if (minecraft.player == null || server == null) {
+			if (restore) {
+				pendingRestore = id;
+			} else {
+				dev.halfcraft.HalfCraft.LOG.info("HalfCraft: Half-Life saved before Minecraft's world was open; no checkpoint {}", Long.toHexString(id));
+			}
+			return;
+		}
+		var uuid = minecraft.player.getUUID();
+		server.execute(() -> {
+			ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+			if (restore) {
+				dev.halfcraft.world.Rollback.restore(server, id, player);
+			} else {
+				dev.halfcraft.world.Rollback.checkpoint(server, id, player);
+			}
+		});
+	}
+
+	/** Every client tick: a restore that was waiting for the world. */
+	public static void tick(Minecraft minecraft) {
+		if (pendingRestore != 0 && minecraft.player != null && minecraft.getSingleplayerServer() != null) {
+			long id = pendingRestore;
+			pendingRestore = 0;
+			rollback(minecraft, id, true);
 		}
 	}
 

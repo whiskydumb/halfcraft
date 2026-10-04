@@ -33,6 +33,7 @@ docs/            screenshots
 | Scale | 1 block = 40 units: Minecraft's player is 72 units tall with eyes at 64.8, Source's is 72 / 64 |
 | Axes | source (x, y, z) = minecraft (x, -z, y); yaw: `mc = -source - 90` |
 | Maps | each map gets its own 1024-block slot along x (`map_slot`), so builds stay on their map. Every level load (a map change, a transition, a save, also of the same map) starts a new collision epoch, so Minecraft drops what it had and gets the doors and lifts where they are now, and its player goes where Source's is |
+| Saves | Half-Life's saves roll Minecraft back too: each save carries a checkpoint id (a logical entity saved with the level); saving keeps Minecraft's changed blocks and its player (inventory, armour, health, hunger, experience, effects) under it, loading a save puts them back and clears dropped items, arrows and lit TNT. Any save, in any order; level transitions leave Minecraft alone |
 | Player | Minecraft's position rides in the user command (`CUserCmd::hc_origin`), so server and client prediction agree. Source takes the player (and the keyboard) for what Minecraft can't do: ladders (G looking at one, or walking into one with W, mounts it the way Half-Life does), lifts and trains while they move, vehicles, scripted cameras; Minecraft picks up where Source leaves the player |
 | Camera | Minecraft's camera: its eye, FOV and walk bob; F5 puts the view behind the player (or in front, looking back) at Minecraft's own zoom distance, which already stops at Half-Life's walls, and draws the player's body (Minecraft's own model, skin, armour and held items) at the interpolated feet |
 | Health | Minecraft owns the player's health while its player is in its world (on ladders and rides too): every Half-Life hit goes to it, and its health and absorption are mirrored onto Half-Life's player, so health kits, wall chargers, suit batteries and medics work as usual; what they add goes back to Minecraft (health heals, suit armour becomes absorption, x1/5 like damage) |
@@ -63,11 +64,11 @@ Console variables: `hc_block_light` (block brightness in the map's light, defaul
 overbright), `hc_torch_light` / `hc_torch_lights` (Minecraft's lights on the map),
 `hc_damage_to_npc`, `hc_explosion_damage`; for debugging `hc_debug_blocks 1` (outline the blocks'
 collision), `hc_debug_drop 1` (drop a watermelon onto the blocks), `hc_debug_use 1` (log what use
-finds), and the commands `hc_look <pitch> <yaw>` and `hc_click <1|2|3>`.
+finds), and the commands `hc_look <pitch> <yaw>` and `hc_click <1|2|3>`. `tools/hl2_command.ps1 "save test" "load test"`
+sends console commands to the running game.
 
 ## Not done yet
 
-- loading an older save doesn't rewind the Minecraft world (in progress)
 - Half-Life 2: Episode One and Two
 - a one-click package (the game, Minecraft through Prism Launcher, set up together)
 - multiplayer

@@ -476,6 +476,11 @@ extern "C" __declspec(dllexport) void HalfCraft_PushHurt(int kind, float damage,
 		static_cast<std::int32_t>(flags));
 }
 
+extern "C" __declspec(dllexport) void HalfCraft_PushInput(int type, int code, int a, int b, int c)
+{
+	queue_server_input(static_cast<halfcraft::proto::InputType>(type), code, a, b, c);
+}
+
 extern "C" __declspec(dllexport) void HalfCraft_PushHeal(int kind, float amount)
 {
 	queue_server_input(halfcraft::proto::kInHeal, kind, static_cast<std::int32_t>(amount * 100.0f));

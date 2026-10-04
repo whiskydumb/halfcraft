@@ -183,6 +183,7 @@ public final class HostClient {
 
 	/** Called at the end of every client tick. */
 	public static void clientTick(Minecraft minecraft) {
+		InputBridge.tick(minecraft);
 		freezeWhileUnlinked(minecraft);
 		holdUntilReady(minecraft);
 		publishTick(minecraft);

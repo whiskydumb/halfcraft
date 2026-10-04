@@ -8,7 +8,7 @@ public final class Proto {
 	}
 
 	public static final int MAGIC = 0x464C4148; // "HALF"
-	public static final int VERSION = 1;
+	public static final int VERSION = 2;
 	public static final String MAPPING_NAME = "Local\\HalfCraft_v1";
 
 	public static final long OFF_HEADER = 0x0;
@@ -38,6 +38,8 @@ public final class Proto {
 	public static final int IN_HURT = 7;
 	public static final int IN_OPEN_MENU = 8;
 	public static final int IN_HEAL = 9;
+	public static final int IN_CHECKPOINT = 10;
+	public static final int IN_RESTORE = 11;
 	public static final int HEAL_HEALTH = 0;
 	public static final int HEAL_ARMOR = 1;
 	public static final int HURT_MELEE = 0;
