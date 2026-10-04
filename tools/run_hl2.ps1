@@ -3,12 +3,15 @@
 #   tools/run_hl2.ps1                         windowed 1280x720, main menu
 #   tools/run_hl2.ps1 -Map d1_trainstation_02 straight into a map
 #   tools/run_hl2.ps1 -Fullscreen
+#   tools/run_hl2.ps1 -Width 2560 -Height 1080   another window size
 #
 # minecraft: tools/launch_minecraft.bat (dev client); it links up by itself once the game runs.
 
 param(
 	[string]$Map = "",
 	[switch]$Fullscreen,
+	[int]$Width = 1280,
+	[int]$Height = 720,
 	[string[]]$Extra = @()  # more engine arguments, e.g. -Extra "+hc_debug_blocks","1"
 )
 
@@ -31,7 +34,7 @@ $exe = $libraries | ForEach-Object { Join-Path $_ "steamapps\common\Half-Life 2 
 if (-not $exe) { throw "half-life 2: deathmatch isn't installed (steam app 320)" }
 
 $arguments = @("-game", "`"$mod`"", "-novid", "-condebug", "+con_enable", "1", "+developer", "1")
-if (-not $Fullscreen) { $arguments += @("-windowed", "-w", "1280", "-h", "720") }
+if (-not $Fullscreen) { $arguments += @("-windowed", "-w", "$Width", "-h", "$Height") }
 $arguments += $Extra
 if ($Map) { $arguments += @("+map", $Map) }
 Start-Process -FilePath $exe -ArgumentList $arguments -WorkingDirectory (Split-Path -Parent $exe) | Out-Null
