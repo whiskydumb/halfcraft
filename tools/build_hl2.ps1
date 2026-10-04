@@ -1,4 +1,4 @@
-# builds halfcraft's half-life 2 side (client.dll + server.dll) and lays out the mod folder, then
+# builds halfcraft's half-life 2 side (client.dll + server.dll, two world shaders) and lays out the mod folder, then
 # HalfCraft.exe, a release's launcher (into build\launcher).
 #
 #   tools/build_hl2.ps1              generate projects, build release, deploy
@@ -43,6 +43,33 @@ try {
 	if ($LASTEXITCODE -ne 0) { throw "build failed ($LASTEXITCODE)" }
 } finally {
 	Pop-Location
+}
+
+# shaders: the stock world flashlight pair with halfcraft's edits (halfcraft-sdk.patch), compiled under
+# their stock names into the mod's shaders\fxc, where the engine finds them before hl2's vpk. built in a
+# copy: ShaderCompile2 also writes .inc files next to its input, which would land in the sdk's tree.
+# they have to keep the stock combo layout, which stdshader_dx9.dll indexes them by
+$stdshaders = Join-Path $src "materialsystem\stdshaders"
+$stage = Join-Path $repo "build\shaders"
+if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
+New-Item -ItemType Directory $stage | Out-Null
+Copy-Item (Join-Path $stdshaders "*.h") $stage
+$fxcOut = Join-Path $modDir "shaders\fxc"
+New-Item -ItemType Directory -Force $fxcOut | Out-Null
+$shaders = @(
+	@{ Source = "flashlight_ps2x.fxc"; Name = "flashlight_ps20b"; Combos = 1152; Dynamic = 4 },
+	@{ Source = "lightmappedgeneric_flashlight_vs20.fxc"; Name = "lightmappedgeneric_flashlight_vs20"; Combos = 32; Dynamic = 2 }
+)
+foreach ($shader in $shaders) {
+	Copy-Item (Join-Path $stdshaders $shader.Source) $stage
+	& (Join-Path $src "devtools\bin\ShaderCompile2.exe") -ver 20b -shaderpath $stage $shader.Source | Out-Null
+	$vcs = Join-Path $stage "shaders\fxc\$($shader.Name).vcs"
+	if ($LASTEXITCODE -ne 0 -or -not (Test-Path $vcs)) { throw "ShaderCompile2 failed on $($shader.Source) ($LASTEXITCODE)" }
+	$header = [IO.File]::ReadAllBytes($vcs)  # version, combos, dynamic combos
+	if ([BitConverter]::ToInt32($header, 0) -ne 6 -or [BitConverter]::ToInt32($header, 4) -ne $shader.Combos -or [BitConverter]::ToInt32($header, 8) -ne $shader.Dynamic) {
+		throw "$($shader.Name).vcs doesn't have the stock combo layout"
+	}
+	Copy-Item $vcs $fxcOut
 }
 
 # the mod's own files (gameinfo, cfg) next to the freshly published dlls

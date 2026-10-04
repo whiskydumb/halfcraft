@@ -5,7 +5,7 @@
 #   tools/package.ps1 [-NoBuild]
 #
 # the zip's HalfCraft folder: HalfCraft.exe, game\ (the mod folder: hl2dm-sp's files, source\mod,
-# the dlls), minecraft\ (portable Prism Launcher with the HalfCraft instance and its mods, from
+# the dlls and shaders), minecraft\ (portable Prism Launcher with the HalfCraft instance and its mods, from
 # package\minecraft), README.txt, LICENSE.txt, THIRD-PARTY-NOTICES.md.
 #
 # building needs what tools/build_hl2.ps1 needs plus JDK 25 (JAVA_HOME, or one installed in program
@@ -113,7 +113,9 @@ $modDir = Join-Path $sdk "game\mod_hl2"
 $jar = Join-Path $repo "minecraft\build\libs\halfcraft-$version.jar"
 $launcher = Join-Path $repo "build\launcher\HalfCraft.exe"
 $dlls = @("client", "server") | ForEach-Object { Join-Path $modDir "bin\x64\$_.dll" }
-foreach ($file in @($jar, $launcher) + $dlls) {
+# the world flashlight shaders build_hl2.ps1 compiles (hl2dm-sp's git doesn't have them)
+$shaders = @("flashlight_ps20b", "lightmappedgeneric_flashlight_vs20") | ForEach-Object { Join-Path $modDir "shaders\fxc\$_.vcs" }
+foreach ($file in @($jar, $launcher) + $dlls + $shaders) {
 	if (-not (Test-Path $file)) { throw "missing $file (build first, or drop -NoBuild)" }
 }
 
@@ -131,7 +133,7 @@ if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
 New-Item -ItemType Directory $stage | Out-Null
 
 # game\: the mod folder. hl2dm-sp's own files (what its git tracks, not what running it left behind),
-# halfcraft's over them, the dlls
+# halfcraft's over them, the dlls and shaders
 $game = Join-Path $stage "game"
 foreach ($file in (git -C $sdk ls-files "game/mod_hl2")) {
 	$target = Join-Path $game ($file.Substring("game/mod_hl2/".Length) -replace '/', '\')
@@ -143,6 +145,8 @@ Copy-Item -Recurse -Force (Join-Path $repo "source\mod\*") $game
 Move-Item (Join-Path $game "resource\mod_hl2_english.txt") (Join-Path $game "resource\game_english.txt")
 New-Item -ItemType Directory (Join-Path $game "bin\x64") -Force | Out-Null
 Copy-Item $dlls (Join-Path $game "bin\x64")
+New-Item -ItemType Directory (Join-Path $game "shaders\fxc") -Force | Out-Null
+Copy-Item $shaders (Join-Path $game "shaders\fxc")
 
 # minecraft\: portable prism with the halfcraft instance and its mods (names without versions, so
 # unpacking a new release over an old one replaces them)

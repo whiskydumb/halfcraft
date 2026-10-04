@@ -374,6 +374,78 @@ index 0005bde9..200ea0a6 100644
  	// Client only, tracks whether we've predicted this command at least once
  	bool	hasbeenpredicted;
  
+diff --git a/src/materialsystem/stdshaders/flashlight_ps2x.fxc b/src/materialsystem/stdshaders/flashlight_ps2x.fxc
+index 8ac860cb..6b2ee79c 100644
+--- a/src/materialsystem/stdshaders/flashlight_ps2x.fxc
++++ b/src/materialsystem/stdshaders/flashlight_ps2x.fxc
+@@ -69,9 +69,9 @@ struct PS_INPUT
+ 	float3 normal							: TEXCOORD3;
+ #endif
+ 
+-	float2 detailCoords						: TEXCOORD4;
++	float4 detailCoords						: TEXCOORD4;	// halfcraft: .zw = the world-space vector to the light, .xy
+ 	float4 worldPos_worldTransition			: TEXCOORD5;	
+-	float3 projPos							: TEXCOORD6;
++	float4 projPos							: TEXCOORD6;	// halfcraft: .w = the world-space vector to the light, .z
+ 	float4 fogFactorW						: TEXCOORD7;
+ };
+ 
+@@ -175,7 +175,9 @@ float4 main( PS_INPUT i ) : COLOR
+ 	spotColor.rgb *= cFlashlightColor.rgb;
+ 
+ 	// Compute per-pixel distance attenuation
+-	float3 delta = g_EyePos.xyz - i.worldPos_worldTransition.xyz;
++	// halfcraft: from the light (lightmappedgeneric_flashlight_vs20), not the camera: for a projected texture
++	// away from the player, walls near the camera got brighter than those at the light
++	float3 delta = float3( i.detailCoords.zw, i.projPos.w );
+ 	float distSquared = dot( delta, delta );
+ 	float dist = sqrt( distSquared );
+ 	float farZ = g_FlashlightAttenuation.w;
+@@ -194,7 +196,7 @@ float4 main( PS_INPUT i ) : COLOR
+ #endif
+ 
+ #if DETAILTEXTURE
+-	float4 detailColor = float4( g_DetailConstants.xyz, 1.0f ) * tex2D( DetailSampler, i.detailCoords );
++	float4 detailColor = float4( g_DetailConstants.xyz, 1.0f ) * tex2D( DetailSampler, i.detailCoords.xy );
+ 	float4 vBase = TextureCombine( float4(baseColor.xyz, 1.0f), detailColor, DETAIL_BLEND_MODE, g_DetailConstants.w );
+ 	baseColor.xyz = vBase.xyz;
+ #endif
+diff --git a/src/materialsystem/stdshaders/lightmappedgeneric_flashlight_vs20.fxc b/src/materialsystem/stdshaders/lightmappedgeneric_flashlight_vs20.fxc
+index 7d23bb95..c1e15377 100644
+--- a/src/materialsystem/stdshaders/lightmappedgeneric_flashlight_vs20.fxc
++++ b/src/materialsystem/stdshaders/lightmappedgeneric_flashlight_vs20.fxc
+@@ -63,9 +63,9 @@ struct VS_OUTPUT
+ 	float3 normal					: TEXCOORD3;
+ #endif
+ 
+-	float2 detailCoords				: TEXCOORD4;
++	float4 detailCoords				: TEXCOORD4;	// halfcraft: .zw = the world-space vector to the light, .xy
+ 	float4 worldPos_worldTransition	: TEXCOORD5;	
+-	float3 vProjPos					: TEXCOORD6;
++	float4 vProjPos					: TEXCOORD6;	// halfcraft: .w = the world-space vector to the light, .z
+ 	float4 fogFactorW				: TEXCOORD7;
+ };
+ 
+@@ -138,6 +138,10 @@ VS_OUTPUT main( const VS_INPUT v )
+ 	o.spotTexCoord = spotTexCoord.xyzw;
+ 
+ 	float3 worldPosToLightVector = g_FlashlightPos - worldPos;
++	// halfcraft: flashlight_ps2x measures the light's falloff with it (stock code did from the camera). it's
++	// affine in the position, so it interpolates exactly
++	o.detailCoords.zw = worldPosToLightVector.xy;
++	o.vProjPos.w = worldPosToLightVector.z;
+ #if NORMALMAP
+ 
+ #if (DETAIL == 0)
+@@ -165,7 +169,7 @@ VS_OUTPUT main( const VS_INPUT v )
+ 	o.detailCoords.x = dot( v.vBaseTexCoord, cNormalMapOrDetailTexCoordTransform[0] ) + cNormalMapOrDetailTexCoordTransform[0].w;
+ 	o.detailCoords.y = dot( v.vBaseTexCoord, cNormalMapOrDetailTexCoordTransform[1] ) + cNormalMapOrDetailTexCoordTransform[1].w;
+ #else
+-	o.detailCoords = float2(0,0);
++	o.detailCoords.xy = float2(0,0);
+ #endif
+ 
+ 	//float3 delta = worldPosToLightVector;
 diff --git a/src/public/const.h b/src/public/const.h
 index 84f28527..9beeb1c5 100644
 --- a/src/public/const.h
