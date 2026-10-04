@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -64,13 +65,25 @@ class HostRayTest {
 	}
 
 	@Test
-	void placedBlockSitsOnGroundSlightlySunk() {
+	void placedBlockSinksIntoGroundInsteadOfFloating() {
 		// Ground at 10.3: the block goes in cell y=10 (sunk 0.3), not floating in cell 11.
 		HostRay.Hit low = HostRay.cast(ground(10.3), 0.5, 12.0, 0.5, 0.5, 8.0, 0.5);
 		assertArrayEquals(new int[] { 0, 10, 0 }, HostRay.placementCell(low));
-		// Ground at 10.8: the block goes on top (cell 11), floating at most 0.2.
+		// Ground at 10.8: still sunk (cell 10, 0.2 shows) rather than floating 0.2 above it.
 		HostRay.Hit high = HostRay.cast(ground(10.8), 0.5, 12.0, 0.5, 0.5, 8.0, 0.5);
-		assertArrayEquals(new int[] { 0, 11, 0 }, HostRay.placementCell(high));
+		assertArrayEquals(new int[] { 0, 10, 0 }, HostRay.placementCell(high));
+		// Ground at 10.95: only this close to the next cell does the block go on top, floating 0.05.
+		HostRay.Hit top = HostRay.cast(ground(10.95), 0.5, 12.0, 0.5, 0.5, 8.0, 0.5);
+		assertArrayEquals(new int[] { 0, 11, 0 }, HostRay.placementCell(top));
+	}
+
+	@Test
+	void placedBlockNeverFloatsMoreThanTheGap() {
+		for (double y = 10.0; y < 11.0; y += 0.01) {
+			HostRay.Hit hit = HostRay.cast(ground(y), 0.5, 13.0, 0.5, 0.5, 7.0, 0.5);
+			int[] cell = HostRay.placementCell(hit);
+			assertTrue(cell[1] - hit.y() <= HostRay.PLACEMENT_GAP + 1e-9, "ground " + y + " floats the block " + (cell[1] - hit.y()));
+		}
 	}
 
 	@Test

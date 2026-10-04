@@ -65,14 +65,20 @@ public final class HostRay {
 	}
 
 	/**
+	 * How far out from a Half-Life surface (blocks, along its normal) a placed block's cell is picked.
+	 * Half-Life's floors and walls are almost never on the block grid, so a block either sinks into
+	 * the surface or leaves a gap: only a gap under this is left, everything else sinks in.
+	 */
+	static final double PLACEMENT_GAP = 0.1;
+
+	/**
 	 * Where a block placed against a Half-Life surface goes: the cell a little way out from the hit
-	 * along the surface normal. Blocks then sit on uneven ground slightly sunk in (like Minecraft
-	 * blocks on a slope) instead of floating above it or vanishing into it.
+	 * along the surface normal. Blocks then sit on uneven ground sunk in (like Minecraft blocks on a
+	 * slope) instead of floating above it: at most {@link #PLACEMENT_GAP} (4 units) shows.
 	 */
 	public static int[] placementCell(Hit hit) {
-		double out = 0.4;
 		return new int[] {
-			(int) Math.floor(hit.x + hit.nx * out), (int) Math.floor(hit.y + hit.ny * out), (int) Math.floor(hit.z + hit.nz * out)
+			(int) Math.floor(hit.x + hit.nx * PLACEMENT_GAP), (int) Math.floor(hit.y + hit.ny * PLACEMENT_GAP), (int) Math.floor(hit.z + hit.nz * PLACEMENT_GAP)
 		};
 	}
 
