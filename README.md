@@ -20,9 +20,11 @@ source/          the Source mod (C++)
   src/shared/      the hook entry points, the puppet movement (CGameMovement::HalfCraftMove), the client/server bridge
   sdk/             halfcraft-sdk.patch: the hooks into Valve's game code
   mod/             files laid over the mod folder (gameinfo.txt, cfg)
+  launcher/        HalfCraft.exe: a release's one click (finds Steam's games, starts Minecraft, then the mod)
   halfcraft_*.vpc  pulled into Valve's client/server projects
 protocol/        the shared memory layout, the one source of truth for both sides
-tools/           setup, build and run scripts, link and crash-dump debugging helpers, the Prism bundle template
+package/         what a release carries besides code: the Prism instance template, the players' README
+tools/           setup, build, run and packaging scripts, link and crash-dump debugging helpers
 docs/            screenshots
 ```
 
@@ -60,6 +62,19 @@ tools/run_hl2.ps1 -Map d1_trainstation_02
 Minecraft waits on its title screen, then hides its window and loads its mirror world once the
 game is up.
 
+A release is one command:
+
+```powershell
+tools/package.ps1            # builds both halves -> dist/HalfCraft-<version>.zip (+ -pdb.zip)
+```
+
+The zip's `HalfCraft` folder holds `HalfCraft.exe`, the mod folder (`game/`) and a portable Prism
+Launcher with the HalfCraft instance (`minecraft/`); `package/README.txt` is what players read.
+`HalfCraft.exe` checks Steam has Half-Life 2 and Deathmatch, starts Minecraft through Prism (the
+first time it waits for the Microsoft sign-in), then the engine on `game/`. `client.dll` starts
+Minecraft too when nothing else did, and again if it quits on its own, and says on screen what
+it's doing until it connects. Prism Launcher and Fabric API downloads are pinned by hash.
+
 Console variables: `hc_block_light` (block brightness in the map's light, default 2 = Source's
 overbright), `hc_torch_light` / `hc_torch_lights` (Minecraft's lights on the map),
 `hc_damage_to_npc`, `hc_explosion_damage`; for debugging `hc_debug_blocks 1` (outline the blocks'
@@ -70,7 +85,6 @@ sends console commands to the running game.
 ## Not done yet
 
 - Half-Life 2: Episode One and Two
-- a one-click package (the game, Minecraft through Prism Launcher, set up together)
 - multiplayer
 
 ## Credits

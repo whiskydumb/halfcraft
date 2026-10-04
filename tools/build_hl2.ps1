@@ -1,4 +1,5 @@
-# builds halfcraft's half-life 2 side (client.dll + server.dll) and lays out the mod folder.
+# builds halfcraft's half-life 2 side (client.dll + server.dll) and lays out the mod folder, then
+# HalfCraft.exe, a release's launcher (into build\launcher).
 #
 #   tools/build_hl2.ps1              generate projects, build release, deploy
 #   tools/build_hl2.ps1 -NoProjects  skip vpc (no .vpc file changed)
@@ -47,3 +48,23 @@ try {
 # the mod's own files (gameinfo, cfg) next to the freshly published dlls
 Copy-Item -Recurse -Force (Join-Path $repo "source\mod\*") $modDir
 Write-Host "built with $toolset; mod folder: $modDir"
+
+# HalfCraft.exe, a release's launcher (source\launcher), versioned like the minecraft mod
+$launcherSrc = Join-Path $repo "source\launcher"
+$launcherOut = Join-Path $repo "build\launcher"
+New-Item -ItemType Directory -Force $launcherOut | Out-Null
+$version = (Select-String -Path (Join-Path $repo "minecraft\gradle.properties") -Pattern '^version=(\d+)\.(\d+)\.(\d+)').Matches[0]
+$numbers = ($version.Groups[1..3] | ForEach-Object { $_.Value }) -join ","
+Set-Content (Join-Path $launcherOut "version.h") "#define HC_VERSION $numbers,0`r`n#define HC_VERSION_TEXT `"$($numbers -replace ',', '.')`"" -Encoding ascii
+$vcvars = Join-Path $vs "VC\Auxiliary\Build\vcvars64.bat"
+$script = Join-Path $launcherOut "build.cmd"
+Set-Content $script -Encoding ascii @"
+@echo off
+call "$vcvars" >nul 2>&1 || exit /b 1
+cd /d "$launcherSrc"
+rc /nologo /I "$launcherOut" /fo "$launcherOut\halfcraft.res" halfcraft.rc || exit /b 1
+cl /nologo /O2 /MT /W4 /EHsc /std:c++17 /DUNICODE /D_UNICODE /I "$repo\source\src" /I "$repo\protocol" /Fo"$launcherOut\\" /Fe"$launcherOut\HalfCraft.exe" halfcraft_launcher.cpp "$repo\source\src\core\hc_prism.cpp" "$launcherOut\halfcraft.res" /link /SUBSYSTEM:WINDOWS user32.lib shell32.lib shlwapi.lib advapi32.lib || exit /b 1
+"@
+cmd /c "`"$script`""
+if ($LASTEXITCODE -ne 0) { throw "launcher build failed ($LASTEXITCODE)" }
+Write-Host "launcher: $launcherOut\HalfCraft.exe"

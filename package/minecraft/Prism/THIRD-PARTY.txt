@@ -6,9 +6,9 @@ Prism Launcher {PRISM_VERSION} (this folder, the unmodified portable Windows bui
   License: GNU General Public License v3.0 (LICENSE-PrismLauncher.txt)
   Source:  https://github.com/PrismLauncher/PrismLauncher/tree/{PRISM_VERSION}
 
-Fabric API (instances/HalfCraft/.minecraft/mods/fabric-api-*.jar)
+Fabric API {FABRIC_API_VERSION} (instances/HalfCraft/.minecraft/mods/fabric-api.jar)
   License: Apache License 2.0
   Source:  https://github.com/FabricMC/fabric
 
-HalfCraft (instances/HalfCraft/.minecraft/mods/halfcraft-*.jar)
+HalfCraft (instances/HalfCraft/.minecraft/mods/halfcraft.jar)
   License: MIT
