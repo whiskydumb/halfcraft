@@ -1,5 +1,11 @@
 # HalfCraft
 
+<p align="center">
+  <img src=".github/assets/screenshot.jpg"
+       alt="gameplay screenshot"
+       width="100%">
+</p>
+
 Play Half-Life 2 with Minecraft. Real Minecraft (26.3 with the Fabric mod in `minecraft/`) runs
 hidden and does the player's physics, inventory, blocks and combat math; Half-Life 2 renders and
 runs its world, NPCs and scripts around it. Build on Half-Life's maps, fight its NPCs with a
@@ -25,7 +31,6 @@ source/          the Source mod (C++)
 protocol/        the shared memory layout, the one source of truth for both sides
 package/         what a release carries besides code: the Prism instance template, the players' README
 tools/           setup, build, run and packaging scripts, link and crash-dump debugging helpers
-docs/            screenshots
 ```
 
 ## How it maps
