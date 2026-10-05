@@ -75,6 +75,7 @@ public final class HostLink {
 	private static volatile MemorySegment shm;
 	private static long lastOpenAttempt;
 	private static int hostPid;
+	private static long hostSession;
 	private static volatile int generation;
 
 	private HostLink() {
@@ -109,13 +110,16 @@ public final class HostLink {
 	public static void poll() {
 		if (shm != null) {
 			LONG.setRelease(shm, OFF_HEADER + H_MC_HEARTBEAT, tickCount());
-			int pid = shm.get(JAVA_INT, OFF_HEADER + H_HOST_PID);
-			if (pid != hostPid) {
-				// Half-Life restarted and reset the shared state; start our side over too.
-				hostPid = pid;
+			long session = (long) LONG.getAcquire(shm, OFF_HEADER + H_HOST_SESSION);
+			if (session != hostSession) {
+				// Half-Life restarted and reset the shared state; start our side over too. Its session,
+				// not its pid: a restarted Half-Life can get the pid of the one before it.
+				hostSession = session;
+				hostPid = shm.get(JAVA_INT, OFF_HEADER + H_HOST_PID);
 				overlayBack = 1;
+				HostStrings.reset();
 				generation++;
-				HalfCraft.LOG.info("HalfCraft: Half-Life instance changed (pid {})", pid);
+				HalfCraft.LOG.info("HalfCraft: Half-Life instance changed (pid {})", hostPid);
 			}
 			return;
 		}
@@ -153,6 +157,7 @@ public final class HostLink {
 			seg.set(JAVA_INT, OFF_HEADER + H_MC_PID, (int) GET_CURRENT_PROCESS_ID.invokeExact());
 			LONG.setRelease(seg, OFF_HEADER + H_MC_HEARTBEAT, tickCount());
 			hostPid = seg.get(JAVA_INT, OFF_HEADER + H_HOST_PID);
+			hostSession = (long) LONG.getAcquire(seg, OFF_HEADER + H_HOST_SESSION);
 			generation++;
 			shm = seg;
 			HalfCraft.LOG.info("HalfCraft: linked to Half-Life (pid {})", seg.get(JAVA_INT, OFF_HEADER + H_HOST_PID));
@@ -473,7 +478,11 @@ public final class HostLink {
 		pushEvent(type, actorId, a, b, c, d, flags, 0);
 	}
 
-	public static synchronized void pushEvent(int type, int actorId, float a, float b, float c, float d, int flags, int weapon) {
+	public static void pushEvent(int type, int actorId, float a, float b, float c, float d, int flags, int weapon) {
+		pushEvent(type, actorId, a, b, c, d, flags, weapon, 0);
+	}
+
+	public static synchronized void pushEvent(int type, int actorId, float a, float b, float c, float d, int flags, int weapon, int attackerId) {
 		MemorySegment s = shm;
 		if (s == null) {
 			return;
@@ -493,6 +502,8 @@ public final class HostLink {
 		s.set(JAVA_FLOAT, e + 20, d);
 		s.set(JAVA_INT, e + 24, flags);
 		s.set(JAVA_INT, e + 28, weapon);
+		s.set(JAVA_INT, e + 32, attackerId);
+		s.asSlice(e + 36, EVENT_BYTES - 36).fill((byte) 0);
 		LONG.setRelease(s, base + ER_HEAD, head + 1);
 	}
 

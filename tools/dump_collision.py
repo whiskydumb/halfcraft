@@ -1,10 +1,10 @@
 """Decode the collision ring in the live HalfCraft shared memory (read-only) and summarize it."""
 import mmap, struct, sys
 NAME = "Local\HalfCraft_v1"
-OFF_COL = 0x20000
+OFF_COL = 0x40000
 COL_BYTES = 32 << 20
 DATA = COL_BYTES - 0x80
-m = mmap.mmap(-1, 0x20000 + COL_BYTES, tagname=NAME, access=mmap.ACCESS_READ)
+m = mmap.mmap(-1, OFF_COL + COL_BYTES, tagname=NAME, access=mmap.ACCESS_READ)
 head, = struct.unpack_from("<Q", m, OFF_COL)
 tail, = struct.unpack_from("<Q", m, OFF_COL + 0x40)
 print(f"head={head} tail={tail}")

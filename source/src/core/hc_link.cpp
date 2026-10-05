@@ -30,6 +30,8 @@ namespace halfcraft
 		static_assert(proto::kOffActorTable + sizeof(proto::ActorTable) <= SERVER_VIEW_BYTES, "server.dll writes the actor table");
 		static_assert(proto::kOffEventRing + proto::kEventRingDataOff + sizeof(proto::McEvent) * proto::kEventRingEntries <= SERVER_VIEW_BYTES,
 			"server.dll reads the event ring");
+		static_assert(proto::kOffWeaponTable + proto::kWeaponTableBytes <= SERVER_VIEW_BYTES, "server.dll writes the weapon table");
+		static_assert(proto::kOffMobTable + proto::kMobTableBytes <= SERVER_VIEW_BYTES, "server.dll reads the mob table");
 		static_assert(SERVER_VIEW_BYTES <= proto::kOffOverlayPixels, "the overlay and the render ring are client.dll's");
 
 		// who may open the mapping: this windows user (plus system and administrators) at normal
@@ -158,11 +160,18 @@ namespace halfcraft
 		std::memset(base_ + proto::kOffOverlayCtl, 0, 0x100);
 		std::memset(base_ + proto::kOffActorTable, 0, sizeof(proto::ActorTable));
 		std::memset(base_ + proto::kOffWorldEntities, 0, sizeof(proto::WorldEntities));
+		std::memset(base_ + proto::kOffHostDebug, 0, proto::kHostDebugBytes);
+		std::memset(base_ + proto::kOffWeaponTable, 0, proto::kWeaponTableBytes);
+		std::memset(base_ + proto::kOffMobTable, 0, proto::kMobTableBytes);
 		skip_pending(proto::kOffRenderRing + proto::kRenRingHeadOff, proto::kOffRenderRing + proto::kRenRingTailOff);
 		skip_pending(proto::kOffEventRing + proto::kEventRingHeadOff, proto::kOffEventRing + proto::kEventRingTailOff);
 		header->version = proto::kVersion;
 		header->hostPid = ::GetCurrentProcessId();
 		header->hostHeartbeatMs = ::GetTickCount64();
+		// the performance counter only grows, so no two runs on this machine share a session
+		LARGE_INTEGER now{};
+		::QueryPerformanceCounter(&now);
+		as_atomic(header->hostSession).store(static_cast<std::uint64_t>(now.QuadPart) | 1, std::memory_order_release);
 		as_atomic(header->magic).store(proto::kMagic, std::memory_order_release);
 
 		log_info("shared memory created (%llu MB, %s)", static_cast<unsigned long long>(size >> 20), existed ? "reused" : "new");
@@ -236,6 +245,30 @@ namespace halfcraft
 		auto* entry = reinterpret_cast<proto::InputEvent*>(ring + proto::kInputRingDataOff) + (head & (proto::kInputRingEntries - 1));
 		*entry = { static_cast<std::uint16_t>(type), code, a, b, c };
 		as_atomic(head_ref).store(head + 1, std::memory_order_release);
+	}
+
+	bool Link::push_string(proto::StringChannel channel, std::string_view utf8)
+	{
+		if (!base_) {
+			return false;
+		}
+		const std::size_t pieces = std::max<std::size_t>(1, (utf8.size() + proto::kStringPieceBytes - 1) / proto::kStringPieceBytes);
+		// all or nothing: a string missing a piece would reach minecraft garbled
+		auto*      ring = base_ + proto::kOffInputRing;
+		const auto head = as_atomic(*reinterpret_cast<std::uint64_t*>(ring + proto::kInputRingHeadOff)).load(std::memory_order_relaxed);
+		const auto tail = as_atomic(*reinterpret_cast<std::uint64_t*>(ring + proto::kInputRingTailOff)).load(std::memory_order_acquire);
+		if (proto::kInputRingEntries - (head - tail) < pieces) {
+			return false;
+		}
+		for (std::size_t piece = 0; piece < pieces; ++piece) {
+			const std::size_t offset = piece * proto::kStringPieceBytes;
+			const std::size_t bytes = std::min<std::size_t>(proto::kStringPieceBytes, utf8.size() - offset);
+			std::int32_t      words[3]{};
+			std::memcpy(words, utf8.data() + offset, bytes);
+			const auto code = static_cast<std::uint16_t>(channel | (bytes << proto::kStringBytesShift) | (piece + 1 == pieces ? proto::kStringEnd : 0));
+			push_input(proto::kInString, code, words[0], words[1], words[2]);
+		}
+		return true;
 	}
 
 	bool Link::write_collision(proto::ColType type, const void* payload, std::uint32_t bytes)

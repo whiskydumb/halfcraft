@@ -8,7 +8,7 @@ public final class Proto {
 	}
 
 	public static final int MAGIC = 0x464C4148; // "HALF"
-	public static final int VERSION = 2;
+	public static final int VERSION = 3;
 	public static final String MAPPING_NAME = "Local\\HalfCraft_v1";
 
 	public static final long OFF_HEADER = 0x0;
@@ -20,7 +20,7 @@ public final class Proto {
 	public static final long OFF_OVERLAY_CTL = 0x300;
 	public static final long OFF_OVERLAY_SLOT_HDR = 0x340;
 	public static final long OFF_INPUT_RING = 0x1000;
-	public static final long OFF_COLLISION_RING = 0x20000;
+	public static final long OFF_COLLISION_RING = 0x40000;
 	public static final long COLLISION_RING_BYTES = 32L << 20;
 	public static final long OFF_OVERLAY_PIXELS = OFF_COLLISION_RING + COLLISION_RING_BYTES;
 	public static final int MAX_OVERLAY_W = 3840;
@@ -29,7 +29,13 @@ public final class Proto {
 	public static final int OVERLAY_SLOTS = 3;
 	public static final long OFF_ACTOR_TABLE = 0x12000;
 	public static final long OFF_EVENT_RING = 0x17000;
-	public static final long OFF_WORLD_ENTITIES = 0x1C000;
+	public static final long OFF_WORLD_ENTITIES = 0x1E000;
+	public static final long OFF_HOST_DEBUG = 0x22000;
+	public static final long HOST_DEBUG_BYTES = 0x1000;
+	public static final long OFF_WEAPON_TABLE = 0x23000;
+	public static final long WEAPON_TABLE_BYTES = 0x1000;
+	public static final long OFF_MOB_TABLE = 0x24000;
+	public static final long MOB_TABLE_BYTES = 0x5000;
 	public static final long OFF_RENDER_RING = OFF_OVERLAY_PIXELS + OVERLAY_SLOT_BYTES * OVERLAY_SLOTS;
 	public static final long RENDER_RING_BYTES = 64L << 20;
 	public static final long MAPPING_BYTES = OFF_RENDER_RING + RENDER_RING_BYTES;
@@ -40,6 +46,16 @@ public final class Proto {
 	public static final int IN_HEAL = 9;
 	public static final int IN_CHECKPOINT = 10;
 	public static final int IN_RESTORE = 11;
+	public static final int IN_STRING = 12;
+	public static final int IN_HURT_MOB = 13; // (#13)
+
+	// String channels (IN_STRING)
+	public static final int STR_COMMAND = 1; // (#11)
+	public static final int STR_SCREENSHOT = 2; // (#6)
+	public static final int STRING_CHANNEL_MASK = 0xFF;
+	public static final int STRING_BYTES_SHIFT = 8;
+	public static final int STRING_END = 1 << 15;
+	public static final int STRING_PIECE_BYTES = 12;
 	public static final int HEAL_HEALTH = 0;
 	public static final int HEAL_ARMOR = 1;
 	public static final int HURT_MELEE = 0;
@@ -64,11 +80,13 @@ public final class Proto {
 	public static final long ER_HEAD = 0x00;
 	public static final long ER_TAIL = 0x40;
 	public static final long ER_DATA = 0x80;
-	public static final long EVENT_BYTES = 32;
+	public static final long EVENT_BYTES = 48;
 	public static final int EV_HIT_ACTOR = 1;
 	public static final int EV_PLAYER_DIED = 2;
 	public static final int EV_EXPLOSION = 3;
 	public static final int EV_ARROW_STUCK = 4;
+	public static final int EV_SCREENSHOT = 5; // (#6)
+	// 6-7: kept for #12 (the host's weapons), 8-9 for #13 (Minecraft's mobs)
 	public static final int HIT_CRITICAL = 1;
 	public static final int HIT_PROJECTILE = 1 << 1;
 	public static final int HIT_SWEEP = 1 << 2;
@@ -123,6 +141,7 @@ public final class Proto {
 	public static final long H_MC_PID = 0x0C;
 	public static final long H_HOST_HEARTBEAT = 0x10;
 	public static final long H_MC_HEARTBEAT = 0x18;
+	public static final long H_HOST_SESSION = 0x20;
 
 	// HostState (relative to OFF_HOST_STATE)
 	public static final long HS_SEQ = 0x00;
@@ -177,6 +196,7 @@ public final class Proto {
 	public static final long MS_HEALTH = 0xC8;
 	public static final long MS_MAX_HEALTH = 0xCC;
 	public static final long MS_ABSORPTION = 0xD0;
+	public static final long MS_HELD_WEAPON = 0xD8; // (#12)
 
 	public static final int MC_IN_WORLD = 1;
 	public static final int MC_SCREEN_OPEN = 1 << 1;
@@ -222,4 +242,13 @@ public final class Proto {
 	public static final int TRI_STAIR_HELPER = 1;
 	public static final int COL_REGION_HEADER_BYTES = 32;
 	public static final int COL_BLOCK_BYTES = 80;
+
+	// Host debug (relative to OFF_HOST_DEBUG): (#7)
+	public static final long HD_SEQ = 0x00;
+
+	// Weapon table (relative to OFF_WEAPON_TABLE): (#12)
+	public static final long WT_SEQ = 0x00;
+
+	// Mob table (relative to OFF_MOB_TABLE): (#13)
+	public static final long MT_SEQ = 0x00;
 }

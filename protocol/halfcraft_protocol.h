@@ -14,7 +14,7 @@
 namespace halfcraft::proto
 {
 	inline constexpr std::uint32_t kMagic = 0x464C4148;  // "HALF"
-	inline constexpr std::uint32_t kVersion = 2;
+	inline constexpr std::uint32_t kVersion = 3;
 	inline constexpr wchar_t       kMappingName[] = L"Local\\HalfCraft_v1";
 
 	// ---- region offsets ---------------------------------------------------------------------
@@ -25,7 +25,7 @@ namespace halfcraft::proto
 	inline constexpr std::uint64_t kOffOverlaySlotHdr = 0x340;  // 3 x 0x40
 	inline constexpr std::uint64_t kOffWaterGrid = 0x400;       // host -> MC, see WaterGrid
 	inline constexpr std::uint64_t kOffInputRing = 0x1000;
-	inline constexpr std::uint64_t kOffCollisionRing = 0x20000;
+	inline constexpr std::uint64_t kOffCollisionRing = 0x40000;
 	inline constexpr std::uint64_t kCollisionRingBytes = 32ull << 20;
 	inline constexpr std::uint64_t kOffOverlayPixels = kOffCollisionRing + kCollisionRingBytes;
 	inline constexpr std::uint32_t kMaxOverlayW = 3840;
@@ -34,7 +34,13 @@ namespace halfcraft::proto
 	inline constexpr std::uint32_t kOverlaySlots = 3;
 	inline constexpr std::uint64_t kOffActorTable = 0x12000;     // host -> MC, see ActorTable
 	inline constexpr std::uint64_t kOffEventRing = 0x17000;      // MC -> host, see McEvent
-	inline constexpr std::uint64_t kOffWorldEntities = 0x1C000;  // MC -> host, see WorldEntities
+	inline constexpr std::uint64_t kOffWorldEntities = 0x1E000;  // MC -> host, see WorldEntities
+	inline constexpr std::uint64_t kOffHostDebug = 0x22000;      // host -> MC, see HostDebug
+	inline constexpr std::uint64_t kHostDebugBytes = 0x1000;
+	inline constexpr std::uint64_t kOffWeaponTable = 0x23000;    // host -> MC, see WeaponTable
+	inline constexpr std::uint64_t kWeaponTableBytes = 0x1000;
+	inline constexpr std::uint64_t kOffMobTable = 0x24000;       // MC -> host, see MobTable
+	inline constexpr std::uint64_t kMobTableBytes = 0x5000;
 	inline constexpr std::uint64_t kOffRenderRing = kOffOverlayPixels + kOverlaySlotBytes * kOverlaySlots;
 	inline constexpr std::uint64_t kRenderRingBytes = 64ull << 20;
 	inline constexpr std::uint64_t kMappingBytes = kOffRenderRing + kRenderRingBytes;
@@ -48,8 +54,11 @@ namespace halfcraft::proto
 		std::uint32_t mcPid;
 		std::uint64_t hostHeartbeatMs;  // GetTickCount64() at the host's last frame
 		std::uint64_t mcHeartbeatMs;    // GetTickCount64() at MC's last frame
+		// a new value each time a host sets the link up; Minecraft starts its side over when it changes.
+		// the pid alone can't tell: a restarted game may get the pid of the one before it
+		std::uint64_t hostSession;
 	};
-	static_assert(sizeof(Header) == 0x20);
+	static_assert(sizeof(Header) == 0x28);
 
 	// ---- host -> MC state @0x100 (seqlock: seq odd while writing) ---------------------------
 	enum HostFlags : std::uint32_t
@@ -139,8 +148,12 @@ namespace halfcraft::proto
 		float         maxHealth;
 		float         absorption;
 		std::uint32_t healthPad;
+
+		// (#12) the host's weapon the player holds as a Minecraft item (see WeaponTable); 0: none
+		std::uint32_t heldWeapon;
+		std::uint32_t heldWeaponPad;
 	};
-	static_assert(sizeof(McState) == 0xD8);
+	static_assert(sizeof(McState) == 0xE0);
 	static_assert(sizeof(McState) <= 0x100);
 
 	// ---- overlay triple buffer @0x300 --------------------------------------------------------
@@ -188,7 +201,23 @@ namespace halfcraft::proto
 		kInCheckpoint = 10,  // the host saved its game: a/b = the save's checkpoint id (low/high 32 bits); Minecraft
 		                     // keeps its world's changed blocks and its player as they are now under that id
 		kInRestore = 11,     // the host loaded a save: a/b = its checkpoint id; Minecraft goes back to that checkpoint
+		kInString = 12,      // a piece of a UTF-8 string for one of Minecraft's StringChannels: code = channel
+		                     // | (bytes in this piece << 8) | kStringEnd on the last piece, a/b/c = up to 12 bytes
+		                     // (little-endian, a's low byte first)
+		kInHurtMob = 13,     // (#13) the host hurt a Minecraft mob: code = HurtKind, a = its Minecraft entity id,
+		                     // b = host damage * 100, c = the attacker's actor id (0: none)
 	};
+
+	// What a kInString is for; Minecraft collects the pieces of each channel until kStringEnd.
+	enum StringChannel : std::uint16_t
+	{
+		kStrCommand = 1,     // (#11) run as the player, like a command typed into chat (without the '/')
+		kStrScreenshot = 2,  // (#6) the answer to Minecraft's kEvScreenshot
+	};
+	inline constexpr std::uint16_t kStringChannelMask = 0xFF;
+	inline constexpr std::uint16_t kStringBytesShift = 8;  // 4 bits: 0-12 bytes
+	inline constexpr std::uint16_t kStringEnd = 1u << 15;
+	inline constexpr std::uint32_t kStringPieceBytes = 12;
 
 	enum HealKind : std::uint16_t
 	{
@@ -259,6 +288,8 @@ namespace halfcraft::proto
 		kEvExplosion = 3,   // a Minecraft explosion (TNT, creeper, ...): a/b/c = centre (MC coords), d = radius (blocks)
 		kEvArrowStuck = 4,  // an arrow stuck in a host actor: actorId, a/b/c = where it hit (MC coords), d = flight yaw,
 		                    // flags = flight pitch (float bits), weapon = arrow texture (0 plain, 1 tipped, 2 spectral)
+		kEvScreenshot = 5,  // (#6) Minecraft's screenshot key: the host saves its own finished frame and answers on kStrScreenshot
+		// 6-7: kept for #12 (the host's weapons), 8-9 for #13 (Minecraft's mobs)
 	};
 
 	enum HitFlags : std::uint32_t
@@ -286,11 +317,14 @@ namespace halfcraft::proto
 		std::uint32_t actorId;
 		float         a, b, c, d;
 		std::uint32_t flags;
-		std::uint32_t weapon;  // HitWeapon for kEvHitActor
+		std::uint32_t weapon;      // HitWeapon for kEvHitActor
+		std::uint32_t attackerId;  // (#13) kEvHitActor: the Minecraft entity id of the mob that landed it; 0: the player
+		std::uint32_t reserved[3];
 	};
-	static_assert(sizeof(McEvent) == 32);
+	static_assert(sizeof(McEvent) == 48);
+	static_assert(kOffEventRing + kEventRingDataOff + sizeof(McEvent) * kEventRingEntries <= kOffWorldEntities);
 
-	// ---- world entities @0x1C000 (MC -> host, seqlock) ---------------------------------------
+	// ---- world entities @0x1E000 (MC -> host, seqlock) ---------------------------------------
 	// Minecraft things the host draws itself each frame (arrows, dropped items, block cracks) + the
 	// block outline.
 	inline constexpr std::uint32_t kMaxWorldEntities = 160;
@@ -328,7 +362,34 @@ namespace halfcraft::proto
 		WorldEntity   entities[kMaxWorldEntities];
 	};
 	static_assert(sizeof(WorldEntities) == 0x40 + sizeof(WorldEntity) * kMaxWorldEntities);
-	static_assert(kOffWorldEntities + sizeof(WorldEntities) <= kOffCollisionRing);
+	static_assert(kOffWorldEntities + sizeof(WorldEntities) <= kOffHostDebug);
+
+	// ---- host debug @0x22000 (host -> MC, seqlock) --------------------------------------------
+	// (#7) what Minecraft's debug screen (F3) shows about the host.
+	struct HostDebug
+	{
+		std::uint32_t seq;
+	};
+	static_assert(sizeof(HostDebug) <= kHostDebugBytes);
+
+	// ---- weapon table @0x23000 (host -> MC, seqlock) ------------------------------------------
+	// (#12) the host's weapons the player owns, which Minecraft shows as items (McState::heldWeapon).
+	struct WeaponTable
+	{
+		std::uint32_t seq;
+	};
+	static_assert(sizeof(WeaponTable) <= kWeaponTableBytes);
+
+	// ---- mob table @0x24000 (MC -> host, seqlock) ---------------------------------------------
+	// (#13) Minecraft's mobs near the player, which the host's characters see and fight.
+	struct MobTable
+	{
+		std::uint32_t seq;
+	};
+	static_assert(sizeof(MobTable) <= kMobTableBytes);
+	static_assert(kOffHostDebug + kHostDebugBytes <= kOffWeaponTable);
+	static_assert(kOffWeaponTable + kWeaponTableBytes <= kOffMobTable);
+	static_assert(kOffMobTable + kMobTableBytes <= kOffCollisionRing);
 
 	// ---- render ring (MC -> host) ---------------------------------------------------------------
 	// Byte ring like the collision ring. Minecraft ships its own block meshes (built by Minecraft's
@@ -476,7 +537,7 @@ namespace halfcraft::proto
 	};
 	static_assert(sizeof(InputEvent) == 16);
 
-	// ---- collision ring @0x20000 (the host produces, MC consumes) ----------------------------
+	// ---- collision ring @0x40000 (the host produces, MC consumes) ----------------------------
 	// Byte ring. Every message starts 8-byte aligned with {u32 type, u32 payloadBytes}.
 	// A kColPad message means "skip to the start of the ring".
 	inline constexpr std::uint64_t kColRingHeadOff = 0x00;  // u64 total bytes written

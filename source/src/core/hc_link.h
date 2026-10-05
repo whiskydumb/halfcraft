@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <string_view>
 
 #include "halfcraft_protocol.h"
 
@@ -9,8 +10,10 @@
 // the mapping, minecraft opens it.
 //
 // client.dll and server.dll each map it. every region has exactly one writer and one reader:
-//   client.dll - header/heartbeat, host state, water grid, input ring, overlay, world entities, render ring
-//   server.dll - collision ring, actor table, event ring (it also reads the header and both states)
+//   client.dll - header/heartbeat, host state, water grid, input ring, overlay, world entities, render ring,
+//                host debug
+//   server.dll - collision ring, actor table, event ring, weapon table, mob table (it also reads the
+//                header and both states)
 // only client.dll resets the mapping (create()); server.dll just attaches (attach()), and only to
 // what it uses: in half-life 2's 32-bit process both dlls share 2 GB of address space, and the
 // overlay and the render ring (159 MB of the mapping's 191) are the client's alone.
@@ -49,6 +52,9 @@ namespace halfcraft
 
 		/// input ring, producer side. drops the event if minecraft is a whole ring behind.
 		void push_input(proto::InputType type, std::uint16_t code, std::int32_t a = 0, std::int32_t b = 0, std::int32_t c = 0);
+		/// a whole string for one of minecraft's string channels, in kInString pieces (input ring producer).
+		/// @return false, sending nothing, when the ring has no room for all of it
+		bool push_string(proto::StringChannel channel, std::string_view utf8);
 
 		/// collision ring, producer side (one thread only).
 		/// @return false when the ring is full

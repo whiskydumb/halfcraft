@@ -1,10 +1,10 @@
 """Read live HostState/McState and show the collision voxels under the player (read-only)."""
 import mmap, struct
 NAME = r"Local\HalfCraft_v1"
-OFF_COL = 0x20000
+OFF_COL = 0x40000
 COL_BYTES = 32 << 20
 DATA = COL_BYTES - 0x80
-m = mmap.mmap(-1, 0x20000 + COL_BYTES, tagname=NAME, access=mmap.ACCESS_READ)
+m = mmap.mmap(-1, OFF_COL + COL_BYTES, tagname=NAME, access=mmap.ACCESS_READ)
 sky = struct.unpack_from("<IIIIdddffIIIf", m, 0x100)
 mc = struct.unpack_from("<IIdddffffIIQfffIddd", m, 0x200)
 print("host flags=%#x world=%#x epoch=%d pos=(%.2f %.2f %.2f) yaw=%.1f pitch=%.1f tpseq=%d" % (sky[1], sky[2], sky[3], sky[4], sky[5], sky[6], sky[7], sky[8], sky[9]))
