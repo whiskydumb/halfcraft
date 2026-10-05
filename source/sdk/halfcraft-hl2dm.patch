@@ -72,7 +72,7 @@ index d9cfcd3f..e0e2dfc0 100644
  $Configuration
  {
 diff --git a/src/game/client/clientmode_shared.cpp b/src/game/client/clientmode_shared.cpp
-index 54933d24..a4e66484 100644
+index 54933d24..e6d59e7a 100644
 --- a/src/game/client/clientmode_shared.cpp
 +++ b/src/game/client/clientmode_shared.cpp
 @@ -67,6 +67,8 @@ extern ConVar replay_rendersetting_renderglow;
@@ -107,7 +107,16 @@ index 54933d24..a4e66484 100644
  	if( ::input->CAM_IsThirdPerson() )
  	{
  		const Vector& cam_ofs = g_ThirdPersonManager.GetCameraOffsetAngles();
-@@ -663,6 +672,10 @@ int	ClientModeShared::KeyInput( int down, ButtonCode_t keynum, const char *pszCu
+@@ -606,6 +615,8 @@ void ClientModeShared::PostRender()
+ 
+ void ClientModeShared::PostRenderVGui()
+ {
++	// halfcraft: the finished frame, for minecraft's screenshot key
++	halfcraft::client_post_render_vgui();
+ }
+ 
+ //-----------------------------------------------------------------------------
+@@ -663,6 +674,10 @@ int	ClientModeShared::KeyInput( int down, ButtonCode_t keynum, const char *pszCu
  {
  	if ( engine->Con_IsVisible() )
  		return 1;

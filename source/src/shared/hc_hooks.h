@@ -69,6 +69,10 @@ namespace halfcraft
 	/// CHudCredits::PrepareCredits: the search path id of the campaign being played, to read its
 	/// scripts/credits.txt from.
 	const char* client_campaign_path_id();
+
+	/// ClientModeShared::PostRenderVGui: the frame is finished (the world, the hud and minecraft's
+	/// overlay); only source's menus and console still go over it.
+	void client_post_render_vgui();
 #endif
 
 #ifdef GAME_DLL

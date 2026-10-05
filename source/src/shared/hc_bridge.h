@@ -75,4 +75,11 @@ namespace halfcraft
 	using StickArrowFn = void (*)(int entindex, const float hit[3], const float direction[3]);
 
 	inline constexpr char HC_STICK_ARROW_EXPORT[] = "HalfCraft_StickArrow";
+
+	/// server.dll -> client.dll: minecraft's screenshot key (proto::kEvScreenshot, an event the server
+	/// reads). the client reads the next finished frame back and answers on proto::kStrScreenshot.
+	/// @param request - minecraft's request number (proto::McEvent::actorId)
+	using RequestScreenshotFn = void (*)(std::uint32_t request);
+
+	inline constexpr char HC_REQUEST_SCREENSHOT_EXPORT[] = "HalfCraft_RequestScreenshot";
 }

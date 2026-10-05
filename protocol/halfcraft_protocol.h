@@ -212,7 +212,11 @@ namespace halfcraft::proto
 	enum StringChannel : std::uint16_t
 	{
 		kStrCommand = 1,     // (#11) run as the player, like a command typed into chat (without the '/')
-		kStrScreenshot = 2,  // (#6) the answer to Minecraft's kEvScreenshot
+		kStrScreenshot = 2,  // (#6) the answer to Minecraft's kEvScreenshot, or the host's own (request 0), as text:
+		                     //   "ok <request> <width> <height> <path>": the frame in a temporary file named
+		                     //   halfcraft-screenshot-*.rgb, width * height RGB8 pixels, top row first, nothing else;
+		                     //   Minecraft saves it as its own screenshot and deletes the file
+		                     //   "fail <request> <reason>": the host had no frame to give (loading, ...)
 	};
 	inline constexpr std::uint16_t kStringChannelMask = 0xFF;
 	inline constexpr std::uint16_t kStringBytesShift = 8;  // 4 bits: 0-12 bytes
@@ -288,7 +292,8 @@ namespace halfcraft::proto
 		kEvExplosion = 3,   // a Minecraft explosion (TNT, creeper, ...): a/b/c = centre (MC coords), d = radius (blocks)
 		kEvArrowStuck = 4,  // an arrow stuck in a host actor: actorId, a/b/c = where it hit (MC coords), d = flight yaw,
 		                    // flags = flight pitch (float bits), weapon = arrow texture (0 plain, 1 tipped, 2 spectral)
-		kEvScreenshot = 5,  // (#6) Minecraft's screenshot key: the host saves its own finished frame and answers on kStrScreenshot
+		kEvScreenshot = 5,  // (#6) Minecraft's screenshot key: actorId = Minecraft's request number (1+); the host saves its
+		                    // own finished frame (its world, its hud and Minecraft's overlay) and answers on kStrScreenshot
 		// 6-7: kept for #12 (the host's weapons), 8-9 for #13 (Minecraft's mobs)
 	};
 

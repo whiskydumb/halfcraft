@@ -38,6 +38,7 @@ $Project
 			$File	"$HALFCRAFTDIR\src\client\hc_input.cpp"
 			$File	"$HALFCRAFTDIR\src\client\hc_minecraft.cpp"
 			$File	"$HALFCRAFTDIR\src\client\hc_overlay.cpp"
+			$File	"$HALFCRAFTDIR\src\client\hc_screenshot.cpp"
 			$File	"$HALFCRAFTDIR\src\client\hc_light.h"
 			$File	"$HALFCRAFTDIR\src\client\hc_light.cpp"
 			$File	"$HALFCRAFTDIR\src\client\hc_mesh.h"

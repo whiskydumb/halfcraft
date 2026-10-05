@@ -51,7 +51,7 @@ public final class Proto {
 
 	// String channels (IN_STRING)
 	public static final int STR_COMMAND = 1; // (#11)
-	public static final int STR_SCREENSHOT = 2; // (#6)
+	public static final int STR_SCREENSHOT = 2; // (#6) "ok <request> <width> <height> <path>" or "fail <request> <reason>" (ScreenshotAnswer)
 	public static final int STRING_CHANNEL_MASK = 0xFF;
 	public static final int STRING_BYTES_SHIFT = 8;
 	public static final int STRING_END = 1 << 15;
@@ -85,7 +85,7 @@ public final class Proto {
 	public static final int EV_PLAYER_DIED = 2;
 	public static final int EV_EXPLOSION = 3;
 	public static final int EV_ARROW_STUCK = 4;
-	public static final int EV_SCREENSHOT = 5; // (#6)
+	public static final int EV_SCREENSHOT = 5; // (#6) actorId = the request number (1+)
 	// 6-7: kept for #12 (the host's weapons), 8-9 for #13 (Minecraft's mobs)
 	public static final int HIT_CRITICAL = 1;
 	public static final int HIT_PROJECTILE = 1 << 1;

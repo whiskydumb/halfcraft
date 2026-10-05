@@ -14,6 +14,8 @@
     "RenderSetupAccessor",
     "RenderTypeAccessor",
     "ScreenMixin",
+    "ScreenshotAccessor",
+    "ScreenshotMixin",
     "SpriteContentsAccessor",
     "TextureAtlasAccessor",
     "TextureBindingAccessor",

@@ -89,6 +89,20 @@ namespace halfcraft
 		{
 			return static_cast<std::uint32_t>(entity->GetRefEHandle().ToInt());
 		}
+
+		/// minecraft's screenshot key: client.dll draws the frames, so it reads one back (hc_bridge.h)
+		void request_screenshot(const proto::McEvent& event)
+		{
+			static RequestScreenshotFn request = nullptr;
+			if (!request) {
+				request = reinterpret_cast<RequestScreenshotFn>(find_export("client.dll", HC_REQUEST_SCREENSHOT_EXPORT));
+				if (!request) {
+					log_warning("minecraft asked for screenshot %u, but client.dll has no %s", event.actorId, HC_REQUEST_SCREENSHOT_EXPORT);
+					return;
+				}
+			}
+			request(event.actorId);
+		}
 	}
 
 	void Combat::update(Link& link, CBasePlayer* player, MapSlot slot, bool puppeted)
@@ -98,6 +112,9 @@ namespace halfcraft
 			// don't land later, but its death still counts
 			proto::McEvent event;
 			while (link.pop_event(event)) {
+				if (event.type == proto::kEvScreenshot) {
+					request_screenshot(event);  // a frame is a frame, whoever has the player
+				}
 				if (event.type == proto::kEvPlayerDied && player && player->IsAlive() && link.mc_alive()) {
 					g_killing_player = true;
 					player->TakeDamage(CTakeDamageInfo(GetWorldEntity(), GetWorldEntity(), player->GetHealth() + 100.0f, DMG_GENERIC));
@@ -133,6 +150,9 @@ namespace halfcraft
 				break;
 			case proto::kEvArrowStuck:
 				stick_arrow(event, slot);
+				break;
+			case proto::kEvScreenshot:
+				request_screenshot(event);
 				break;
 			default:
 				break;
