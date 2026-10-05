@@ -5,11 +5,13 @@
 
 #include "inputsystem/ButtonCode.h"
 
+class CBaseCombatWeapon;
 class CBasePlayer;
 class CTakeDamageInfo;
 class CUserCmd;
 class CViewSetup;
 class QAngle;
+class Vector;
 struct client_textmessage_t;
 
 namespace halfcraft
@@ -21,6 +23,8 @@ namespace halfcraft
 		HC_CMD_ON_GROUND = 1 << 1,  // minecraft's player stands on something
 		HC_CMD_LOW_POSE = 1 << 2,   // sneaking, crawling or swimming: source uses its ducked hull
 		HC_CMD_FORWARD = 1 << 3,    // minecraft's forward key is held (walking into a ladder mounts it)
+		HC_CMD_WEAPONS = 1 << 4,    // minecraft's hand picks the weapon: weaponselect is the one it holds, 0 puts it away
+		HC_CMD_VIEWMODEL = 1 << 5,  // minecraft holds the weapon source has out, seen through the player's eyes
 	};
 
 #ifdef CLIENT_DLL
@@ -44,6 +48,10 @@ namespace halfcraft
 
 	/// ClientModeShared::OverrideView: the camera sits where minecraft's player looks from.
 	void client_override_view(CViewSetup* setup);
+
+	/// CViewRender::SetUpView, after OverrideView: where the viewmodel is drawn from (hc_weapons.cpp).
+	/// @param origin, angles - the viewmodel's eye, source's own until set
+	void client_viewmodel_view(CViewSetup& view, Vector& origin, QAngle& angles);
 
 	/// CHLClient::HandleUiToggle (esc).
 	/// @return true when esc went to minecraft (closing its screen) instead of opening source's menu
@@ -84,5 +92,10 @@ namespace halfcraft
 	/// CBasePlayer::OnTakeDamage.
 	/// @return true when the hit went to minecraft's health instead (source must not apply it)
 	bool server_player_damage(CBasePlayer* player, const CTakeDamageInfo& info);
+
+	/// CBasePlayer::Weapon_Equip and BumpWeapon (a weapon picked up) and CHL2_Player::GiveAmmo (ammo
+	/// for a dry one), where source would take a weapon out by itself (hc_weapons.cpp).
+	/// @return true when minecraft's hand picks the player's weapon instead: that one stays away
+	bool server_minecraft_picks_weapon(CBasePlayer* player, CBaseCombatWeapon* weapon);
 #endif
 }

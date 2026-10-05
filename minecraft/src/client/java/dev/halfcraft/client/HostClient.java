@@ -374,6 +374,8 @@ public final class HostClient {
 			mc.health = player.getHealth();
 			mc.maxHealth = player.getMaxHealth();
 			mc.absorption = player.getAbsorptionAmount();
+			// Half-Life takes out the weapon this stands in for (0: none)
+			mc.heldWeapon = dev.halfcraft.weapon.HostWeapons.weaponId(player.getMainHandItem());
 			// Walk bob, exactly what GameRenderer.bobView() uses this frame.
 			var entityState = minecraft.gameRenderer.gameRenderState().levelRenderState.cameraRenderState.entityRenderState;
 			boolean bob = minecraft.options.bobView().get() && entityState.isPlayer;

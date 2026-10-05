@@ -19,6 +19,7 @@
 #include "client/hc_client.h"
 #include "shared/hc_floors.h"
 #include "client/hc_things.h"
+#include "client/hc_weapons.h"
 #include "core/hc_log.h"
 #include "shared/hc_hooks.h"
 
@@ -372,15 +373,16 @@ namespace halfcraft
 	{
 		cmd->hc_flags = 0;
 		auto& s = client_session();
+		weapon_create_move(s, cmd);
 		if (!s.minecraft_owns_player) {
 			return;
 		}
 		// minecraft moves the player; of source's own controls only "use" is left (G or source's +use
-		// key), and throwing or dropping what it carries
+		// key), throwing or dropping what it carries, and the half-life weapon minecraft holds
 		cmd->forwardmove = 0.0f;
 		cmd->sidemove = 0.0f;
 		cmd->upmove = 0.0f;
-		cmd->buttons = (s.use_held ? IN_USE : 0) | (s.attack_held ? IN_ATTACK : 0) | (s.attack2_held ? IN_ATTACK2 : 0);
+		cmd->buttons = (s.use_held ? IN_USE : 0) | weapon_buttons(s);
 		cmd->viewangles.Init(s.pitch, mc_yaw_to_source(s.yaw), 0.0f);
 		if (!s.puppeting || !s.pose_valid) {
 			return;  // arriving: the player stays where source put them
@@ -396,7 +398,7 @@ namespace halfcraft
 		cmd->hc_velocity.Init(static_cast<float>(s.mc.curX - s.mc.prevX) * units_per_second, static_cast<float>(-(s.mc.curZ - s.mc.prevZ)) * units_per_second,
 			static_cast<float>(s.mc.curY - s.mc.prevY) * units_per_second);
 
-		cmd->hc_flags = HC_CMD_PUPPET;
+		cmd->hc_flags |= HC_CMD_PUPPET;  // on top of weapon_create_move's
 		if (s.mc.flags & proto::kMcOnGround) {
 			cmd->hc_flags |= HC_CMD_ON_GROUND;
 		}
@@ -463,7 +465,7 @@ namespace halfcraft
 		setup->origin.Init(eye[0], eye[1], eye[2]);
 		setup->angles.Init(look_pitch + bob_pitch, view_yaw, bob_roll);
 		if (s.mc.fovDeg > 1.0f) {
-			setup->fov = mc_fov_to_source(s.mc.fovDeg);
+			setup->fov = weapon_zoom_fov(mc_fov_to_source(s.mc.fovDeg));
 		}
 	}
 }
@@ -502,6 +504,9 @@ extern "C" __declspec(dllexport) void HalfCraft_SetHolding(int holding)
 	if (session.holding && !holding) {
 		session.attack_held = false;  // thrown or dropped: the buttons go back to minecraft
 		session.attack2_held = false;
+	}
+	if (session.holding != (holding != 0)) {
+		halfcraft::log_info(holding ? "carrying a prop: the left mouse button throws it, the right one drops it" : "no longer carrying a prop");
 	}
 	session.holding = holding != 0;
 }

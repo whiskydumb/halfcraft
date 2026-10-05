@@ -70,6 +70,7 @@ Makefile         the tasks, wrapping tools/
 | Combat | NPCs and breakable props near the player become Minecraft's invisible stand-ins; Minecraft's hits come back as Half-Life damage (`hc_damage_to_npc`, default 3), Half-Life's hits on the player go to Minecraft's health (it divides by 5: 100 hp -> 20), Minecraft's death kills Gordon, TNT and creepers explode in Half-Life too (`hc_explosion_damage`), Minecraft's fire and lava set NPCs alight and magma stings them |
 | Mobs | Minecraft's mobs path over Half-Life's maps with Minecraft's own pathfinding, which reads the streamed collision: its floors, walls between cells and railings (mobs don't jump them); Half-Life's walls block their sight, its roofs keep undead from burning, pets teleport onto its floors, and mobs hold still while a level load restreams the ground under them. Monsters and your pets near the player get invisible `halfcraft_mob` stand-ins that Half-Life's characters see by their own relationships (monsters as zombies, pets as the player's allies): the Combine shoot monsters, which fight back, and a pet's bite is blamed on the pet |
 | Input | everything goes to Minecraft except the console, Esc (when no Minecraft screen is open), F6/F7/F9/F10, Source's use (G, or whatever key Half-Life's keyboard options bind to it) and V (flashlight). Carrying a prop picked up with use, the left mouse button throws it and the right one drops it; it's left out of Minecraft's collision meanwhile |
+| Weapons | Half-Life's weapons are Minecraft items, one per weapon the player owns: Source's inventory decides, so what it picks up appears in the hotbar and what a map takes away goes (saves too); the items can't be dropped or put into containers. Holding one takes the weapon out in Half-Life (anything else in the hand puts it away), and while it's out the mouse buttons fire and alt-fire it and R reloads it; Half-Life's viewmodel replaces Minecraft's hand in first person, and the item's bar, its tooltip and the action bar show the ammo |
 
 ## Build and run
 
@@ -111,7 +112,7 @@ Console variables: `hc_block_light` (block brightness in the map's light, defaul
 overbright), `hc_torch_light` / `hc_torch_light_count` (Minecraft's lights on the map),
 `hc_damage_to_npc`, `hc_explosion_damage`; for debugging `hc_debug_blocks 1` (outline the blocks'
 collision), `hc_debug_drop 1` (drop a watermelon onto the blocks), `hc_debug_use 1` (log what use
-finds), `hc_debug_torch` (a torch light where you look, without Minecraft), and the commands `hc_look <pitch> <yaw>`, `hc_click <1|2|3>` and `hc_scroll <notches>`. `make cmd C="'save test' 'load test'"`
+finds), `hc_debug_torch` (a torch light where you look, without Minecraft), and the commands `hc_look <pitch> <yaw>`, `hc_click <1|2|3>`, `hc_scroll <notches>`, `hc_press <key> <1|0> [seconds]` (a key or mouse button the way the real one goes, so a weapon held in Minecraft fires) and `hc_weapons` (the player's weapons as Minecraft gets them). `make cmd C="'save test' 'load test'"`
 sends console commands to the running game, and `python tools/read_dump.py <dump> <folder with the pdbs>`
 names where a crash dump died: `build/game-hl2/bin` for `hl2.exe`, `build/game-hl2dm/bin/x64` for
 `hl2mp_win64.exe` (Steam keeps the dumps in `Steam/dumps`).

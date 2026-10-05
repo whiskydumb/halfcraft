@@ -78,6 +78,7 @@ namespace halfcraft
 		bool holding = false;
 		bool attack_held = false;
 		bool attack2_held = false;
+		bool reload_held = false;  // R while minecraft holds a half-life weapon (hc_weapons.cpp)
 
 		// what server.dll has for the input ring this client owns: half-life's hits and heals on the
 		// player (hc_bridge.h)

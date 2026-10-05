@@ -10,6 +10,7 @@
 #include <cmath>
 
 #include "client/hc_client.h"
+#include "client/hc_weapons.h"
 #include "shared/hc_hooks.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -171,6 +172,7 @@ namespace halfcraft
 		session.forward_held = false;
 		session.attack_held = false;
 		session.attack2_held = false;
+		session.reload_held = false;
 		g_source_buttons = 0;
 		g_shift_down = false;
 		session.link.push_input(proto::kInReleaseAll, 0);
@@ -197,15 +199,21 @@ namespace halfcraft
 		}
 
 		if (const int button = sdl_button(code)) {
-			// carrying a prop: left throws it, right drops it (half-life's attack buttons)
+			// carrying a prop: left throws it, right drops it (half-life's attack buttons). holding a
+			// half-life weapon in minecraft: they fire it, and minecraft never breaks or places with it
 			const int bit = 1 << button;
-			const bool to_source = pressed ? (s.holding && !s.mc_screen_open && (button == 1 || button == 3)) : (g_source_buttons & bit) != 0;
+			const bool to_source = pressed ? ((s.holding || weapon_in_hand(s)) && !s.mc_screen_open && (button == 1 || button == 3))
+										   : (g_source_buttons & bit) != 0;
 			if (to_source) {
 				g_source_buttons = pressed ? (g_source_buttons | bit) : (g_source_buttons & ~bit);
 				(button == 1 ? s.attack_held : s.attack2_held) = pressed;
 				return false;
 			}
 			s.link.push_input(proto::kInMouseButton, static_cast<std::uint16_t>(button), pressed ? 1 : 0);
+			return false;
+		}
+		if (code == KEY_R && (pressed ? weapon_in_hand(s) && !s.mc_screen_open : s.reload_held)) {
+			s.reload_held = pressed;  // the half-life weapon minecraft holds reloads
 			return false;
 		}
 		if (code == MOUSE_WHEEL_UP || code == MOUSE_WHEEL_DOWN) {

@@ -210,6 +210,32 @@ index 8d503c26..2d47245a 100644
  		// Filter, etc. the delta values and place into mouse_x and mouse_y
  		GetMouseDelta( mx, my, &mouse_x, &mouse_y );
  
+diff --git a/src/game/client/view.cpp b/src/game/client/view.cpp
+index de0c0b07..bae40167 100644
+--- a/src/game/client/view.cpp
++++ b/src/game/client/view.cpp
+@@ -45,6 +45,7 @@
+ #include "ScreenSpaceEffects.h"
+ #include "sourcevr/isourcevirtualreality.h"
+ #include "client_virtualreality.h"
++#include "shared/hc_hooks.h"
+ 
+ #if defined( REPLAY_ENABLED )
+ #include "replay/ireplaysystem.h"
+@@ -728,6 +729,13 @@ void CViewRender::SetUpViews()
+ 	//Adjust the viewmodel's FOV to move with any FOV offsets on the viewer's end
+ 	viewEye.fovViewmodel = g_pClientMode->GetViewModelFOV() - flFOVOffset;
+ 
++	// halfcraft: the viewmodel follows minecraft's camera (its bob), not source's eye, and doesn't zoom
++	// with minecraft's field of view
++	if ( bCalcViewModelView )
++	{
++		halfcraft::client_viewmodel_view( viewEye, ViewModelOrigin, ViewModelAngles );
++	}
++
+ 	if ( UseVR() )
+ 	{
+ 		// Let the headtracking read the status of the HMD, etc.
 diff --git a/src/game/client/viewrender.cpp b/src/game/client/viewrender.cpp
 index b4011e28..cbc45f2c 100644
 --- a/src/game/client/viewrender.cpp
@@ -296,8 +322,31 @@ index a22dfc11..e8c2e539 100644
  	
  	CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
  
+diff --git a/src/game/server/hl2/hl2_player.cpp b/src/game/server/hl2/hl2_player.cpp
+index 7b2d595e..cbafb503 100644
+--- a/src/game/server/hl2/hl2_player.cpp
++++ b/src/game/server/hl2/hl2_player.cpp
+@@ -55,6 +55,8 @@
+ #include "portal_player.h"
+ #endif // PORTAL
+ 
++#include "shared/hc_hooks.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -2651,7 +2653,8 @@ int CHL2_Player::GiveAmmo( int nCount, int nAmmoIndex, bool bSuppressSound)
+ 	{
+ 		CBaseCombatWeapon *pWeapon = g_pGameRules->GetNextBestWeapon(this, GetActiveWeapon());
+ 
+-		if ( pWeapon && pWeapon->GetPrimaryAmmoType() == nAmmoIndex )
++		// halfcraft: minecraft's hand picks the weapon that's out, also when ammo for a dry one arrives
++		if ( pWeapon && pWeapon->GetPrimaryAmmoType() == nAmmoIndex && !halfcraft::server_minecraft_picks_weapon( this, pWeapon ) )
+ 		{
+ 			SwitchToNextBestWeapon(GetActiveWeapon());
+ 		}
 diff --git a/src/game/server/player.cpp b/src/game/server/player.cpp
-index 2c0fa74f..fc314f6a 100644
+index 2c0fa74f..ac06a0fa 100644
 --- a/src/game/server/player.cpp
 +++ b/src/game/server/player.cpp
 @@ -102,6 +102,8 @@ ConVar sv_chat_seconds_per_msg_tier2( "sv_chat_seconds_per_msg_tier2", "10", FCV
@@ -320,6 +369,30 @@ index 2c0fa74f..fc314f6a 100644
  	if ( m_debugOverlays & OVERLAY_BUDDHA_MODE ) 
  	{
  		if ((m_iHealth - info.GetDamage()) <= 0)
+@@ -6837,7 +6843,11 @@ bool CBasePlayer::BumpWeapon( CBaseCombatWeapon *pWeapon )
+ 					pWeapon->m_iClip1 = pWeapon->GetMaxClip1();
+ 				}
+ 
+-				Weapon_Switch( pWeapon );
++				// halfcraft: minecraft's hand picks the weapon that's out; a new one waits in its hotbar
++				if ( !halfcraft::server_minecraft_picks_weapon( this, pWeapon ) )
++				{
++					Weapon_Switch( pWeapon );
++				}
+ 			}
+ #endif
+ 		}
+@@ -7536,7 +7546,9 @@ void CBasePlayer::Weapon_Equip( CBaseCombatWeapon *pWeapon )
+ #endif//HL2_DLL
+ 
+ 	// should we switch to this item?
+-	if ( bShouldSwitch )
++	// halfcraft: minecraft's hand picks the weapon that's out, also when nothing is (the rules take
++	// any loaded gun then) or the new one is heavier
++	if ( bShouldSwitch && !halfcraft::server_minecraft_picks_weapon( this, pWeapon ) )
+ 	{
+ 		Weapon_Switch( pWeapon );
+ 	}
 diff --git a/src/game/server/server_episodic.vpc b/src/game/server/server_episodic.vpc
 index 0234b27f..89f64293 100644
 --- a/src/game/server/server_episodic.vpc

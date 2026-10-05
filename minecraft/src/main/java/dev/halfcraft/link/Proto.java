@@ -287,6 +287,36 @@ public final class Proto {
 
 	// Weapon table (relative to OFF_WEAPON_TABLE): (#12)
 	public static final long WT_SEQ = 0x00;
+	public static final long WT_FLAGS = 0x04;
+	public static final long WT_COUNT = 0x08;
+	public static final long WT_ACTIVE = 0x0C;
+	public static final long WT_RECORDS = 0x40;
+	public static final long WT_RECORD_BYTES = 32;
+	public static final int WT_MAX_WEAPONS = 48;
+	public static final int WT_LIVE = 1;
+	// WeaponRecord (relative to the record)
+	public static final long WT_R_ID = 0x00;
+	public static final long WT_R_CLIP = 0x04;
+	public static final long WT_R_MAX_CLIP = 0x08;
+	public static final long WT_R_AMMO = 0x0C;
+	public static final long WT_R_MAX_AMMO = 0x10;
+	public static final long WT_R_AMMO2 = 0x14;
+	public static final long WT_R_MAX_AMMO2 = 0x18;
+	public static final long WT_R_FLAGS = 0x1C;
+	public static final int WT_R_SUPERCHARGED = 1;
+	// WeaponId (WeaponRecord.id, WT_ACTIVE, MS_HELD_WEAPON)
+	public static final int HOST_WEAPON_NONE = 0;
+	public static final int HOST_WEAPON_CROWBAR = 1;
+	public static final int HOST_WEAPON_PHYSCANNON = 2;
+	public static final int HOST_WEAPON_PISTOL = 3;
+	public static final int HOST_WEAPON_357 = 4;
+	public static final int HOST_WEAPON_SMG1 = 5;
+	public static final int HOST_WEAPON_AR2 = 6;
+	public static final int HOST_WEAPON_SHOTGUN = 7;
+	public static final int HOST_WEAPON_CROSSBOW = 8;
+	public static final int HOST_WEAPON_FRAG = 9;
+	public static final int HOST_WEAPON_RPG = 10;
+	public static final int HOST_WEAPON_BUGBAIT = 11;
 
 	// Mob table (relative to OFF_MOB_TABLE): (#13)
 	public static final long MT_SEQ = 0x00;

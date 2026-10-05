@@ -24,6 +24,8 @@
     "TextureBindingAccessor",
     "TextureManagerAccessor",
     "WaitingForPlayerChunkMixin",
+    "WeaponHandMixin",
+    "WeaponInputMixin",
     "WindowMixin",
     "WorldOpenFlowsMixin"
   ],

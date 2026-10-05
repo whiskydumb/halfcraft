@@ -389,6 +389,32 @@ index b1af5b23..9944a73d 100644
  #endif
  #include "tier0/vprof.h"
  
+diff --git a/sp/src/game/client/view.cpp b/sp/src/game/client/view.cpp
+index 333a2756..ea6548a1 100644
+--- a/sp/src/game/client/view.cpp
++++ b/sp/src/game/client/view.cpp
+@@ -45,6 +45,7 @@
+ #include "ScreenSpaceEffects.h"
+ #include "sourcevr/isourcevirtualreality.h"
+ #include "client_virtualreality.h"
++#include "shared/hc_hooks.h"
+ 
+ #if defined( REPLAY_ENABLED )
+ #include "replay/ireplaysystem.h"
+@@ -738,6 +739,13 @@ void CViewRender::SetUpViews()
+ 	//Adjust the viewmodel's FOV to move with any FOV offsets on the viewer's end
+ 	view.fovViewmodel = g_pClientMode->GetViewModelFOV() - flFOVOffset;
+ 
++	// halfcraft: the viewmodel follows minecraft's camera (its bob), not source's eye, and doesn't zoom
++	// with minecraft's field of view
++	if ( bCalcViewModelView )
++	{
++		halfcraft::client_viewmodel_view( view, ViewModelOrigin, ViewModelAngles );
++	}
++
+ 	if ( UseVR() )
+ 	{
+ 		// Let the headtracking read the status of the HMD, etc.
 diff --git a/sp/src/game/client/viewrender.cpp b/sp/src/game/client/viewrender.cpp
 index a629071b..d18dc104 100644
 --- a/sp/src/game/client/viewrender.cpp
@@ -490,6 +516,29 @@ index 5b7cb1f1..8890e398 100644
  			{
  				// Check to see if we are done with the action sequence.
  				if ( m_hCine->FinishedActionSequence( this ) )
+diff --git a/sp/src/game/server/hl2/hl2_player.cpp b/sp/src/game/server/hl2/hl2_player.cpp
+index e7583f5a..528df6b0 100644
+--- a/sp/src/game/server/hl2/hl2_player.cpp
++++ b/sp/src/game/server/hl2/hl2_player.cpp
+@@ -55,6 +55,8 @@
+ #include "portal_player.h"
+ #endif // PORTAL
+ 
++#include "shared/hc_hooks.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -2616,7 +2618,8 @@ int CHL2_Player::GiveAmmo( int nCount, int nAmmoIndex, bool bSuppressSound)
+ 	{
+ 		CBaseCombatWeapon *pWeapon = g_pGameRules->GetNextBestWeapon(this, GetActiveWeapon());
+ 
+-		if ( pWeapon && pWeapon->GetPrimaryAmmoType() == nAmmoIndex )
++		// halfcraft: minecraft's hand picks the weapon that's out, also when ammo for a dry one arrives
++		if ( pWeapon && pWeapon->GetPrimaryAmmoType() == nAmmoIndex && !halfcraft::server_minecraft_picks_weapon( this, pWeapon ) )
+ 		{
+ 			SwitchToNextBestWeapon(GetActiveWeapon());
+ 		}
 diff --git a/sp/src/game/server/hl2/weapon_physcannon.cpp b/sp/src/game/server/hl2/weapon_physcannon.cpp
 index 7e49b7f4..0e597bf9 100644
 --- a/sp/src/game/server/hl2/weapon_physcannon.cpp
@@ -577,7 +626,7 @@ index b0b2d867..326321ac 100644
  #pragma warning(disable:4244)
  #elif POSIX
 diff --git a/sp/src/game/server/player.cpp b/sp/src/game/server/player.cpp
-index 0538f90a..b99ca3cb 100644
+index 0538f90a..6e2426ec 100644
 --- a/sp/src/game/server/player.cpp
 +++ b/sp/src/game/server/player.cpp
 @@ -97,6 +97,8 @@ ConVar sv_bonus_challenge( "sv_bonus_challenge", "0", FCVAR_REPLICATED, "Set to
@@ -600,6 +649,30 @@ index 0538f90a..b99ca3cb 100644
  	if ( m_debugOverlays & OVERLAY_BUDDHA_MODE ) 
  	{
  		if ((m_iHealth - info.GetDamage()) <= 0)
+@@ -6640,7 +6646,11 @@ bool CBasePlayer::BumpWeapon( CBaseCombatWeapon *pWeapon )
+ 					pWeapon->m_iClip1 = pWeapon->GetMaxClip1();
+ 				}
+ 
+-				Weapon_Switch( pWeapon );
++				// halfcraft: minecraft's hand picks the weapon that's out; a new one waits in its hotbar
++				if ( !halfcraft::server_minecraft_picks_weapon( this, pWeapon ) )
++				{
++					Weapon_Switch( pWeapon );
++				}
+ 			}
+ #endif
+ 		}
+@@ -7339,7 +7349,9 @@ void CBasePlayer::Weapon_Equip( CBaseCombatWeapon *pWeapon )
+ #endif//HL2_DLL
+ 
+ 	// should we switch to this item?
+-	if ( bShouldSwitch )
++	// halfcraft: minecraft's hand picks the weapon that's out, also when nothing is (the rules take
++	// any loaded gun then) or the new one is heavier
++	if ( bShouldSwitch && !halfcraft::server_minecraft_picks_weapon( this, pWeapon ) )
+ 	{
+ 		Weapon_Switch( pWeapon );
+ 	}
 diff --git a/sp/src/game/server/server_episodic.vpc b/sp/src/game/server/server_episodic.vpc
 index 81c9297b..405a59ef 100644
 --- a/sp/src/game/server/server_episodic.vpc

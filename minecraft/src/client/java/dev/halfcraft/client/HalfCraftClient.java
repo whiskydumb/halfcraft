@@ -20,5 +20,6 @@ public final class HalfCraftClient implements ClientModInitializer {
 		// triangle collider, never Half-Life's voxels; otherwise the server sees the smooth position
 		// dip into a voxel and teleports the player back every few ticks.
 		dev.halfcraft.world.HostCollision.setSmoothCollider(e -> e instanceof net.minecraft.world.entity.player.Player && HostClient.linked());
+		WeaponHud.init();
 	}
 }

@@ -249,10 +249,14 @@ public final class Rollback {
 
 	private static CompoundTag savePlayer(ServerPlayer player) {
 		TagValueOutput out = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, player.registryAccess());
+		// Half-Life's weapons are Half-Life's to save: its own load brings them back. Out of the
+		// armour and the offhand too, where one can sit until the next tick puts it back
+		var standIns = dev.halfcraft.weapon.HostWeapons.takeOut(player.getInventory());
 		player.getInventory().save(out.list("inventory", ItemStackWithSlot.CODEC));
 		for (EquipmentSlot slot : WORN) {
 			out.store(slot.getName(), ItemStack.OPTIONAL_CODEC, player.getItemBySlot(slot));
 		}
+		dev.halfcraft.weapon.HostWeapons.putBack(player.getInventory(), standIns);
 		out.putFloat("health", player.getHealth());
 		out.putFloat("absorption", player.getAbsorptionAmount());
 		player.getFoodData().addAdditionalSaveData(out.child("food"));
@@ -265,10 +269,14 @@ public final class Rollback {
 
 	private static void loadPlayer(ServerPlayer player, CompoundTag tag) {
 		ValueInput in = TagValueInput.create(ProblemReporter.DISCARDING, player.registryAccess(), tag);
+		// Half-Life's weapons stay as they are (an older checkpoint may still hold some: those go)
+		var standIns = dev.halfcraft.weapon.HostWeapons.takeOut(player.getInventory());
 		player.getInventory().load(in.listOrEmpty("inventory", ItemStackWithSlot.CODEC));
 		for (EquipmentSlot slot : WORN) {
 			player.setItemSlot(slot, in.read(slot.getName(), ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY));
 		}
+		dev.halfcraft.weapon.HostWeapons.takeOut(player.getInventory());
+		dev.halfcraft.weapon.HostWeapons.putBack(player.getInventory(), standIns);
 		player.setHealth(in.getFloatOr("health", player.getMaxHealth()));
 		player.setAbsorptionAmount(in.getFloatOr("absorption", 0.0F));
 		player.getFoodData().readAdditionalSaveData(in.childOrEmpty("food"));

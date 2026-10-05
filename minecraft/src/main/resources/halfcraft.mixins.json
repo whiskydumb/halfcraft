@@ -28,7 +28,9 @@
     "ProjectileUtilMixin",
     "ServerExplosionMixin",
     "ServerPlayerMixin",
-    "WalkNodeEvaluatorMixin"
+    "WalkNodeEvaluatorMixin",
+    "WeaponDropMixin",
+    "WeaponSlotMixin"
   ],
   "injectors": { "defaultRequire": 1 }
 }

@@ -429,10 +429,61 @@ namespace halfcraft::proto
 
 	// ---- weapon table @0x23000 (host -> MC, seqlock) ------------------------------------------
 	// (#12) the host's weapons the player owns, which Minecraft shows as items (McState::heldWeapon).
+	// The host's inventory is the authority: Minecraft adds the items it lacks and removes the ones
+	// the host no longer lists, and the host's player has out whichever weapon Minecraft's hand holds.
+
+	// Which weapon (Half-Life 2 and its episodes give the player these; Minecraft has one item each).
+	enum WeaponId : std::uint32_t
+	{
+		kHostWeaponNone = 0,
+		kHostWeaponCrowbar = 1,     // weapon_crowbar
+		kHostWeaponPhyscannon = 2,  // weapon_physcannon (the gravity gun, also supercharged)
+		kHostWeaponPistol = 3,      // weapon_pistol
+		kHostWeapon357 = 4,         // weapon_357
+		kHostWeaponSmg1 = 5,        // weapon_smg1
+		kHostWeaponAr2 = 6,         // weapon_ar2
+		kHostWeaponShotgun = 7,     // weapon_shotgun
+		kHostWeaponCrossbow = 8,    // weapon_crossbow
+		kHostWeaponFrag = 9,        // weapon_frag
+		kHostWeaponRpg = 10,        // weapon_rpg
+		kHostWeaponBugbait = 11,    // weapon_bugbait
+	};
+
+	enum WeaponTableFlags : std::uint32_t
+	{
+		kWeaponTableLive = 1u << 0,  // the host's player is in a map and alive: the list is its inventory
+	};
+
+	enum WeaponRecordFlags : std::uint32_t
+	{
+		kWeaponRecordSupercharged = 1u << 0,  // the gravity gun, supercharged (the Citadel)
+	};
+
+	inline constexpr std::uint32_t kMaxHostWeapons = 48;  // Source's MAX_WEAPONS
+
+	struct WeaponRecord
+	{
+		std::uint32_t id;        // WeaponId
+		std::int32_t  clip;      // rounds in the clip; -1: no clip (it fires from the reserve, or uses no ammo)
+		std::int32_t  maxClip;   // the clip's size; -1: no clip
+		std::int32_t  ammo;      // primary rounds in reserve; -1: it uses no ammo (crowbar, gravity gun)
+		std::int32_t  maxAmmo;   // the most primary rounds the player can carry
+		std::int32_t  ammo2;     // secondary rounds (SMG grenades, AR2 balls); -1: none
+		std::int32_t  maxAmmo2;
+		std::uint32_t flags;     // WeaponRecordFlags
+	};
+	static_assert(sizeof(WeaponRecord) == 32);
+
 	struct WeaponTable
 	{
 		std::uint32_t seq;
+		std::uint32_t flags;   // WeaponTableFlags
+		std::uint32_t count;
+		std::uint32_t active;  // WeaponId the host's player has out right now (0: none)
+		std::uint8_t  pad[0x40 - 16];
+		WeaponRecord  weapons[kMaxHostWeapons];
 	};
+	static_assert(sizeof(WeaponTable) == 0x40 + sizeof(WeaponRecord) * kMaxHostWeapons);
 	static_assert(sizeof(WeaponTable) <= kWeaponTableBytes);
 
 	// ---- mob table @0x24000 (MC -> host, seqlock) ---------------------------------------------

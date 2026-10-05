@@ -358,6 +358,18 @@ namespace halfcraft
 		seq.store(s + 2, std::memory_order_release);
 	}
 
+	void Link::write_weapons(const proto::WeaponTable& table)
+	{
+		if (base_) {
+			seqlock_write(at<proto::WeaponTable>(proto::kOffWeaponTable), table);
+		}
+	}
+
+	bool Link::read_weapons(proto::WeaponTable& out) const
+	{
+		return base_ && seqlock_read(at<proto::WeaponTable>(proto::kOffWeaponTable), out, 64);
+	}
+
 	bool Link::pop_event(proto::McEvent& out)
 	{
 		if (!base_) {

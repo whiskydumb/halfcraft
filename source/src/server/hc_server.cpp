@@ -21,6 +21,7 @@
 #include "server/hc_hazards.h"
 #include "server/hc_mobs.h"
 #include "server/hc_vitals.h"
+#include "server/hc_weapons.h"
 #include "server/hc_world_collision.h"
 #include "shared/hc_bridge.h"
 #include "shared/hc_floors.h"
@@ -103,6 +104,7 @@ namespace halfcraft
 			std::unique_ptr<CollisionStreamer> streamer_;
 			WorldCollision                     world_;
 			BlockSolids                        solids_;
+			Weapons                            weapons_;
 			Combat                             combat_;
 			Mobs                               mobs_;
 			DebugTarget                        debug_target_;
@@ -128,6 +130,7 @@ namespace halfcraft
 				update_hud(player, minecraft_owns_health());
 				update_use(player);
 			}
+			weapons_.update(link_, player, minecraft_owns_health());
 			combat_.update(link_, player, slot_, puppeted && link_.mc_alive());
 			mobs_.update(link_, slot_);
 			vitals_.update(link_, player);
@@ -171,17 +174,16 @@ namespace halfcraft
 
 		void HalfCraftServerSystem::update_hud(CBasePlayer* player, bool hide)
 		{
-			// the player's own flags, not a copy of them: a save brings back whatever it was saved with
-			const bool hidden = (player->m_Local.m_iHideHUD & HIDDEN_HUD) == HIDDEN_HUD && !player->m_Local.m_bDrawViewmodel;
+			// the player's own flags, not a copy of them: a save brings back whatever it was saved with.
+			// the viewmodel is the weapons' (hc_weapons.cpp)
+			const bool hidden = (player->m_Local.m_iHideHUD & HIDDEN_HUD) == HIDDEN_HUD;
 			if (hide == hidden) {
 				return;
 			}
 			if (hide) {
 				player->m_Local.m_iHideHUD |= HIDDEN_HUD;
-				player->ShowViewModel(false);
 			} else {
 				player->m_Local.m_iHideHUD &= ~HIDDEN_HUD;
-				player->ShowViewModel(true);
 			}
 		}
 	}

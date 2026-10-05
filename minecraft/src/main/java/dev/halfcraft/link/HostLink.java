@@ -331,6 +331,7 @@ public final class HostLink {
 		public float health;
 		public float maxHealth;
 		public float absorption;
+		public int heldWeapon;
 	}
 
 	public static void writeMcState(McState st) {
@@ -378,6 +379,7 @@ public final class HostLink {
 		s.set(JAVA_FLOAT, b + MS_HEALTH, st.health);
 		s.set(JAVA_FLOAT, b + MS_MAX_HEALTH, st.maxHealth);
 		s.set(JAVA_FLOAT, b + MS_ABSORPTION, st.absorption);
+		s.set(JAVA_INT, b + MS_HELD_WEAPON, st.heldWeapon);
 		INT.setRelease(s, b + MS_SEQ, seq + 2);
 	}
 

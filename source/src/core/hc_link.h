@@ -74,6 +74,11 @@ namespace halfcraft
 		bool write_collision(proto::ColType type, const void* payload, std::uint32_t bytes);
 
 		void write_actors(const proto::ActorRecord* records, std::uint32_t count);
+		/// (#12) the player's weapons minecraft shows as items.
+		void write_weapons(const proto::WeaponTable& table);
+		/// (#12) the weapon table as server.dll wrote it. client.dll reads it as well as minecraft: it
+		/// holds the weapon source really has out, where the client's own is predicted.
+		bool read_weapons(proto::WeaponTable& out) const;
 		/// event ring, consumer side.
 		/// @return false when there is nothing to pop
 		bool pop_event(proto::McEvent& out);
