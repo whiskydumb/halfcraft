@@ -3,13 +3,15 @@ HalfCraft {VERSION}
 
 Half-Life 2, played with Minecraft. Real Minecraft runs hidden and does your physics, inventory,
 blocks and combat; Half-Life 2 runs its world, NPCs and story around you. Build on its maps, fight
-the Combine with a diamond sword, light City 17 with torches.
+the Combine with a diamond sword, light City 17 with torches. Episode One and Episode Two are in
+too: their chapters follow Half-Life 2's in New Game.
 
 
 YOU NEED
 
 - Windows 10 or 11, 64-bit
-- Steam, with Half-Life 2 installed
+- Steam, with Half-Life 2 installed, and its two episodes for their chapters (they come with
+  Half-Life 2; HalfCraft.exe offers to install them if Steam hasn't)
 - optional: Half-Life 2: Deathmatch. HalfCraft can run on its engine too, which is 64-bit and can
   use more memory than Half-Life 2's own 32-bit one
 - a Microsoft account that owns Minecraft: Java Edition

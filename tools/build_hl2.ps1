@@ -68,10 +68,10 @@ function Build-Hl2dm {
 	Push-Location (Get-SdkSource "source-sdk-2013\src" "hl2dm")
 	try {
 		if (-not $NoProjects) {
-			& .\devtools\bin\vpc.exe /hl2 /define:SOURCESDK +game /mksln games_hl2.sln
+			& .\devtools\bin\vpc.exe /episodic /define:SOURCESDK +game /mksln games_episodic.sln
 			if ($LASTEXITCODE -ne 0) { throw "vpc failed ($LASTEXITCODE)" }
 		}
-		Invoke-MSBuild games_hl2.sln win64
+		Invoke-MSBuild games_episodic.sln win64
 	} finally {
 		Pop-Location
 	}
@@ -85,7 +85,7 @@ function Build-Hl2 {
 	Push-Location (Get-SdkSource "source-sdk-2013-sp\sp\src" "hl2")
 	try {
 		if (-not $NoProjects) {
-			& .\devtools\bin\vpc.exe /hl2 +game /f
+			& .\devtools\bin\vpc.exe /episodic +game /f
 			if ($LASTEXITCODE -ne 0) { throw "vpc failed ($LASTEXITCODE)" }
 		}
 		# every configuration of these writes the same tracked file, sp\src\lib\public\<name>.lib, and
@@ -103,7 +103,7 @@ function Build-Hl2 {
 		}
 		New-Item -ItemType Directory (Split-Path $stamp) -Force | Out-Null
 		Set-Content $stamp $Configuration -Encoding ascii
-		foreach ($project in @("game\client\client_hl2.vcxproj", "game\server\server_hl2.vcxproj")) {
+		foreach ($project in @("game\client\client_episodic.vcxproj", "game\server\server_episodic.vcxproj")) {
 			Invoke-MSBuild $project Win32
 		}
 	} finally {

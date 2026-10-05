@@ -50,6 +50,9 @@ namespace
 	};
 	constexpr SteamApp HALF_LIFE_2{ 220, L"Half-Life 2" };
 	constexpr SteamApp DEATHMATCH{ 320, L"Half-Life 2: Deathmatch" };
+	// they come with half-life 2 and install into its folder; their chapters need them
+	constexpr SteamApp EPISODES[]{ { 380, L"Half-Life 2: Episode One" }, { 420, L"Half-Life 2: Episode Two" } };
+	constexpr wchar_t  SETTINGS_EPISODES_DECLINED[] = L"episodes_declined";
 
 	/// a source engine halfcraft runs on. the release has a mod folder for each: game-<id>.
 	struct Engine
@@ -364,6 +367,31 @@ namespace
 		return chosen;
 	}
 
+	/// offers steam's install of the episodes it hasn't installed: half-life 2's chapters play without them,
+	/// theirs don't. a player who says no isn't asked again (HalfCraft.ini).
+	void offer_episodes(const std::vector<fs::path>& libraries, const fs::path& settings)
+	{
+		std::wstring     names;
+		std::vector<int> missing;
+		for (const auto& episode : EPISODES) {
+			if (app_dir(libraries, episode).empty()) {
+				names += L"\n" + std::wstring(episode.name);
+				missing.push_back(episode.id);
+			}
+		}
+		if (missing.empty() || ::GetPrivateProfileIntW(SETTINGS_SECTION, SETTINGS_EPISODES_DECLINED, 0, settings.c_str()) != 0) {
+			return;
+		}
+		if (ask(L"Steam hasn't installed:" + names + L"\n\nThey come with Half-Life 2. Their chapters won't load without them; "
+				L"Half-Life 2's will.\n\nOpen Steam to install them?")) {
+			for (const int id : missing) {
+				::ShellExecuteW(nullptr, L"open", (L"steam://install/" + std::to_wstring(id)).c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+			}
+		} else {
+			::WritePrivateProfileStringW(SETTINGS_SECTION, SETTINGS_EPISODES_DECLINED, L"1", settings.c_str());
+		}
+	}
+
 	int run()
 	{
 		// read first thing: the player lets go of shift once HalfCraft has started
@@ -390,6 +418,7 @@ namespace
 			}
 			return 1;
 		}
+		offer_episodes(libraries, here / SETTINGS_FILE);
 		// source allows one game at a time, whichever engine runs it
 		for (const auto& running : ENGINES) {
 			if (process_running(running.exe)) {

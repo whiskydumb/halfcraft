@@ -16,12 +16,19 @@ $patches = @{
 	hl2   = @{ Tree = "source-sdk-2013-sp"; Paths = @("sp/src") + $rebuiltLibs }
 }
 
+# git diff into a file. --output keeps the bytes as git writes them (a powershell redirect would re-encode
+# them); git's line-ending notes on stderr would stop this script under "Stop" (windows powershell turns
+# them into errors), so they're switched off and the call runs with "Continue"
+function Write-TreeDiff([string]$tree, [string]$patch, [string[]]$paths) {
+	$ErrorActionPreference = "Continue"
+	git -C $tree -c core.safecrlf=false diff --binary "--output=$patch" -- @($paths)
+	$LASTEXITCODE -eq 0
+}
+
 foreach ($e in $(if ($Engine -eq "all") { @("hl2", "hl2dm") } else { @($Engine) })) {
 	$tree = Join-Path $repo $patches[$e].Tree
 	$patch = Join-Path $repo "source\sdk\halfcraft-$e.patch"
-	# --output keeps the bytes as git writes them (a powershell redirect would re-encode them)
-	git -C $tree diff --binary "--output=$patch" -- @($patches[$e].Paths)
-	if ($LASTEXITCODE -ne 0) { throw "git diff in $tree failed" }
+	if (-not (Write-TreeDiff $tree $patch $patches[$e].Paths)) { throw "git diff in $tree failed" }
 	$files = (Select-String -Path $patch -Pattern '^diff --git' | Measure-Object).Count
 	Write-Host "$patch ($files files)"
 }

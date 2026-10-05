@@ -12,7 +12,7 @@ index 8f40d7ef..43b0befc 100644
  #endif
  
 diff --git a/sp/src/game/client/cdll_client_int.cpp b/sp/src/game/client/cdll_client_int.cpp
-index 10cce078..d92482fc 100644
+index 10cce078..484ca7cf 100644
 --- a/sp/src/game/client/cdll_client_int.cpp
 +++ b/sp/src/game/client/cdll_client_int.cpp
 @@ -169,6 +169,8 @@ extern vgui::IInputInternal *g_InputInternal;
@@ -35,6 +35,137 @@ index 10cce078..d92482fc 100644
  #if defined( REPLAY_ENABLED )
  	if ( !g_pEngineReplay || !g_pEngineReplay->IsSupportedModAndPlatform() )
  		return false;
+@@ -2545,6 +2551,43 @@ void CHLClient::FileReceived( const char * fileName, unsigned int transferID )
+ 	}
+ }
+ 
++// halfcraft: valve's later sdk declares this in public/soundstartparams.h; this tree only forward-declares
++// it (cdll_int.h). half-life 2's x86 engine (engine.dll of 2024-12-09) builds exactly this layout for every
++// sound the server sends (CL_DispatchSound), hands it to slot 74 of VClient017 and plays it as the client
++// left it
++class CSfxTable;
++
++struct StartSoundParams_t
++{
++	bool			staticsound;
++	int				userdata;
++	int				soundsource;
++	int				entchannel;
++	CSfxTable		*pSfx;
++	Vector			origin;
++	Vector			direction;
++	bool			bUpdatePositions;
++	float			fvol;
++	soundlevel_t	soundlevel;
++	int				flags;
++	int				pitch;
++	int				specialdsp;
++	bool			fromserver;
++	float			delay;
++	int				speakerentity;
++	bool			suppressrecording;
++	int				initialStreamPosition;
++};
++
++#if defined( _WIN32 ) && !defined( _WIN64 )
++COMPILE_TIME_ASSERT( sizeof( StartSoundParams_t ) == 0x58 );
++COMPILE_TIME_ASSERT( offsetof( StartSoundParams_t, soundsource ) == 0x08 );
++COMPILE_TIME_ASSERT( offsetof( StartSoundParams_t, entchannel ) == 0x0C );
++COMPILE_TIME_ASSERT( offsetof( StartSoundParams_t, pSfx ) == 0x10 );
++COMPILE_TIME_ASSERT( offsetof( StartSoundParams_t, flags ) == 0x38 );
++COMPILE_TIME_ASSERT( offsetof( StartSoundParams_t, fromserver ) == 0x44 );
++#endif
++
+ void CHLClient::ClientAdjustStartSoundParams( StartSoundParams_t& params )
+ {
+ #ifdef TF_CLIENT_DLL
+@@ -2584,6 +2627,50 @@ void CHLClient::ClientAdjustStartSoundParams( StartSoundParams_t& params )
+ 			}
+ 		}
+ 	}
++#else
++	// halfcraft, from hl2dm-sp (7dd90969, 6ce1019e): half-life 2's engine frees a channel when the next
++	// sound on the same entity and channel starts, so a scene's overlapping lines on the player cut each
++	// other off. each delayed voice sound of the player gets a channel of its own; its stop and change
++	// messages follow it there. hl2dm-sp patches its x64 engine instead where it can; this tree's x86
++	// engine keeps the workaround
++	if ( gpGlobals->maxClients == 1 && params.fromserver && params.entchannel == CHAN_VOICE &&
++		 params.pSfx && params.soundsource == engine->GetLocalPlayer() )
++	{
++		// Sounds whose latest start went to their own channel; stop/change messages follow them there.
++		static CUtlRBTree< const CSfxTable * > s_LayeredSounds( 0, 0, DefLessFunc( const CSfxTable * ) );
++
++		int iLayered = s_LayeredSounds.Find( params.pSfx );
++		bool bLayer;
++		if ( params.flags & SND_STOP )
++		{
++			bLayer = ( iLayered != s_LayeredSounds.InvalidIndex() );
++			if ( bLayer )
++				s_LayeredSounds.RemoveAt( iLayered );
++		}
++		else if ( params.flags & SND_DELAY )
++		{
++			// A scene start, possibly with SND_CHANGE_PITCH (which starts the sound if none matches).
++			bLayer = true;
++			s_LayeredSounds.InsertIfNotFound( params.pSfx );
++		}
++		else if ( params.flags & ( SND_CHANGE_VOL | SND_CHANGE_PITCH ) )
++		{
++			bLayer = ( iLayered != s_LayeredSounds.InvalidIndex() );
++		}
++		else
++		{
++			// An ordinary start plays on CHAN_VOICE, so its later messages must stay there too.
++			bLayer = false;
++			if ( iLayered != s_LayeredSounds.InvalidIndex() )
++				s_LayeredSounds.RemoveAt( iLayered );
++		}
++
++		if ( bLayer )
++		{
++			unsigned int nHash = (unsigned int)( ( (uint64)(uintp)params.pSfx * 0x9E3779B97F4A7C15ull ) >> 54 );	// 10 bits
++			params.entchannel = CHAN_USER_BASE + (int)nHash;
++		}
++	}
+ #endif
+ }
+ 
+diff --git a/sp/src/game/client/cdll_util.cpp b/sp/src/game/client/cdll_util.cpp
+index 4e877530..011c190a 100644
+--- a/sp/src/game/client/cdll_util.cpp
++++ b/sp/src/game/client/cdll_util.cpp
+@@ -28,6 +28,8 @@
+ #include "view.h"
+ #include "ixboxsystem.h"
+ 
++#include "shared/hc_hooks.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 																						
+@@ -228,6 +230,9 @@ void InterpolateVector( float frac, const Vector& src, const Vector& dest, Vecto
+ 
+ client_textmessage_t *TextMessageGet( const char *pName )
+ { 
++	// halfcraft: the titles.txt of the campaign being played comes first
++	if ( client_textmessage_t *pCampaignMessage = halfcraft::client_text_message( pName ) )
++		return pCampaignMessage;
+ 	return engine->TextMessageGet( pName );
+ }
+ 
+diff --git a/sp/src/game/client/client_episodic.vpc b/sp/src/game/client/client_episodic.vpc
+index 5c89d940..8bc05a0f 100644
+--- a/sp/src/game/client/client_episodic.vpc
++++ b/sp/src/game/client/client_episodic.vpc
+@@ -9,6 +9,8 @@ $Macro GAMENAME 	"episodic" [!$SOURCESDK]
+ $Macro GAMENAME 	"mod_episodic" [$SOURCESDK]
+ 
+ $Include "$SRCDIR\game\client\client_base.vpc"
++$Macro HALFCRAFTROOT "$SRCDIR\..\..\.."
++$Include "$HALFCRAFTROOT\source\halfcraft_client.vpc"
+ 
+ $Configuration
+ {
 diff --git a/sp/src/game/client/client_hl2.vpc b/sp/src/game/client/client_hl2.vpc
 index db44981b..035e9b08 100644
 --- a/sp/src/game/client/client_hl2.vpc
@@ -126,6 +257,30 @@ index c37e7650..6f40b39d 100644
  		view->UpdateShadowDepthTexture( m_DummyColorTexture, shadowDepthTexture, shadowView );
  
  		// Associate the shadow depth texture and stencil bit with the flashlight for use during scene rendering
+diff --git a/sp/src/game/client/hl2/hud_credits.cpp b/sp/src/game/client/hl2/hud_credits.cpp
+index 8021c49a..e27d4a31 100644
+--- a/sp/src/game/client/hl2/hud_credits.cpp
++++ b/sp/src/game/client/hl2/hud_credits.cpp
+@@ -18,6 +18,8 @@
+ #include "KeyValues.h"
+ #include "filesystem.h"
+ 
++#include "shared/hc_hooks.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -141,7 +143,9 @@ void CHudCredits::PrepareCredits( const char *pKeyName )
+ 	Clear();
+ 
+ 	KeyValues *pKV= new KeyValues( "CreditsFile" );
+-	if ( !pKV->LoadFromFile( filesystem, CREDITS_FILE, "MOD" ) )
++	// halfcraft: the credits of the campaign being played, else the game folder's
++	if ( !pKV->LoadFromFile( filesystem, CREDITS_FILE, halfcraft::client_campaign_path_id() ) &&
++		 !pKV->LoadFromFile( filesystem, CREDITS_FILE, "MOD" ) )
+ 	{
+ 		pKV->deleteThis();
+ 
 diff --git a/sp/src/game/client/hud_pdump.cpp b/sp/src/game/client/hud_pdump.cpp
 index 612a18d7..666c8888 100644
 --- a/sp/src/game/client/hud_pdump.cpp
@@ -140,7 +295,7 @@ index 612a18d7..666c8888 100644
  #endif
  
 diff --git a/sp/src/game/client/in_mouse.cpp b/sp/src/game/client/in_mouse.cpp
-index bcf715a1..d5ca41dd 100644
+index bcf715a1..c379e7c9 100644
 --- a/sp/src/game/client/in_mouse.cpp
 +++ b/sp/src/game/client/in_mouse.cpp
 @@ -34,6 +34,8 @@
@@ -152,7 +307,39 @@ index bcf715a1..d5ca41dd 100644
  #include "tier0/memdbgon.h"
  
  // up / down
-@@ -670,6 +672,14 @@ void CInput::MouseMove( CUserCmd *cmd )
+@@ -102,7 +104,30 @@ static ConVar m_mousespeed( "m_mousespeed", "1", FCVAR_ARCHIVE, "Windows mouse a
+ static ConVar m_mouseaccel1( "m_mouseaccel1", "0", FCVAR_ARCHIVE, "Windows mouse acceleration initial threshold (2x movement).", true, 0, false, 0.0f );
+ static ConVar m_mouseaccel2( "m_mouseaccel2", "0", FCVAR_ARCHIVE, "Windows mouse acceleration secondary threshold (4x movement).", true, 0, false, 0.0f );
+ 
+-static ConVar m_rawinput( "m_rawinput", "0", FCVAR_ARCHIVE, "Use Raw Input for mouse input.");
++// halfcraft: raw input by default, as in hl2dm-sp: minecraft's look takes the mouse's own counts,
++// without windows' pointer speed and acceleration on them. this engine writes every archived cvar to
++// config.cfg, the old default "0" included, so it is set once over that too (hl2dm-sp's reset)
++static ConVar m_rawinput( "m_rawinput", "1", FCVAR_ARCHIVE, "Use Raw Input for mouse input.");
++static ConVar m_rawinput_onetime_reset( "m_rawinput_onetime_reset", "0", FCVAR_ARCHIVE | FCVAR_HIDDEN );
++
++class CRawInputConvarOnetimeReset : public CAutoGameSystem
++{
++public:
++	CRawInputConvarOnetimeReset( char const *pszName )
++		: CAutoGameSystem( pszName )
++	{
++	}
++
++	virtual void PostInit() OVERRIDE
++	{
++		if ( !m_rawinput_onetime_reset.GetBool() )
++		{
++			m_rawinput.SetValue( "1" );
++			m_rawinput_onetime_reset.SetValue( "1" );
++		}
++	}
++};
++CRawInputConvarOnetimeReset g_RawInputConvarOnetimeReset( "CRawInputConvarOnetimeReset" );
+ 
+ #if DEBUG
+ ConVar cl_mouselook( "cl_mouselook", "1", FCVAR_ARCHIVE, "Set to 1 to use mouse for look, 0 for keyboard look." );
+@@ -670,6 +695,14 @@ void CInput::MouseMove( CUserCmd *cmd )
  		// Latch accumulated mouse movements and reset accumulators
  		GetAccumulatedMouseDeltasAndResetAccumulators( &mx, &my );
  
@@ -261,6 +448,112 @@ index a629071b..d18dc104 100644
  
  	m_DrawFlags = 0;
  
+diff --git a/sp/src/game/server/EnvMessage.cpp b/sp/src/game/server/EnvMessage.cpp
+index a22dfc11..e8c2e539 100644
+--- a/sp/src/game/server/EnvMessage.cpp
++++ b/sp/src/game/server/EnvMessage.cpp
+@@ -217,7 +217,12 @@ void CCredits::OnRestore()
+ 
+ void CCredits::RollOutroCredits()
+ {
+-	sv_unlockedchapters.SetValue( "15" );
++	// halfcraft: valve.rc unlocks the chapters of all three campaigns (16-26 are the episodes'); a
++	// campaign's end only ever unlocks half-life 2's
++	if ( sv_unlockedchapters.GetInt() < 15 )
++	{
++		sv_unlockedchapters.SetValue( "15" );
++	}
+ 	
+ 	CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
+ 
+diff --git a/sp/src/game/server/ai_basenpc_schedule.cpp b/sp/src/game/server/ai_basenpc_schedule.cpp
+index 5b7cb1f1..8890e398 100644
+--- a/sp/src/game/server/ai_basenpc_schedule.cpp
++++ b/sp/src/game/server/ai_basenpc_schedule.cpp
+@@ -3924,7 +3924,9 @@ void CAI_BaseNPC::RunTask( const Task_t *pTask )
+ 			//
+ 			AutoMovement( );
+ 
+-			if ( IsSequenceFinished() )
++			// halfcraft, from hl2dm-sp (d50f5305): a single-frame pose has no cycle to advance, so it
++			// never finishes; it mustn't hold up the script's handoff
++			if ( IsSequenceFinished() || SequenceDuration() == 0.0f )
+ 			{
+ 				// Check to see if we are done with the action sequence.
+ 				if ( m_hCine->FinishedActionSequence( this ) )
+diff --git a/sp/src/game/server/hl2/weapon_physcannon.cpp b/sp/src/game/server/hl2/weapon_physcannon.cpp
+index 7e49b7f4..0e597bf9 100644
+--- a/sp/src/game/server/hl2/weapon_physcannon.cpp
++++ b/sp/src/game/server/hl2/weapon_physcannon.cpp
+@@ -2773,16 +2773,42 @@ bool CGrabController::UpdateObject( CBasePlayer *pPlayer, float flError )
+ 	
+ 	
+ 	// Now clamp a sphere of object radius at end to the player's bbox
+-	Vector radial = physcollision->CollideGetExtent( pPhys->GetCollide(), vec3_origin, pEntity->GetAbsAngles(), -forward );
++	// halfcraft, from hl2dm-sp (2f677374, f156ea87): CollideGetExtent is the support point from the
++	// collide's own origin, not a half-extent: for a model whose origin sits at one end it's 0, and the
++	// prop was held too close. measured from its box's centre instead; spheres (combine balls) have no
++	// collide, only a radius
++	float objectRadius = pPhys->GetSphereRadius();
++	const CPhysCollide *pCollide = pPhys->GetCollide();
++	if ( pCollide )
++	{
++		Vector radial = physcollision->CollideGetExtent( pCollide, vec3_origin, pEntity->GetAbsAngles(), -forward );
++		Vector vecMins, vecMaxs;
++		physcollision->CollideGetAABB( &vecMins, &vecMaxs, pCollide, vec3_origin, pEntity->GetAbsAngles() );
++		objectRadius = fabs( DotProduct( forward, radial - ( vecMins + vecMaxs ) * 0.5f ) );
++	}
+ 	Vector player2d = pPlayer->CollisionProp()->OBBMaxs();
+ 	float playerRadius = player2d.Length2D();
+-	float radius = playerRadius + fabs(DotProduct( forward, radial ));
++	float radius = playerRadius + objectRadius;
+ 
+ 	float distance = 24 + ( radius * 2.0f );
+ 
+ 	// Add the prop's distance offset
+ 	distance += m_flDistanceOffset;
+ 
++	// Report if it's naughty.
++	float flMinDistance = 24 + radius;
++	if ( distance < flMinDistance )
++	{
++		static float s_flNextHoldLog = 0;
++		if ( gpGlobals->curtime >= s_flNextHoldLog )
++		{
++			s_flNextHoldLog = gpGlobals->curtime + 1.0f;
++			DevMsg( "Held %s: hold distance %.1f floored to %.1f (offset %.1f)\n",
++				pEntity->GetClassname(), distance, flMinDistance, m_flDistanceOffset );
++		}
++		distance = flMinDistance;
++	}
++
+ 	Vector start = pPlayer->Weapon_ShootPosition();
+ 	Vector end = start + ( forward * distance );
+ 
+@@ -2803,7 +2829,10 @@ bool CGrabController::UpdateObject( CBasePlayer *pPlayer, float flError )
+ 	Vector playerMins, playerMaxs, nearest;
+ 	pPlayer->CollisionProp()->WorldSpaceAABB( &playerMins, &playerMaxs );
+ 	Vector playerLine = pPlayer->CollisionProp()->WorldSpaceCenter();
+-	CalcClosestPointOnLine( end, playerLine+Vector(0,0,playerMins.z), playerLine+Vector(0,0,playerMaxs.z), nearest, NULL );
++	// halfcraft, from hl2dm-sp (2f677374): WorldSpaceAABB is absolute, so adding it to the centre put the
++	// line ever further off as the player stood higher in the map
++	CalcClosestPointOnLine( end, Vector( playerLine.x, playerLine.y, playerMins.z ),
++		Vector( playerLine.x, playerLine.y, playerMaxs.z ), nearest, NULL );
+ 
+ 	if( !m_bAllowObjectOverhead )
+ 	{
+@@ -2811,6 +2840,11 @@ bool CGrabController::UpdateObject( CBasePlayer *pPlayer, float flError )
+ 		float len = VectorNormalize(delta);
+ 		if ( len < radius )
+ 		{
++			if ( len < 0.001f )
++			{
++				// Looking straight up or down leaves no direction to push along.
++				AngleVectors( QAngle( 0, pPlayer->EyeAngles().y, 0 ), &delta, NULL, NULL );
++			}
+ 			end = nearest + radius * delta;
+ 		}
+ 	}
 diff --git a/sp/src/game/server/physics_main.cpp b/sp/src/game/server/physics_main.cpp
 index b0b2d867..326321ac 100644
 --- a/sp/src/game/server/physics_main.cpp
@@ -298,6 +591,19 @@ index 0538f90a..b99ca3cb 100644
  	if ( m_debugOverlays & OVERLAY_BUDDHA_MODE ) 
  	{
  		if ((m_iHealth - info.GetDamage()) <= 0)
+diff --git a/sp/src/game/server/server_episodic.vpc b/sp/src/game/server/server_episodic.vpc
+index 81c9297b..405a59ef 100644
+--- a/sp/src/game/server/server_episodic.vpc
++++ b/sp/src/game/server/server_episodic.vpc
+@@ -9,6 +9,8 @@ $Macro GAMENAME 	"episodic" [!$SOURCESDK]
+ $Macro GAMENAME 	"mod_episodic" [$SOURCESDK]
+ 
+ $Include "$SRCDIR\game\server\server_base.vpc"
++$Macro HALFCRAFTROOT "$SRCDIR\..\..\.."
++$Include "$HALFCRAFTROOT\source\halfcraft_server.vpc"
+ 
+ $Configuration
+ {
 diff --git a/sp/src/game/server/server_hl2.vpc b/sp/src/game/server/server_hl2.vpc
 index 0fc2e64b..f2885746 100644
 --- a/sp/src/game/server/server_hl2.vpc
@@ -311,6 +617,36 @@ index 0fc2e64b..f2885746 100644
  
  $Configuration
  {
+diff --git a/sp/src/game/shared/achievement_saverestore.cpp b/sp/src/game/shared/achievement_saverestore.cpp
+index b9de1e2d..48b53035 100644
+--- a/sp/src/game/shared/achievement_saverestore.cpp
++++ b/sp/src/game/shared/achievement_saverestore.cpp
+@@ -119,7 +119,8 @@ public:
+ 				int iAchievementID = pRestore->ReadShort();
+ 				// find the corresponding achievement object
+ 				CBaseAchievement *pAchievement = pAchievementMgr->GetAchievementByID( iAchievementID );				
+-				Assert( pAchievement );		// It's a bug if we don't understand this achievement
++				// halfcraft, from hl2dm-sp (f4c6eb3a): none are registered (achievementmgr.cpp), so a save
++				// that still carries some is expected; its data is read past below
+ 				if ( pAchievement )
+ 				{
+ 					// read achievement data
+diff --git a/sp/src/game/shared/achievementmgr.cpp b/sp/src/game/shared/achievementmgr.cpp
+index ffc95d46..92f38548 100644
+--- a/sp/src/game/shared/achievementmgr.cpp
++++ b/sp/src/game/shared/achievementmgr.cpp
+@@ -352,7 +352,10 @@ void CAchievementMgr::PostInit()
+ 	// get current game dir
+ 	const char *pGameDir = COM_GetModDirectory();
+ 
+-	CBaseAchievementHelper *pAchievementHelper = CBaseAchievementHelper::s_pFirst;
++	// halfcraft, from hl2dm-sp (f4c6eb3a): these are the retail games' achievements, and this game runs
++	// as half-life 2 (steam app 220) with minecraft playing it: a mod mustn't award them, so none are
++	// registered (half-life 2's own have no game folder filter that would leave them out)
++	CBaseAchievementHelper *pAchievementHelper = NULL;
+ 	while ( pAchievementHelper )
+ 	{
+ 		// create and initialize all achievements and insert them in our map
 diff --git a/sp/src/game/shared/gamemovement.cpp b/sp/src/game/shared/gamemovement.cpp
 index 8de6fc32..270242b9 100644
 --- a/sp/src/game/shared/gamemovement.cpp
@@ -340,6 +676,40 @@ index 79c83fc1..182f9090 100644
  	virtual void	CheckParameters( void );
  
  	virtual	void	ReduceTimers( void );
+diff --git a/sp/src/game/shared/hl2/hl2_gamerules.cpp b/sp/src/game/shared/hl2/hl2_gamerules.cpp
+index bdd5abec..b3b5fe4c 100644
+--- a/sp/src/game/shared/hl2/hl2_gamerules.cpp
++++ b/sp/src/game/shared/hl2/hl2_gamerules.cpp
+@@ -181,6 +181,16 @@ ConVar	sk_max_gauss_round		( "sk_max_gauss_round", "0", FCVAR_REPLICATED );
+ ConVar	sk_npc_dmg_gunship			( "sk_npc_dmg_gunship", "0", FCVAR_REPLICATED );
+ ConVar	sk_npc_dmg_gunship_to_plr	( "sk_npc_dmg_gunship_to_plr", "0", FCVAR_REPLICATED );
+ 
++// halfcraft: the strider minigun as cvars, as valve's current dlls have it (the tale below): one episodic
++// dll runs half-life 2 (15 to npcs, skill_manifest.cfg) and the episodes (5, skill_ep1.cfg, skill_ep2.cfg)
++ConVar	sk_npc_dmg_strider_to_plr	( "sk_npc_dmg_strider_to_plr", "5", FCVAR_REPLICATED );
++#ifdef HL2_EPISODIC
++ConVar	sk_npc_dmg_strider			( "sk_npc_dmg_strider", "5", FCVAR_REPLICATED );
++#else
++ConVar	sk_npc_dmg_strider			( "sk_npc_dmg_strider", "15", FCVAR_REPLICATED );
++#endif//HL2_EPISODIC
++ConVar	sk_max_strider				( "sk_max_strider", "15", FCVAR_REPLICATED );
++
+ //-----------------------------------------------------------------------------
+ // Purpose: 
+ // Input  : iDmgType - 
+@@ -1856,11 +1866,7 @@ CAmmoDef *GetAmmoDef()
+ 		// now that the AmmoDef code is behaving correctly.
+ 		//
+ 		//=====================================================================
+-#ifdef HL2_EPISODIC
+-		def.AddAmmoType("StriderMinigun",	DMG_BULLET,					TRACER_LINE,			5, 5, 15, 1.0 * 750 * 12, AMMO_FORCE_DROP_IF_CARRIED ); // hit like a 1.0kg weight at 750 ft/s
+-#else
+-		def.AddAmmoType("StriderMinigun",	DMG_BULLET,					TRACER_LINE,			5, 15,15, 1.0 * 750 * 12, AMMO_FORCE_DROP_IF_CARRIED ); // hit like a 1.0kg weight at 750 ft/s
+-#endif//HL2_EPISODIC
++		def.AddAmmoType("StriderMinigun",	DMG_BULLET,					TRACER_LINE,			"sk_npc_dmg_strider_to_plr", "sk_npc_dmg_strider", "sk_max_strider", 1.0 * 750 * 12, AMMO_FORCE_DROP_IF_CARRIED ); // hit like a 1.0kg weight at 750 ft/s
+ 
+ 		def.AddAmmoType("StriderMinigunDirect",	DMG_BULLET,				TRACER_LINE,			2, 2, 15, 1.0 * 750 * 12, AMMO_FORCE_DROP_IF_CARRIED ); // hit like a 1.0kg weight at 750 ft/s
+ 		def.AddAmmoType("HelicopterGun",	DMG_BULLET,					TRACER_LINE_AND_WHIZ,	"sk_npc_dmg_helicopter_to_plr", "sk_npc_dmg_helicopter",	"sk_max_smg1",	BULLET_IMPULSE(400, 1225), AMMO_FORCE_DROP_IF_CARRIED | AMMO_INTERPRET_PLRDAMAGE_AS_DAMAGE_TO_PLAYER );
 diff --git a/sp/src/game/shared/usercmd.cpp b/sp/src/game/shared/usercmd.cpp
 index 84ffa243..0e0d20f4 100644
 --- a/sp/src/game/shared/usercmd.cpp

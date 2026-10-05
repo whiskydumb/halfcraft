@@ -22,6 +22,42 @@ index 41f2d0e0..57ed651b 100644
  #if defined( REPLAY_ENABLED )
  	if ( !g_pEngineReplay || !g_pEngineReplay->IsSupportedModAndPlatform() )
  		return false;
+diff --git a/src/game/client/cdll_util.cpp b/src/game/client/cdll_util.cpp
+index c003acd4..5d289fe8 100644
+--- a/src/game/client/cdll_util.cpp
++++ b/src/game/client/cdll_util.cpp
+@@ -29,6 +29,8 @@
+ #include "ixboxsystem.h"
+ #include "inputsystem/iinputsystem.h"
+ 
++#include "shared/hc_hooks.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 																						
+@@ -239,6 +241,9 @@ void InterpolateVector( float frac, const Vector& src, const Vector& dest, Vecto
+ 
+ client_textmessage_t *TextMessageGet( const char *pName )
+ { 
++	// halfcraft: the titles.txt of the campaign being played comes first
++	if ( client_textmessage_t *pCampaignMessage = halfcraft::client_text_message( pName ) )
++		return pCampaignMessage;
+ 	return engine->TextMessageGet( pName );
+ }
+ 
+diff --git a/src/game/client/client_episodic.vpc b/src/game/client/client_episodic.vpc
+index d0db976b..24c01c64 100644
+--- a/src/game/client/client_episodic.vpc
++++ b/src/game/client/client_episodic.vpc
+@@ -9,6 +9,8 @@ $Macro GAMENAME 	"episodic" [!$SOURCESDK]
+ $Macro GAMENAME 	"mod_ep1" [$SOURCESDK]
+ 
+ $Include "$SRCDIR\game\client\client_base.vpc"
++$Macro HALFCRAFTROOT "$SRCDIR\..\.."
++$Include "$HALFCRAFTROOT\source\halfcraft_client.vpc"
+ 
+ $Configuration
+ {
 diff --git a/src/game/client/client_hl2.vpc b/src/game/client/client_hl2.vpc
 index d9cfcd3f..e0e2dfc0 100644
 --- a/src/game/client/client_hl2.vpc
@@ -113,6 +149,30 @@ index 8daa9f65..a9d8beba 100644
  		view->UpdateShadowDepthTexture( m_DummyColorTexture, shadowDepthTexture, shadowView );
  
  		// Associate the shadow depth texture and stencil bit with the flashlight for use during scene rendering
+diff --git a/src/game/client/hl2/hud_credits.cpp b/src/game/client/hl2/hud_credits.cpp
+index 6ad1488b..139908a1 100644
+--- a/src/game/client/hl2/hud_credits.cpp
++++ b/src/game/client/hl2/hud_credits.cpp
+@@ -18,6 +18,8 @@
+ #include "KeyValues.h"
+ #include "filesystem.h"
+ 
++#include "shared/hc_hooks.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -141,7 +143,9 @@ void CHudCredits::PrepareCredits( const char *pKeyName )
+ 	Clear();
+ 
+ 	KeyValues *pKV= new KeyValues( "CreditsFile" );
+-	if ( !pKV->LoadFromFile( filesystem, CREDITS_FILE, "MOD" ) )
++	// halfcraft: the credits of the campaign being played, else the game folder's
++	if ( !pKV->LoadFromFile( filesystem, CREDITS_FILE, halfcraft::client_campaign_path_id() ) &&
++		 !pKV->LoadFromFile( filesystem, CREDITS_FILE, "MOD" ) )
+ 	{
+ 		pKV->deleteThis();
+ 
 diff --git a/src/game/client/in_mouse.cpp b/src/game/client/in_mouse.cpp
 index 8d503c26..2d47245a 100644
 --- a/src/game/client/in_mouse.cpp
@@ -209,6 +269,24 @@ index b4011e28..cbc45f2c 100644
  
  	m_DrawFlags = 0;
  
+diff --git a/src/game/server/EnvMessage.cpp b/src/game/server/EnvMessage.cpp
+index a22dfc11..e8c2e539 100644
+--- a/src/game/server/EnvMessage.cpp
++++ b/src/game/server/EnvMessage.cpp
+@@ -217,7 +217,12 @@ void CCredits::OnRestore()
+ 
+ void CCredits::RollOutroCredits()
+ {
+-	sv_unlockedchapters.SetValue( "15" );
++	// halfcraft: valve.rc unlocks the chapters of all three campaigns (16-26 are the episodes'); a
++	// campaign's end only ever unlocks half-life 2's
++	if ( sv_unlockedchapters.GetInt() < 15 )
++	{
++		sv_unlockedchapters.SetValue( "15" );
++	}
+ 	
+ 	CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
+ 
 diff --git a/src/game/server/player.cpp b/src/game/server/player.cpp
 index 2c0fa74f..fc314f6a 100644
 --- a/src/game/server/player.cpp
@@ -233,6 +311,19 @@ index 2c0fa74f..fc314f6a 100644
  	if ( m_debugOverlays & OVERLAY_BUDDHA_MODE ) 
  	{
  		if ((m_iHealth - info.GetDamage()) <= 0)
+diff --git a/src/game/server/server_episodic.vpc b/src/game/server/server_episodic.vpc
+index 0234b27f..89f64293 100644
+--- a/src/game/server/server_episodic.vpc
++++ b/src/game/server/server_episodic.vpc
+@@ -9,6 +9,8 @@ $Macro GAMENAME 	"episodic" [!$SOURCESDK]
+ $Macro GAMENAME 	"mod_ep1" [$SOURCESDK]
+ 
+ $Include "$SRCDIR\game\server\server_base.vpc"
++$Macro HALFCRAFTROOT "$SRCDIR\..\.."
++$Include "$HALFCRAFTROOT\source\halfcraft_server.vpc"
+ 
+ $Configuration
+ {
 diff --git a/src/game/server/server_hl2.vpc b/src/game/server/server_hl2.vpc
 index 0fc2e64b..78139395 100644
 --- a/src/game/server/server_hl2.vpc
@@ -275,6 +366,40 @@ index 8c9b7d9a..262b7988 100644
  	virtual void	CheckParameters( void );
  
  	virtual	void	ReduceTimers( void );
+diff --git a/src/game/shared/hl2/hl2_gamerules.cpp b/src/game/shared/hl2/hl2_gamerules.cpp
+index f301bbf3..7c4d784e 100644
+--- a/src/game/shared/hl2/hl2_gamerules.cpp
++++ b/src/game/shared/hl2/hl2_gamerules.cpp
+@@ -181,6 +181,16 @@ ConVar	sk_max_gauss_round		( "sk_max_gauss_round", "0", FCVAR_REPLICATED );
+ ConVar	sk_npc_dmg_gunship			( "sk_npc_dmg_gunship", "0", FCVAR_REPLICATED );
+ ConVar	sk_npc_dmg_gunship_to_plr	( "sk_npc_dmg_gunship_to_plr", "0", FCVAR_REPLICATED );
+ 
++// halfcraft: the strider minigun as cvars, as valve's current dlls have it (the tale below): one episodic
++// dll runs half-life 2 (15 to npcs, skill_manifest.cfg) and the episodes (5, skill_ep1.cfg, skill_ep2.cfg)
++ConVar	sk_npc_dmg_strider_to_plr	( "sk_npc_dmg_strider_to_plr", "5", FCVAR_REPLICATED );
++#ifdef HL2_EPISODIC
++ConVar	sk_npc_dmg_strider			( "sk_npc_dmg_strider", "5", FCVAR_REPLICATED );
++#else
++ConVar	sk_npc_dmg_strider			( "sk_npc_dmg_strider", "15", FCVAR_REPLICATED );
++#endif//HL2_EPISODIC
++ConVar	sk_max_strider				( "sk_max_strider", "15", FCVAR_REPLICATED );
++
+ //-----------------------------------------------------------------------------
+ // Purpose: 
+ // Input  : iDmgType - 
+@@ -1862,11 +1872,7 @@ CAmmoDef *GetAmmoDef()
+ 		// now that the AmmoDef code is behaving correctly.
+ 		//
+ 		//=====================================================================
+-#ifdef HL2_EPISODIC
+-		def.AddAmmoType("StriderMinigun",	DMG_BULLET,					TRACER_LINE,			5, 5, 15, 1.0 * 750 * 12, AMMO_FORCE_DROP_IF_CARRIED ); // hit like a 1.0kg weight at 750 ft/s
+-#else
+-		def.AddAmmoType("StriderMinigun",	DMG_BULLET,					TRACER_LINE,			5, 15,15, 1.0 * 750 * 12, AMMO_FORCE_DROP_IF_CARRIED ); // hit like a 1.0kg weight at 750 ft/s
+-#endif//HL2_EPISODIC
++		def.AddAmmoType("StriderMinigun",	DMG_BULLET,					TRACER_LINE,			"sk_npc_dmg_strider_to_plr", "sk_npc_dmg_strider", "sk_max_strider", 1.0 * 750 * 12, AMMO_FORCE_DROP_IF_CARRIED ); // hit like a 1.0kg weight at 750 ft/s
+ 
+ 		def.AddAmmoType("StriderMinigunDirect",	DMG_BULLET,				TRACER_LINE,			2, 2, 15, 1.0 * 750 * 12, AMMO_FORCE_DROP_IF_CARRIED ); // hit like a 1.0kg weight at 750 ft/s
+ 		def.AddAmmoType("HelicopterGun",	DMG_BULLET,					TRACER_LINE_AND_WHIZ,	"sk_npc_dmg_helicopter_to_plr", "sk_npc_dmg_helicopter",	"sk_max_smg1",	BULLET_IMPULSE(400, 1225), AMMO_FORCE_DROP_IF_CARRIED | AMMO_INTERPRET_PLRDAMAGE_AS_DAMAGE_TO_PLAYER );
 diff --git a/src/game/shared/usercmd.cpp b/src/game/shared/usercmd.cpp
 index 84ffa243..0e0d20f4 100644
 --- a/src/game/shared/usercmd.cpp

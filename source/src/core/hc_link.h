@@ -9,9 +9,11 @@
 // the mapping, minecraft opens it.
 //
 // client.dll and server.dll each map it. every region has exactly one writer and one reader:
-//   client.dll - header/heartbeat, host state, input ring, overlay, world entities, render ring
-//   server.dll - collision ring, actor table, event ring, water grid
-// only client.dll resets the mapping (create()); server.dll just attaches (attach()).
+//   client.dll - header/heartbeat, host state, water grid, input ring, overlay, world entities, render ring
+//   server.dll - collision ring, actor table, event ring (it also reads the header and both states)
+// only client.dll resets the mapping (create()); server.dll just attaches (attach()), and only to
+// what it uses: in half-life 2's 32-bit process both dlls share 2 GB of address space, and the
+// overlay and the render ring (159 MB of the mapping's 191) are the client's alone.
 
 namespace halfcraft
 {
@@ -27,7 +29,8 @@ namespace halfcraft
 		/// creates (or reuses) the mapping and resets every region the host owns. client.dll only.
 		/// @return true when the mapping is usable
 		bool create();
-		/// maps the same memory without resetting anything. server.dll only.
+		/// maps the same memory without resetting anything, up to the end of the collision ring: the
+		/// overlay and the render ring stay unmapped. server.dll only.
 		/// @return true when the mapping is usable
 		bool attach();
 		[[nodiscard]] bool valid() const { return base_ != nullptr; }
@@ -70,15 +73,19 @@ namespace halfcraft
 		[[nodiscard]] const proto::OverlaySlotHdr* front_header() const;
 
 	private:
-		bool map(bool reset);
+		/// @param view_bytes - how much of the mapping, from its start, this process maps
+		bool map(bool reset, std::uint64_t view_bytes);
 		/// a ring minecraft writes: our consumer index catches up with its producer index.
 		void skip_pending(std::uint64_t head_offset, std::uint64_t tail_offset);
+		/// the view reaches up to end (server.dll's stops before the overlay).
+		[[nodiscard]] bool maps(std::uint64_t end) const { return base_ && end <= view_bytes_; }
 
 		template <class T>
 		T* at(std::uint64_t offset) const { return reinterpret_cast<T*>(base_ + offset); }
 
 		void*         mapping_{ nullptr };
 		std::uint8_t* base_{ nullptr };
+		std::uint64_t view_bytes_{ 0 };
 		std::uint32_t overlay_front_{ 2 };
 	};
 }

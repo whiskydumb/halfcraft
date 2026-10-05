@@ -23,6 +23,15 @@ namespace halfcraft
 	{
 		constexpr std::uint64_t MC_TIMEOUT_MS = 3000;
 
+		// server.dll's view of the mapping: from the start up to the end of the collision ring, the
+		// last region it uses. 32 MB instead of the 191 MB client.dll maps in the same process
+		constexpr std::uint64_t SERVER_VIEW_BYTES = proto::kOffCollisionRing + proto::kCollisionRingBytes;
+		static_assert(proto::kOffMcState + sizeof(proto::McState) <= SERVER_VIEW_BYTES, "server.dll reads minecraft's state");
+		static_assert(proto::kOffActorTable + sizeof(proto::ActorTable) <= SERVER_VIEW_BYTES, "server.dll writes the actor table");
+		static_assert(proto::kOffEventRing + proto::kEventRingDataOff + sizeof(proto::McEvent) * proto::kEventRingEntries <= SERVER_VIEW_BYTES,
+			"server.dll reads the event ring");
+		static_assert(SERVER_VIEW_BYTES <= proto::kOffOverlayPixels, "the overlay and the render ring are client.dll's");
+
 		// who may open the mapping: this windows user (plus system and administrators) at normal
 		// integrity. said explicitly because a game run as administrator would otherwise make it
 		// administrators-only, and minecraft (never elevated) could not open it. free with LocalFree.
@@ -95,15 +104,15 @@ namespace halfcraft
 
 	bool Link::create()
 	{
-		return map(true);
+		return map(true, proto::kMappingBytes);
 	}
 
 	bool Link::attach()
 	{
-		return map(false);
+		return map(false, SERVER_VIEW_BYTES);
 	}
 
-	bool Link::map(bool reset)
+	bool Link::map(bool reset, std::uint64_t view_bytes)
 	{
 		if (base_) {
 			return true;
@@ -121,15 +130,19 @@ namespace halfcraft
 			return false;
 		}
 		const bool existed = created == ERROR_ALREADY_EXISTS;
-		base_ = static_cast<std::uint8_t*>(::MapViewOfFile(mapping_, FILE_MAP_ALL_ACCESS, 0, 0, 0));
+		// the mapping is always created whole (minecraft maps all of it); the view is what this
+		// process pays for in address space
+		base_ = static_cast<std::uint8_t*>(::MapViewOfFile(mapping_, FILE_MAP_ALL_ACCESS, 0, 0, static_cast<SIZE_T>(view_bytes)));
 		if (!base_) {
-			log_error("MapViewOfFile failed (%lu)", ::GetLastError());
+			log_error("MapViewOfFile of %llu MB failed (%lu)", static_cast<unsigned long long>(view_bytes >> 20), ::GetLastError());
 			::CloseHandle(mapping_);
 			mapping_ = nullptr;
 			return false;
 		}
+		view_bytes_ = view_bytes;
 		if (!reset) {
-			log_info("shared memory attached (%s)", existed ? "existing" : "new");
+			log_info("shared memory attached (%llu of %llu MB, %s)", static_cast<unsigned long long>(view_bytes >> 20),
+				static_cast<unsigned long long>(size >> 20), existed ? "existing" : "new");
 			return true;
 		}
 
@@ -324,7 +337,8 @@ namespace halfcraft
 
 	void Link::drain_render(const std::function<void(std::uint32_t, const std::uint8_t*, std::uint32_t)>& fn, std::uint64_t max_bytes)
 	{
-		if (!base_) {
+		// past an attach()ed view's end: the render ring is client.dll's
+		if (!maps(proto::kOffRenderRing + proto::kRenderRingBytes)) {
 			return;
 		}
 		auto*          ring = base_ + proto::kOffRenderRing;
@@ -359,7 +373,8 @@ namespace halfcraft
 
 	bool Link::acquire_overlay_frame()
 	{
-		if (!base_) {
+		// the slots' pixels lie past an attach()ed view's end, and front_pixels() is read after this
+		if (!maps(proto::kOffOverlayPixels + proto::kOverlaySlotBytes * proto::kOverlaySlots)) {
 			return false;
 		}
 		auto& state = as_atomic(at<proto::OverlayCtl>(proto::kOffOverlayCtl)->state);

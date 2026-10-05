@@ -8,8 +8,10 @@
 	FileSystem
 	{
 		// game-hl2: runs on half-life 2's own 32-bit engine (app 220, hl2.exe), built from valve's
-		// singleplayer sdk. plain paths and |all_source_engine_paths| resolve against the folder of the
-		// running hl2.exe; this engine doesn't know |appid_N|.
+		// singleplayer sdk. half-life 2, episode one and episode two in one game, mounted the way
+		// valve's hl2_complete is: the later campaign's content over the earlier's. plain paths and
+		// |all_source_engine_paths| resolve against the folder of the running hl2.exe; this engine
+		// doesn't know |appid_N|.
 		SteamAppId				220
 
 		SearchPaths
@@ -20,17 +22,31 @@
 			gamebin				|gameinfo_path|bin
 
 			game_lv				hl2/hl2_lv.vpk
-			game				|all_source_engine_paths|hl2/hl2_textures.vpk
+			game				|all_source_engine_paths|ep2/ep2_sound_vo_english.vpk
+			game				|all_source_engine_paths|ep2/ep2_pak.vpk
+			game				|all_source_engine_paths|episodic/ep1_sound_vo_english.vpk
+			game				|all_source_engine_paths|episodic/ep1_pak.vpk
 			game				|all_source_engine_paths|hl2/hl2_sound_vo_english.vpk
+			game				|all_source_engine_paths|hl2/hl2_pak.vpk
+			game				|all_source_engine_paths|hl2/hl2_textures.vpk
 			game				|all_source_engine_paths|hl2/hl2_sound_misc.vpk
 			game				|all_source_engine_paths|hl2/hl2_misc.vpk
-			game				|all_source_engine_paths|hl2/hl2_pak.vpk
 			game				|all_source_engine_paths|hl2_complete/hl2_complete_misc.vpk
 			platform			|all_source_engine_paths|platform/platform_misc.vpk
 
-			game				|all_source_engine_paths|hl2
+			// the campaigns' maps (and the episodes' recap video) ship as loose files
 			game				|all_source_engine_paths|hl2_complete
+			game				|all_source_engine_paths|ep2
+			game				|all_source_engine_paths|episodic
+			game				|all_source_engine_paths|hl2
 			platform			|all_source_engine_paths|platform
+
+			// each campaign's own content once more, for the files they all have under one name:
+			// client.dll reads titles.txt and credits.txt of the map's campaign from here
+			// (hc_campaign_text.cpp)
+			hc_hl2				|all_source_engine_paths|hl2
+			hc_ep1				|all_source_engine_paths|episodic/ep1_pak.vpk
+			hc_ep2				|all_source_engine_paths|ep2/ep2_pak.vpk
 
 			game+download		|gameinfo_path|download
 		}

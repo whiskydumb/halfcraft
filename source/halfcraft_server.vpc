@@ -29,6 +29,7 @@ $Project
 			$File	"$HALFCRAFTDIR\src\shared\hc_bridge.h"
 			$File	"$HALFCRAFTDIR\src\server\hc_block_solids.h"
 			$File	"$HALFCRAFTDIR\src\server\hc_block_solids.cpp"
+			$File	"$HALFCRAFTDIR\src\server\hc_campaign.cpp"
 			$File	"$HALFCRAFTDIR\src\server\hc_checkpoints.h"
 			$File	"$HALFCRAFTDIR\src\server\hc_checkpoints.cpp"
 			$File	"$HALFCRAFTDIR\src\server\hc_combat.h"
@@ -45,6 +46,7 @@ $Project
 			{
 				$File	"$HALFCRAFTPROTO\halfcraft_protocol.h"
 				$File	"$HALFCRAFTDIR\src\core\hc_atomic.h"
+				$File	"$HALFCRAFTDIR\src\core\hc_campaign.h"
 				$File	"$HALFCRAFTDIR\src\core\hc_collision.h"
 				$File	"$HALFCRAFTDIR\src\core\hc_link.h"
 				$File	"$HALFCRAFTDIR\src\core\hc_log.h"

@@ -11,7 +11,9 @@
 		// multiplayer's engine (february 2025) would crash singleplayer: its local network backdoor
 		// compares a 64-bit "no route yet" marker against 0xffffffff, so (void*)-1 reaches the send
 		// proxies; hl2:dm's 2026 engine has that fixed. half-life 2 itself (app 220) has to be
-		// installed for its maps, models and sounds.
+		// installed for its maps, models and sounds; the episodes install into its folder.
+		// half-life 2, episode one and episode two in one game, as valve's hl2_complete: the later
+		// campaign's content over the earlier's.
 		SteamAppId				320
 
 		SearchPaths
@@ -20,6 +22,16 @@
 			game+mod+mod_write+default_write_path		|gameinfo_path|.
 			gamebin				|gameinfo_path|bin
 
+			// the episodes' paks and loose maps; neither pak carries a shader cache
+			game				|appid_220|ep2/ep2_sound_vo_english_dir.vpk
+			game				|appid_220|ep2/ep2_pak_dir.vpk
+			game				|appid_220|ep2
+			game				|appid_220|episodic/ep1_sound_vo_english_dir.vpk
+			game				|appid_220|episodic/ep1_pak_dir.vpk
+			game				|appid_220|episodic
+
+			// the engine's own half-life 2 assets before the install's: their shader cache matches this
+			// engine build
 			game				|appid_320|hl2/hl2_misc_dir.vpk
 			game				|appid_220|hl2/hl2_textures_dir.vpk
 			game				|appid_220|hl2/hl2_sound_vo_english_dir.vpk
@@ -32,6 +44,13 @@
 			game				|appid_220|hl2
 			game				|appid_220|hl2_complete
 			platform			|appid_220|platform
+
+			// each campaign's own content once more, for the files they all have under one name:
+			// client.dll reads titles.txt and credits.txt of the map's campaign from here
+			// (hc_campaign_text.cpp)
+			hc_hl2				|appid_220|hl2
+			hc_ep1				|appid_220|episodic/ep1_pak_dir.vpk
+			hc_ep2				|appid_220|ep2/ep2_pak_dir.vpk
 
 			game+download		|gameinfo_path|download
 		}

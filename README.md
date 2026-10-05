@@ -25,6 +25,13 @@ It runs on either of two engines, from the same code:
 Each engine gets its own game folder (`game-hl2`, `game-hl2dm`): their saves don't mix. Minecraft's
 world is the same.
 
+Half-Life 2, Episode One and Episode Two are one game, the way Valve's `hl2_complete` (what Steam
+starts Half-Life 2 as now) is: the episodic client and server run all three campaigns, the episodes'
+content is mounted over Half-Life 2's, and New Game lists all chapters, numbered on (Half-Life 2's
+1-14, Episode One's 15-19, Episode Two's 20-26), all unlocked from the start. Each campaign keeps its
+own skill values (`source/src/server/hc_campaign.cpp`). The game folders are put together by
+`tools/engines.ps1` from hl2dm-sp's three campaign folders.
+
 ## Layout
 
 ```
@@ -110,7 +117,6 @@ names where a crash dump died: `build/game-hl2/bin` for `hl2.exe`, `build/game-h
 
 ## Not done yet
 
-- Half-Life 2: Episode One and Two
 - multiplayer
 
 ## Credits

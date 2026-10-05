@@ -1,0 +1,12 @@
+// Steam Cloud keeps one cfg/config.cfg slot per app, so the mod would write over the
+// engine app's cloud copy. Must come before stuffcmds, or +quit can exit first.
+// (client.dll turns it off before the engine's first sync already; this keeps it off.)
+cl_cloud_settings 0
+
+// half-life 2, episode one and episode two are one game here: every chapter of the three
+// can be picked in New Game from the start
+sv_unlockedchapters 99
+
+// Stuff the command line: the engine queues "exec valve.rc" at startup and nothing
+// else runs stuffcmds, so +commands like +map would otherwise never execute.
+stuffcmds

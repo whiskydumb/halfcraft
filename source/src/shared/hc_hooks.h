@@ -10,6 +10,7 @@ class CTakeDamageInfo;
 class CUserCmd;
 class CViewSetup;
 class QAngle;
+struct client_textmessage_t;
 
 namespace halfcraft
 {
@@ -59,6 +60,15 @@ namespace halfcraft
 
 	/// CShadowDepthView::Draw, after the scene went into a projected texture's shadow depth texture.
 	void client_shadow_depth_view(const CViewSetup& view);
+
+	/// TextMessageGet (cdll_util.cpp): a titles.txt message of the campaign being played
+	/// (hc_campaign_text.cpp).
+	/// @return nullptr to leave it to the engine
+	client_textmessage_t* client_text_message(const char* name);
+
+	/// CHudCredits::PrepareCredits: the search path id of the campaign being played, to read its
+	/// scripts/credits.txt from.
+	const char* client_campaign_path_id();
 #endif
 
 #ifdef GAME_DLL
