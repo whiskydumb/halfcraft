@@ -66,6 +66,10 @@ namespace halfcraft::proto
 		kHostInGame = 1u << 0,    // a map is loaded and the player exists
 		kHostMenuOpen = 1u << 1,  // a host menu (or console) owns input; MC should drop held keys
 		kHostLoading = 1u << 2,   // loading screen / level transition in progress
+		// source moves the player itself (a ladder, a lift or train, a vehicle, a scripted scene): Minecraft's
+		// player stays at posX/Y/Z every tick, without falling or fall damage, until the hand-back's teleport
+		kHostTakeover = 1u << 7,
+		// bit 8: kept for the puppet group (A), 9-10 for the world group (C)
 	};
 
 	// The host's water around the player, for Minecraft to treat as its own water: swimming,
@@ -107,6 +111,7 @@ namespace halfcraft::proto
 		kMcDead = 1u << 5,
 		kMcSwimming = 1u << 6,
 		kMcFlying = 1u << 7,
+		// bits 12-13: kept for the puppet group (A), 14-15 for the world group (C)
 	};
 
 	struct McState
@@ -152,8 +157,16 @@ namespace halfcraft::proto
 		// (#12) the host's weapon the player holds as a Minecraft item (see WeaponTable); 0: none
 		std::uint32_t heldWeapon;
 		std::uint32_t heldWeaponPad;
+
+		// Bumps each time Minecraft moved its player by itself (an ender pearl, chorus fruit, /tp; not the
+		// host's own teleports), in the same tick as curX/Y/Z: the host takes the jump that follows wherever
+		// the player fits, and resyncs Minecraft where it doesn't.
+		std::uint32_t teleportCount;
+		std::uint32_t teleportPad[3];
+
+		// 0xF0-0xFF: kept for the world group (C)
 	};
-	static_assert(sizeof(McState) == 0xE0);
+	static_assert(sizeof(McState) == 0xF0);
 	static_assert(sizeof(McState) <= 0x100);
 
 	// ---- overlay triple buffer @0x300 --------------------------------------------------------
@@ -206,7 +219,14 @@ namespace halfcraft::proto
 		                     // (little-endian, a's low byte first)
 		kInHurtMob = 13,     // (#13) the host hurt a Minecraft mob: code = HurtKind, a = its Minecraft entity id,
 		                     // b = host damage * 100, c = the attacker's actor id (0: none, kMobAttackerPlayer: the host's player)
+		kInPush = 22,        // the host pushes its player (a trigger_push, a conveyor, a point_push: Source's base velocity)
+		                     // while Minecraft drives it: a/b/c = Minecraft blocks per second * 1000 along x/y/z, repeated
+		                     // every kPushRepeatMs while it lasts. (0, 0, 0): it stopped, and the player keeps the last
+		                     // push as momentum (as Source does); nothing for kPushStaleMs: it's over, without momentum
+		// 23: kept for the puppet group (A), 24-25 for the damage group (B), 26-27 for the world group (C)
 	};
+	inline constexpr std::uint32_t kPushRepeatMs = 200;
+	inline constexpr std::uint32_t kPushStaleMs = 500;
 
 	// What a kInString is for; Minecraft collects the pieces of each channel until kStringEnd.
 	enum StringChannel : std::uint16_t
@@ -217,6 +237,7 @@ namespace halfcraft::proto
 		                     //   halfcraft-screenshot-*.rgb, width * height RGB8 pixels, top row first, nothing else;
 		                     //   Minecraft saves it as its own screenshot and deletes the file
 		                     //   "fail <request> <reason>": the host had no frame to give (loading, ...)
+		// 6: kept for the puppet group (A), 7 for the damage group (B), 8 for the world group (C)
 	};
 	inline constexpr std::uint16_t kStringChannelMask = 0xFF;
 	inline constexpr std::uint16_t kStringBytesShift = 8;  // 4 bits: 0-12 bytes
@@ -235,6 +256,7 @@ namespace halfcraft::proto
 		kHurtProjectile = 1,
 		kHurtMagic = 2,
 		kHurtOther = 3,
+		// 4-15: kept for the damage group (B)
 	};
 
 	enum HurtFlags : std::uint32_t
@@ -294,7 +316,8 @@ namespace halfcraft::proto
 		                    // flags = flight pitch (float bits), weapon = arrow texture (0 plain, 1 tipped, 2 spectral)
 		kEvScreenshot = 5,  // (#6) Minecraft's screenshot key: actorId = Minecraft's request number (1+); the host saves its
 		                    // own finished frame (its world, its hud and Minecraft's overlay) and answers on kStrScreenshot
-		// 6-7: kept for #12 (the host's weapons), 8-9 for #13 (Minecraft's mobs)
+		// 6-7: kept for #12 (the host's weapons), 8-9 for #13 (Minecraft's mobs), 12-13 for the puppet group (A),
+		// 14-15 for the damage group (B), 16-17 for the world group (C)
 	};
 
 	enum HitFlags : std::uint32_t
@@ -527,6 +550,7 @@ namespace halfcraft::proto
 	static_assert(kOffHostDebug + kHostDebugBytes <= kOffWeaponTable);
 	static_assert(kOffWeaponTable + kWeaponTableBytes <= kOffMobTable);
 	static_assert(kOffMobTable + kMobTableBytes <= kOffCollisionRing);
+	// 0x29000-0x30FFF: kept for the world group (C). HostState's 0x40-0x7F for the puppet group (A), 0x80-0xBF for C.
 
 	// ---- render ring (MC -> host) ---------------------------------------------------------------
 	// Byte ring like the collision ring. Minecraft ships its own block meshes (built by Minecraft's

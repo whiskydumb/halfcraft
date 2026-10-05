@@ -48,6 +48,10 @@ public final class Proto {
 	public static final int IN_RESTORE = 11;
 	public static final int IN_STRING = 12;
 	public static final int IN_HURT_MOB = 13; // (#13)
+	public static final int IN_PUSH = 22; // a/b/c = blocks per second * 1000 (HostPush)
+	public static final int PUSH_REPEAT_MS = 200;
+	public static final int PUSH_STALE_MS = 500;
+	// 23: kept for the puppet group (A), 24-25 for the damage group (B), 26-27 for the world group (C)
 
 	// String channels (IN_STRING)
 	public static final int STR_COMMAND = 1; // (#11)
@@ -62,6 +66,7 @@ public final class Proto {
 	public static final int HURT_PROJECTILE = 1;
 	public static final int HURT_MAGIC = 2;
 	public static final int HURT_OTHER = 3;
+	// 4-15: kept for the damage group (B)
 	public static final int HURT_POWER_ATTACK = 2;
 
 	// Actor table (relative to OFF_ACTOR_TABLE)
@@ -86,6 +91,7 @@ public final class Proto {
 	public static final int EV_EXPLOSION = 3;
 	public static final int EV_ARROW_STUCK = 4;
 	public static final int EV_SCREENSHOT = 5; // (#6) actorId = the request number (1+)
+	// 12-13: kept for the puppet group (A), 14-15 for the damage group (B), 16-17 for the world group (C)
 	// 6-7: kept for #12 (the host's weapons), 8-9 for #13 (Minecraft's mobs)
 	public static final int HIT_CRITICAL = 1;
 	public static final int HIT_PROJECTILE = 1 << 1;
@@ -161,6 +167,7 @@ public final class Proto {
 	public static final int HOST_IN_GAME = 1;
 	public static final int HOST_MENU_OPEN = 1 << 1;
 	public static final int HOST_LOADING = 1 << 2;
+	public static final int HOST_TAKEOVER = 1 << 7;
 
 	// McState (relative to OFF_MC_STATE)
 	public static final long MS_SEQ = 0x00;
@@ -197,6 +204,7 @@ public final class Proto {
 	public static final long MS_MAX_HEALTH = 0xCC;
 	public static final long MS_ABSORPTION = 0xD0;
 	public static final long MS_HELD_WEAPON = 0xD8; // (#12)
+	public static final long MS_TELEPORT_COUNT = 0xE0; // Minecraft's own teleports (HostTeleports)
 
 	public static final int MC_IN_WORLD = 1;
 	public static final int MC_SCREEN_OPEN = 1 << 1;

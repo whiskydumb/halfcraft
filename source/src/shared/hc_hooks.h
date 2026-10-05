@@ -25,6 +25,8 @@ namespace halfcraft
 		HC_CMD_FORWARD = 1 << 3,    // minecraft's forward key is held (walking into a ladder mounts it)
 		HC_CMD_WEAPONS = 1 << 4,    // minecraft's hand picks the weapon: weaponselect is the one it holds, 0 puts it away
 		HC_CMD_VIEWMODEL = 1 << 5,  // minecraft holds the weapon source has out, seen through the player's eyes
+		HC_CMD_JUMP = 1 << 6,       // minecraft moved its player by itself (a teleport, a fast dive between two frames):
+		                            // source takes hc_origin however far it is, if the player fits there
 	};
 
 #ifdef CLIENT_DLL

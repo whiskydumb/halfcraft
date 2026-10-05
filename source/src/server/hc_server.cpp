@@ -20,6 +20,7 @@
 #include "server/hc_debug_target.h"
 #include "server/hc_hazards.h"
 #include "server/hc_mobs.h"
+#include "server/hc_push.h"
 #include "server/hc_vitals.h"
 #include "server/hc_weapons.h"
 #include "server/hc_world_collision.h"
@@ -107,6 +108,7 @@ namespace halfcraft
 			Weapons                            weapons_;
 			Combat                             combat_;
 			Mobs                               mobs_;
+			Push                               push_;
 			DebugTarget                        debug_target_;
 			Vitals                             vitals_;
 			Hazards                            hazards_;
@@ -131,7 +133,9 @@ namespace halfcraft
 				update_use(player);
 			}
 			weapons_.update(link_, player, minecraft_owns_health());
-			combat_.update(link_, player, slot_, puppeted && link_.mc_alive());
+			// minecraft's weapons work on ladders, rides and in vehicles too: only the movement is source's
+			combat_.update(link_, player, slot_, minecraft_owns_health());
+			push_.update(player, puppeted && link_.mc_alive());
 			mobs_.update(link_, slot_);
 			vitals_.update(link_, player);
 			if (link_.mc_alive()) {

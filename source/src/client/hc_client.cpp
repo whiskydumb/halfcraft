@@ -7,6 +7,7 @@
 #include "ienginevgui.h"
 #include "in_buttons.h"
 #include "usercmd.h"
+#include "view.h"
 #include "view_shared.h"
 #include "ivrenderview.h"
 
@@ -17,6 +18,7 @@
 #include "client/hc_block_lights.h"
 #include "client/hc_blocks.h"
 #include "client/hc_client.h"
+#include "client/hc_jumps.h"
 #include "shared/hc_floors.h"
 #include "client/hc_things.h"
 #include "client/hc_weapons.h"
@@ -92,6 +94,9 @@ namespace halfcraft
 		// the takeovers that aren't the player playing (minecraft's hud would be in the way)
 		constexpr char TAKEOVER_OBSERVING[] = "observing";
 		constexpr char TAKEOVER_CAMERA[] = "scripted camera";
+		// the ones where minecraft keeps its hands: source only moves the player
+		constexpr char TAKEOVER_LADDER[] = "ladder or noclip";
+		constexpr char TAKEOVER_RIDING[] = "riding a lift or train";
 
 		/// why source keeps the player to itself right now (nullptr: it doesn't).
 		const char* source_takeover(C_BasePlayer* player, bool riding)
@@ -103,7 +108,7 @@ namespace halfcraft
 				return TAKEOVER_OBSERVING;
 			}
 			if (player->GetMoveType() != MOVETYPE_WALK) {
-				return "ladder or noclip";
+				return TAKEOVER_LADDER;
 			}
 			if (player->GetFlags() & (FL_FROZEN | FL_ATCONTROLS)) {
 				return "frozen by the map";
@@ -112,7 +117,7 @@ namespace halfcraft
 				return TAKEOVER_CAMERA;
 			}
 			if (riding) {
-				return "riding a lift or train";
+				return TAKEOVER_RIDING;
 			}
 			return nullptr;
 		}
@@ -241,8 +246,8 @@ namespace halfcraft
 			// half-life's hits and heals on the player go to minecraft's health
 			{
 				std::lock_guard<std::mutex> lock(s.server_inputs_lock);
-				for (const auto& input : s.server_inputs) {
-					s.link.push_input(static_cast<proto::InputType>(input.type), input.code, input.a, input.b, input.c);
+				for (const auto& queued : s.server_inputs) {
+					s.link.push_input(static_cast<proto::InputType>(queued.type), queued.code, queued.a, queued.b, queued.c);
 				}
 				s.server_inputs.clear();
 			}
@@ -264,11 +269,13 @@ namespace halfcraft
 			}
 
 			// source moved the player itself (a teleport trigger, a level transition, loading a save).
+			const float jump_refused = jump_refused_units();
 			if (s.loading) {
 				s.teleport_pending = true;
 				s.have_last_set = false;
-			} else if (s.puppeting && s.have_last_set && distance(origin, s.last_set) > TELEPORT_THRESHOLD) {
-				log_info("source moved the player (%.0f units); resyncing minecraft", distance(origin, s.last_set));
+			} else if (s.puppeting && s.have_last_set && distance(origin, s.last_set) > (jump_refused > 0.0f ? jump_refused : TELEPORT_THRESHOLD)) {
+				log_info(jump_refused > 0.0f ? "source refused minecraft's jump (%.0f units off); resyncing minecraft" : "source moved the player (%.0f units); resyncing minecraft",
+					distance(origin, s.last_set));
 				s.teleport_pending = true;
 				s.have_last_set = false;
 			}
@@ -283,6 +290,12 @@ namespace halfcraft
 				}
 			}
 			takeover_ = takeover;
+			// meanwhile the view is source's: minecraft's player looks the same way (its hands still work)
+			if (takeover) {
+				const QAngle& view = MainViewAngles();
+				s.yaw = source_yaw_to_mc(view.y);
+				s.pitch = view.x;
+			}
 
 			if (s.teleport_pending && !s.loading) {
 				++s.teleport_seq;
@@ -328,7 +341,9 @@ namespace halfcraft
 			// on ladders, rides and in vehicles it's still minecraft's player: its hearts and hotbar stay up
 			s.minecraft_hud = s.have_mc && s.mc_in_world && !s.loading && alive && takeover != TAKEOVER_OBSERVING && takeover != TAKEOVER_CAMERA;
 
-			const bool owns_input = s.have_mc && s.mc_in_world && !s.source_menu_open && alive && !takeover;
+			s.minecraft_hands = s.have_mc && s.mc_in_world && !s.source_menu_open && alive && (takeover == TAKEOVER_LADDER || takeover == TAKEOVER_RIDING);
+			// a screen minecraft's hands open there (a chest, a crafting table) has the keys and the mouse until it closes
+			const bool owns_input = s.have_mc && s.mc_in_world && !s.source_menu_open && alive && (!takeover || (s.minecraft_hands && s.mc_screen_open));
 			if (owns_input != s.minecraft_owns_input) {
 				input_release_all(s);
 				if (owns_input) {
@@ -347,6 +362,9 @@ namespace halfcraft
 			// tell minecraft where source's player is and where they look.
 			proto::HostState host{};
 			host.flags = (in_game ? proto::kHostInGame : 0u) | (menu ? proto::kHostMenuOpen : 0u) | (s.loading ? proto::kHostLoading : 0u);
+			if (takeover && takeover != TAKEOVER_OBSERVING && alive && !s.loading) {
+				host.flags |= proto::kHostTakeover;  // minecraft's player stays where source's is
+			}
 			const auto mc_pos = source_to_mc(origin, s.slot);
 			host.worldId = s.world_id;
 			host.collisionEpoch = s.epoch;
@@ -374,6 +392,9 @@ namespace halfcraft
 		cmd->hc_flags = 0;
 		auto& s = client_session();
 		weapon_create_move(s, cmd);
+		if (!s.puppeting) {
+			jump_forget(s);
+		}
 		if (!s.minecraft_owns_player) {
 			return;
 		}
@@ -398,7 +419,7 @@ namespace halfcraft
 		cmd->hc_velocity.Init(static_cast<float>(s.mc.curX - s.mc.prevX) * units_per_second, static_cast<float>(-(s.mc.curZ - s.mc.prevZ)) * units_per_second,
 			static_cast<float>(s.mc.curY - s.mc.prevY) * units_per_second);
 
-		cmd->hc_flags |= HC_CMD_PUPPET;  // on top of weapon_create_move's
+		cmd->hc_flags |= HC_CMD_PUPPET | jump_flags(s, feet);  // on top of weapon_create_move's
 		if (s.mc.flags & proto::kMcOnGround) {
 			cmd->hc_flags |= HC_CMD_ON_GROUND;
 		}

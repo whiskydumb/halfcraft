@@ -132,8 +132,9 @@ namespace halfcraft
 		}
 		// asked every command: source can refuse or delay a switch (the rpg's rocket in flight, the
 		// gravity gun holding something, a weapon still coming out). while use carries a prop source
-		// has put the weapon away itself and takes it out again after
-		if (session.minecraft_owns_player && !session.holding) {
+		// has put the weapon away itself and takes it out again after. on a ladder or a ride minecraft's
+		// hotbar still picks it (hc_input.cpp)
+		if ((session.minecraft_owns_player || session.minecraft_hands) && !session.holding) {
 			C_BaseCombatWeapon* wanted = held != proto::kHostWeaponNone ? owned_weapon(player, held) : nullptr;
 			cmd->hc_flags |= HC_CMD_WEAPONS;
 			cmd->weaponselect = wanted ? wanted->entindex() : 0;

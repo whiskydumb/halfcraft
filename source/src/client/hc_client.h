@@ -37,6 +37,7 @@ namespace halfcraft
 		bool puppeting = false;              // minecraft's position drives source's player
 		bool minecraft_owns_player = false;  // puppeting, or waiting for minecraft after a teleport
 		bool minecraft_owns_input = false;   // keys and mouse go to minecraft
+		bool minecraft_hands = false;        // on a ladder or a ride: source moves the player, minecraft keeps its hands (hc_input.cpp)
 		bool minecraft_hud = false;          // minecraft's overlay (hud, hand, screens) is shown
 
 		// look (minecraft degrees), integrated from the raw mouse so the camera has no extra latency

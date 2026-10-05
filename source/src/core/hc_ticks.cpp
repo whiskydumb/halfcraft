@@ -44,6 +44,10 @@ namespace halfcraft
 		if (history_.empty() || history_.back().state.tickQpc != mc.tickQpc) {
 			if (!history_.empty() && mc.tickQpc < history_.back().state.tickQpc) {
 				history_.clear();  // minecraft restarted
+			} else if (!history_.empty() && mc.teleportCount != history_.back().state.teleportCount) {
+				// minecraft moved its player by itself (a pearl, /tp): the feet go straight to the new
+				// spot, never through the walls between the two
+				history_.clear();
 			}
 			Tick tick{ mc, mc.tickQpc, 1 };
 			if (!history_.empty()) {

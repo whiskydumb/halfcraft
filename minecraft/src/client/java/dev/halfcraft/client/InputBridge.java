@@ -3,6 +3,7 @@ package dev.halfcraft.client;
 import dev.halfcraft.combat.HostCombat;
 import dev.halfcraft.link.Proto;
 import dev.halfcraft.link.HostLink;
+import dev.halfcraft.link.HostPush;
 import dev.halfcraft.link.HostStrings;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.PauseScreen;
@@ -71,6 +72,7 @@ public final class InputBridge {
 			case Proto.IN_CHECKPOINT -> rollback(minecraft, checkpointId(a, b), false);
 			case Proto.IN_RESTORE -> rollback(minecraft, checkpointId(a, b), true);
 			case Proto.IN_STRING -> HostStrings.accept(code, a, b, c);
+			case Proto.IN_PUSH -> HostPush.INSTANCE.accept(a, b, c, System.currentTimeMillis());
 			case Proto.IN_OPEN_MENU -> {
 				if (minecraft.gui.screen() == null && minecraft.player != null) {
 					releaseAll();

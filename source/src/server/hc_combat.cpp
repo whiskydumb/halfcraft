@@ -105,10 +105,10 @@ namespace halfcraft
 		}
 	}
 
-	void Combat::update(Link& link, CBasePlayer* player, MapSlot slot, bool puppeted)
+	void Combat::update(Link& link, CBasePlayer* player, MapSlot slot, bool minecraft_playing)
 	{
-		if (!player || !puppeted) {
-			// nothing to fight while source has the player; still drain minecraft's events so stale hits
+		if (!player || !minecraft_playing) {
+			// nothing to fight without minecraft's player; still drain minecraft's events so stale hits
 			// don't land later, but its death still counts
 			proto::McEvent event;
 			while (link.pop_event(event)) {

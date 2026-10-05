@@ -117,7 +117,7 @@ namespace halfcraft
 				return false;
 			}
 			// what the player carries floats in front of them: minecraft would walk into it
-			if (IPhysicsObject* physics = entity->VPhysicsGetObject(); physics && (physics->GetGameFlags() & FVPHYSICS_PLAYER_HELD)) {
+			if (IPhysicsObject* body = entity->VPhysicsGetObject(); body && (body->GetGameFlags() & FVPHYSICS_PLAYER_HELD)) {
 				return false;
 			}
 			return g_pGameRules->ShouldCollide(COLLISION_GROUP_PLAYER_MOVEMENT, entity->GetCollisionGroup());

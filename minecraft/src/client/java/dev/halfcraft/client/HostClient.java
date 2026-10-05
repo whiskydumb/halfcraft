@@ -4,6 +4,7 @@ import dev.halfcraft.HalfCraft;
 import dev.halfcraft.client.render.WorldExporter;
 import dev.halfcraft.link.Proto;
 import dev.halfcraft.link.HostLink;
+import dev.halfcraft.link.HostTeleports;
 import dev.halfcraft.world.HostCollision;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
@@ -235,6 +236,8 @@ public final class HostClient {
 		mc.curX = player.getX();
 		mc.curY = player.getY();
 		mc.curZ = player.getZ();
+		// with the position the server's teleport put the player at, so Half-Life takes it as one jump
+		mc.teleportCount = HostTeleports.count();
 		// Same smoothing as Camera.tick(): eye height eases halfway toward the target each tick.
 		if (player != eyePlayer) {
 			eyePlayer = player;
@@ -314,7 +317,8 @@ public final class HostClient {
 			server.execute(() -> {
 				ServerPlayer sp = server.getPlayerList().getPlayer(uuid);
 				if (sp != null) {
-					sp.teleportTo(x, y, z);
+					// Half-Life's own: not one of Minecraft's jumps for it to take
+					HostTeleports.byHost(() -> sp.teleportTo(x, y, z));
 					sp.setYRot(yaw);
 					sp.setXRot(pitch);
 					sp.resetFallDistance();

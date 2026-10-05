@@ -219,6 +219,11 @@ public final class HostLink {
 		public boolean loading() {
 			return (this.flags & HOST_LOADING) != 0;
 		}
+
+		/** Half-Life moves its player itself (a ladder, a lift, a vehicle): Minecraft's player goes where it is. */
+		public boolean takeover() {
+			return (this.flags & HOST_TAKEOVER) != 0;
+		}
 	}
 
 	/** Seqlock read of HostState into {@code out}. Returns false if the link is down. */
@@ -332,6 +337,7 @@ public final class HostLink {
 		public float maxHealth;
 		public float absorption;
 		public int heldWeapon;
+		public int teleportCount;
 	}
 
 	public static void writeMcState(McState st) {
@@ -380,6 +386,7 @@ public final class HostLink {
 		s.set(JAVA_FLOAT, b + MS_MAX_HEALTH, st.maxHealth);
 		s.set(JAVA_FLOAT, b + MS_ABSORPTION, st.absorption);
 		s.set(JAVA_INT, b + MS_HELD_WEAPON, st.heldWeapon);
+		s.set(JAVA_INT, b + MS_TELEPORT_COUNT, st.teleportCount);
 		INT.setRelease(s, b + MS_SEQ, seq + 2);
 	}
 

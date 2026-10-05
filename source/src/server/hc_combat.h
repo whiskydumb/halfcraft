@@ -26,8 +26,10 @@ namespace halfcraft
 	public:
 		/// once per frame.
 		/// @param slot - where the map sits in minecraft (minecraft <-> source placement)
-		/// @param puppeted - minecraft drives the player (otherwise nothing is mirrored)
-		void update(Link& link, CBasePlayer* player, MapSlot slot, bool puppeted);
+		/// @param minecraft_playing - minecraft's player is in its world and alive (otherwise nothing is
+		///   mirrored). also while source has the player (a ladder, a ride, a vehicle): only the
+		///   movement is source's then
+		void update(Link& link, CBasePlayer* player, MapSlot slot, bool minecraft_playing);
 
 	private:
 		void write_actors(Link& link, CBasePlayer* player, MapSlot slot);

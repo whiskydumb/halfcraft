@@ -158,6 +158,26 @@ namespace halfcraft
 
 		bool g_shift_down = false;
 		int  g_source_buttons = 0;  // mouse buttons (sdl numbers as bits) whose press went to source: their release does too
+		int  g_hand_buttons = 0;    // mouse buttons whose press went to minecraft's hands during a ride: their release does too
+
+		/// on a ladder or a ride source moves the player, and minecraft keeps its hands: the mouse
+		/// buttons, the wheel and the hotbar keys. a half-life weapon in its hand, or a prop carried with
+		/// use, leaves the buttons to source's own bindings (they fire it, throw or drop the prop).
+		bool minecraft_keeps(ButtonCode_t code, bool pressed, const ClientSession& s)
+		{
+			if (const int button = sdl_button(code)) {
+				const int bit = 1 << button;
+				if (!pressed) {
+					const bool held = (g_hand_buttons & bit) != 0;
+					g_hand_buttons &= ~bit;
+					return held;
+				}
+				const bool keeps = s.minecraft_hands && !s.mc_screen_open && !s.holding && !weapon_in_hand(s);
+				g_hand_buttons = keeps ? (g_hand_buttons | bit) : g_hand_buttons;
+				return keeps;
+			}
+			return s.minecraft_hands && !s.mc_screen_open && (code == MOUSE_WHEEL_UP || code == MOUSE_WHEEL_DOWN || (code >= KEY_1 && code <= KEY_9));
+		}
 
 		/// source's use: G, or any key source binds +use to (its own keyboard options)
 		bool is_use_key(ButtonCode_t code, const char* binding)
@@ -174,6 +194,7 @@ namespace halfcraft
 		session.attack2_held = false;
 		session.reload_held = false;
 		g_source_buttons = 0;
+		g_hand_buttons = 0;
 		g_shift_down = false;
 		session.link.push_input(proto::kInReleaseAll, 0);
 	}
@@ -181,10 +202,10 @@ namespace halfcraft
 	bool client_key_event(int down, ButtonCode_t code, const char* binding)
 	{
 		auto& s = client_session();
-		if (!s.minecraft_owns_input || source_keeps(code, s)) {
+		const bool pressed = down != 0;
+		if (source_keeps(code, s) || (!s.minecraft_owns_input && !minecraft_keeps(code, pressed, s))) {
 			return true;
 		}
-		const bool pressed = down != 0;
 
 		// source's own two
 		if (is_use_key(code, binding) && !s.mc_screen_open) {
