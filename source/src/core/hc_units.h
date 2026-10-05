@@ -80,6 +80,10 @@ namespace halfcraft
 	/// the real aspect ratio afterwards).
 	float mc_fov_to_source(float vertical_degrees);
 
+	/// where the map comes in the campaign's play order (half-life 2, then the episodes).
+	/// @return -1 for a map that isn't one of the campaign's
+	int campaign_order(const char* map_name);
+
 	/// stable id for a map (minecraft drops its collision when this changes). never 0.
 	std::uint32_t map_world_id(const char* map_name);
 	/// the map's slot in the minecraft world: the campaign's maps in story order, anything else

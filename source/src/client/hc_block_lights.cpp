@@ -414,6 +414,19 @@ namespace halfcraft
 				g_cookie.release();
 			}
 
+			BlockLightStats stats() const
+			{
+				BlockLightStats stats;
+				for (const auto& section : by_section_) {
+					stats.emitters += static_cast<std::uint32_t>(section.second.size());
+				}
+				stats.lights = static_cast<std::uint32_t>(chosen_.size());
+				for (const auto& light : points_) {
+					stats.shadowed += light.alive() ? 1 : 0;
+				}
+				return stats;
+			}
+
 			void update(float frametime);
 
 			void dump() const;
@@ -686,6 +699,11 @@ namespace halfcraft
 		} else if (type == proto::kRenClearAll) {
 			block_lights().clear();
 		}
+	}
+
+	BlockLightStats block_lights_stats()
+	{
+		return block_lights().stats();
 	}
 }
 

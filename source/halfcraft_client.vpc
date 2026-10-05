@@ -49,6 +49,8 @@ $Project
 			$File	"$HALFCRAFTDIR\src\client\hc_things.cpp"
 			$File	"$HALFCRAFTDIR\src\client\hc_block_lights.h"
 			$File	"$HALFCRAFTDIR\src\client\hc_block_lights.cpp"
+			$File	"$HALFCRAFTDIR\src\client\hc_debug.h"
+			$File	"$HALFCRAFTDIR\src\client\hc_debug.cpp"
 			$File	"$HALFCRAFTDIR\src\client\hc_water.cpp"
 
 			$Folder	"Core"
@@ -60,8 +62,10 @@ $Project
 				$File	"$HALFCRAFTDIR\src\core\hc_link.h"
 				$File	"$HALFCRAFTDIR\src\core\hc_log.h"
 				$File	"$HALFCRAFTDIR\src\core\hc_prism.h"
+				$File	"$HALFCRAFTDIR\src\core\hc_text.h"
 				$File	"$HALFCRAFTDIR\src\core\hc_ticks.h"
 				$File	"$HALFCRAFTDIR\src\core\hc_units.h"
+				$File	"$HALFCRAFTDIR\src\core\hc_chapters.h"
 				$File	"$HALFCRAFTDIR\src\core\hc_link.cpp" \
 						"$HALFCRAFTDIR\src\core\hc_log.cpp" \
 						"$HALFCRAFTDIR\src\core\hc_prism.cpp" \

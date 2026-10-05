@@ -243,8 +243,47 @@ public final class Proto {
 	public static final int COL_REGION_HEADER_BYTES = 32;
 	public static final int COL_BLOCK_BYTES = 80;
 
-	// Host debug (relative to OFF_HOST_DEBUG): (#7)
+	// Host debug (relative to OFF_HOST_DEBUG): (#7) client.dll's HostDebug, then server.dll's HostDebugServer at HD_SERVER
 	public static final long HD_SEQ = 0x00;
+	public static final long HD_FLAGS = 0x04;
+	public static final long HD_MAP = 0x08;
+	public static final int HD_MAP_BYTES = 64;
+	public static final long HD_CHAPTER = 0x48;
+	public static final int HD_CHAPTER_BYTES = 8;
+	public static final long HD_CHAPTER_TITLE = 0x50;
+	public static final int HD_CHAPTER_TITLE_BYTES = 64;
+	public static final long HD_ORIGIN = 0x90;
+	public static final long HD_ANGLES = 0x9C;
+	public static final long HD_FPS = 0xA8;
+	public static final long HD_WORST_FRAME_MS = 0xAC;
+	public static final long HD_OVERLAY_MS = 0xB0;
+	public static final long HD_SLOT = 0xB4;
+	public static final long HD_COLLISION_EPOCH = 0xB8;
+	public static final long HD_INPUT_PENDING = 0xBC;
+	public static final long HD_EVENT_PENDING = 0xC0;
+	public static final long HD_LIGHT_EMITTERS = 0xC4;
+	public static final long HD_COLLISION_PENDING = 0xC8;
+	public static final long HD_RENDER_PENDING = 0xD0;
+	public static final long HD_LIGHTS = 0xD8;
+	public static final long HD_SHADOWED_LIGHTS = 0xDC;
+	public static final long HD_BYTES = 0xE0;
+	public static final int HD_PUPPET = 1;
+	public static final int HD_MINECRAFT_INPUT = 1 << 1;
+	public static final int HD_MINECRAFT_HUD = 1 << 2;
+	public static final long HD_SERVER = 0x800;
+	public static final long HDS_SEQ = 0x00;
+	public static final long HDS_ENTITY_COUNT = 0x04;
+	public static final long HDS_TARGET_INDEX = 0x08;
+	public static final long HDS_HEALTH = 0x0C;
+	public static final long HDS_MAX_HEALTH = 0x10;
+	public static final long HDS_DISTANCE = 0x14;
+	public static final long HDS_RELATION = 0x18;
+	public static final long HDS_NPC_STATE = 0x1C;
+	public static final long HDS_TARGET_CLASS = 0x20;
+	public static final long HDS_TARGET_NAME = 0x50;
+	public static final long HDS_SCHEDULE = 0x80;
+	public static final int HDS_TEXT_BYTES = 48;
+	public static final long HDS_BYTES = 0xB0;
 
 	// Weapon table (relative to OFF_WEAPON_TABLE): (#12)
 	public static final long WT_SEQ = 0x00;

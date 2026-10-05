@@ -13,4 +13,14 @@ namespace halfcraft
 {
 	/// one render-ring message (main thread): kRenLights and kRenClearAll; ignores the rest.
 	void block_lights_on_message(std::uint32_t type, const std::uint8_t* payload, std::uint32_t bytes);
+
+	struct BlockLightStats
+	{
+		std::uint32_t emitters = 0;  // minecraft's light-emitting blocks we know of
+		std::uint32_t lights = 0;    // lights made of them around the player
+		std::uint32_t shadowed = 0;  // of those, the shadowed point lights
+	};
+
+	/// what the block lights are doing (main thread), for minecraft's debug screen.
+	BlockLightStats block_lights_stats();
 }

@@ -32,6 +32,7 @@ namespace halfcraft
 			"server.dll reads the event ring");
 		static_assert(proto::kOffWeaponTable + proto::kWeaponTableBytes <= SERVER_VIEW_BYTES, "server.dll writes the weapon table");
 		static_assert(proto::kOffMobTable + proto::kMobTableBytes <= SERVER_VIEW_BYTES, "server.dll reads the mob table");
+		static_assert(proto::kOffHostDebug + proto::kHostDebugBytes <= SERVER_VIEW_BYTES, "server.dll writes its part of the host debug");
 		static_assert(SERVER_VIEW_BYTES <= proto::kOffOverlayPixels, "the overlay and the render ring are client.dll's");
 
 		// who may open the mapping: this windows user (plus system and administrators) at normal
@@ -227,6 +228,40 @@ namespace halfcraft
 		if (base_) {
 			seqlock_write(at<proto::WaterGrid>(proto::kOffWaterGrid), grid);
 		}
+	}
+
+	void Link::write_host_debug(const proto::HostDebug& debug)
+	{
+		if (base_) {
+			seqlock_write(at<proto::HostDebug>(proto::kOffHostDebug), debug);
+		}
+	}
+
+	void Link::write_host_debug_server(const proto::HostDebugServer& debug)
+	{
+		if (base_) {
+			seqlock_write(at<proto::HostDebugServer>(proto::kOffHostDebug + proto::kHostDebugServerOff), debug);
+		}
+	}
+
+	Link::Backlog Link::backlog() const
+	{
+		Backlog backlog;
+		if (!base_) {
+			return backlog;
+		}
+		const auto behind = [this](std::uint64_t ring, std::uint64_t head_offset, std::uint64_t tail_offset) -> std::uint64_t {
+			const auto head = as_atomic(*at<std::uint64_t>(ring + head_offset)).load(std::memory_order_acquire);
+			const auto tail = as_atomic(*at<std::uint64_t>(ring + tail_offset)).load(std::memory_order_acquire);
+			return head > tail ? head - tail : 0;
+		};
+		backlog.input = behind(proto::kOffInputRing, proto::kInputRingHeadOff, proto::kInputRingTailOff);
+		backlog.events = behind(proto::kOffEventRing, proto::kEventRingHeadOff, proto::kEventRingTailOff);
+		backlog.collision_bytes = behind(proto::kOffCollisionRing, proto::kColRingHeadOff, proto::kColRingTailOff);
+		if (maps(proto::kOffRenderRing + proto::kRenRingDataOff)) {
+			backlog.render_bytes = behind(proto::kOffRenderRing, proto::kRenRingHeadOff, proto::kRenRingTailOff);
+		}
+		return backlog;
 	}
 
 	void Link::push_input(proto::InputType type, std::uint16_t code, std::int32_t a, std::int32_t b, std::int32_t c)

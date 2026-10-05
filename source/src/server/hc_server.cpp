@@ -17,6 +17,7 @@
 #include "server/hc_block_solids.h"
 #include "server/hc_checkpoints.h"
 #include "server/hc_combat.h"
+#include "server/hc_debug_target.h"
 #include "server/hc_hazards.h"
 #include "server/hc_mobs.h"
 #include "server/hc_vitals.h"
@@ -104,6 +105,7 @@ namespace halfcraft
 			BlockSolids                        solids_;
 			Combat                             combat_;
 			Mobs                               mobs_;
+			DebugTarget                        debug_target_;
 			Vitals                             vitals_;
 			Hazards                            hazards_;
 			Checkpoints                        checkpoints_;
@@ -132,6 +134,7 @@ namespace halfcraft
 			if (link_.mc_alive()) {
 				hazards_.update(player, slot_);
 			}
+			debug_target_.update(link_, player);
 
 			proto::HostState host{};
 			if (!link_.read_host_state(host)) {

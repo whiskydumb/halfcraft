@@ -36,6 +36,8 @@ $Project
 			$File	"$HALFCRAFTDIR\src\server\hc_checkpoints.cpp"
 			$File	"$HALFCRAFTDIR\src\server\hc_combat.h"
 			$File	"$HALFCRAFTDIR\src\server\hc_combat.cpp"
+			$File	"$HALFCRAFTDIR\src\server\hc_debug_target.h"
+			$File	"$HALFCRAFTDIR\src\server\hc_debug_target.cpp"
 			$File	"$HALFCRAFTDIR\src\server\hc_hazards.h"
 			$File	"$HALFCRAFTDIR\src\server\hc_hazards.cpp"
 			$File	"$HALFCRAFTDIR\src\server\hc_mobs.h"
@@ -56,6 +58,7 @@ $Project
 				$File	"$HALFCRAFTDIR\src\core\hc_link.h"
 				$File	"$HALFCRAFTDIR\src\core\hc_log.h"
 				$File	"$HALFCRAFTDIR\src\core\hc_module.h"
+				$File	"$HALFCRAFTDIR\src\core\hc_text.h"
 				$File	"$HALFCRAFTDIR\src\core\hc_units.h"
 				$File	"$HALFCRAFTDIR\src\core\hc_collision.cpp" \
 						"$HALFCRAFTDIR\src\core\hc_link.cpp" \

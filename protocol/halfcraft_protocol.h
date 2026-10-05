@@ -370,12 +370,62 @@ namespace halfcraft::proto
 	static_assert(kOffWorldEntities + sizeof(WorldEntities) <= kOffHostDebug);
 
 	// ---- host debug @0x22000 (host -> MC, seqlock) --------------------------------------------
-	// (#7) what Minecraft's debug screen (F3) shows about the host.
+	// (#7) what Minecraft's debug screen (F3) shows about the host, a few times a second. Two
+	// seqlocked parts, one per writer: client.dll's HostDebug at the region's start and server.dll's
+	// HostDebugServer at kHostDebugServerOff (what's under the crosshair: npc health isn't networked
+	// to the client). Strings are UTF-8, NUL-terminated (truncated).
+	inline constexpr std::uint64_t kHostDebugServerOff = 0x800;  // from kOffHostDebug
+
+	enum HostDebugFlags : std::uint32_t
+	{
+		kDebugPuppet = 1u << 0,          // Minecraft drives the host's player
+		kDebugMinecraftInput = 1u << 1,  // keys and mouse go to Minecraft
+		kDebugMinecraftHud = 1u << 2,    // Minecraft's overlay is shown
+	};
+
 	struct HostDebug
 	{
 		std::uint32_t seq;
+		std::uint32_t flags;              // HostDebugFlags
+		char          map[64];            // the host's map; empty: none loaded
+		char          chapter[8];         // the map's chapter ("9a"), from the game's cfg/chapter*.cfg; empty: none
+		char          chapterTitle[64];   // the chapter's title in the player's language
+		float         origin[3];          // the player's feet, host units (Source: z up)
+		float         angles[3];          // the player's view: pitch, yaw, roll (host degrees)
+		float         fps;                // the host's frames over the last second
+		float         worstFrameMs;       // the longest of them
+		float         overlayMs;          // what drawing Minecraft's overlay cost a frame, on average over them
+		std::int32_t  slot;               // the map's slot in Minecraft's world (1024 blocks along x each)
+		std::uint32_t collisionEpoch;     // as in HostState
+		std::uint32_t inputPending;       // input ring entries Minecraft hasn't read yet
+		std::uint32_t eventPending;       // event ring entries the host hasn't read yet
+		std::uint32_t lightEmitters;      // Minecraft's light-emitting blocks the host knows of
+		std::uint64_t collisionPending;   // collision ring bytes Minecraft hasn't read yet
+		std::uint64_t renderPending;      // render ring bytes the host hasn't read yet
+		std::uint32_t lights;             // lights made of those emitters around the player
+		std::uint32_t shadowedLights;     // of those, the shadowed point lights (the rest light only characters)
 	};
-	static_assert(sizeof(HostDebug) <= kHostDebugBytes);
+	static_assert(sizeof(HostDebug) == 0xE0);
+
+	struct HostDebugServer
+	{
+		std::uint32_t seq;
+		std::uint32_t entityCount;   // the host's edicts in use
+		std::int32_t  targetIndex;   // the entity under the crosshair: its entity index (0: it has none)
+		std::int32_t  health;        // its health and maximum health
+		std::int32_t  maxHealth;
+		float         distance;      // from the player's eye, host units
+		std::int32_t  relation;      // how a character feels about the player: Source's Disposition_t (1 hate,
+		                             // 2 fear, 3 like, 4 neutral); 0: not a character
+		std::int32_t  npcState;      // Source's NPC_STATE (1 idle, 2 alert, 3 combat, 4 script, 5 play dead,
+		                             // 6 held by a barnacle, 7 dead); 0: not an npc
+		char          targetClass[48];  // empty: nothing under the crosshair (the world doesn't count)
+		char          targetName[48];   // its map name; empty: none
+		char          schedule[48];     // what an npc is doing (its AI schedule)
+	};
+	static_assert(sizeof(HostDebugServer) == 0xB0);
+	static_assert(sizeof(HostDebug) <= kHostDebugServerOff);
+	static_assert(kHostDebugServerOff + sizeof(HostDebugServer) <= kHostDebugBytes);
 
 	// ---- weapon table @0x23000 (host -> MC, seqlock) ------------------------------------------
 	// (#12) the host's weapons the player owns, which Minecraft shows as items (McState::heldWeapon).

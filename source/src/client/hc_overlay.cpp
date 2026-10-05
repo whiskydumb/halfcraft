@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "client/hc_client.h"
+#include "client/hc_debug.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -204,6 +205,17 @@ namespace
 				upload_ms / count, textures / count, static_cast<int>(count));
 		}
 
+		/// the overlay's average cost over the last frames it was drawn (ms; 0 before the first).
+		float recent_upload_ms(std::size_t frames) const
+		{
+			const std::size_t count = std::min({ frames, next_, samples_.size() });
+			float             total = 0.0f;
+			for (std::size_t i = 0; i < count; ++i) {
+				total += samples_[(next_ - 1 - i) % samples_.size()].upload_ms;
+			}
+			return count ? total / count : 0.0f;
+		}
+
 	private:
 		struct Sample
 		{
@@ -291,4 +303,9 @@ void CHudHalfCraftOverlay::Paint( void )
 CON_COMMAND( hc_perf, "halfcraft: the frame rate and what minecraft's overlay costs, over the last 300 frames" )
 {
 	g_perf.report();
+}
+
+float halfcraft::overlay_cost_ms( int frames )
+{
+	return g_perf.recent_upload_ms( static_cast<std::size_t>( std::max( frames, 0 ) ) );
 }

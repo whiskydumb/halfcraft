@@ -88,4 +88,10 @@ namespace halfcraft
 		}
 		return FIRST_OTHER_SLOT + static_cast<int>(fnv1a(name) % OTHER_SLOTS);
 	}
+
+	int campaign_order(const char* map_name)
+	{
+		const int slot = map_slot(map_name);
+		return slot < FIRST_OTHER_SLOT ? slot : -1;
+	}
 }
