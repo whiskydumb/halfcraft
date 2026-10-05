@@ -6,8 +6,10 @@
 #   make build [ENGINE=hl2]        dlls, shaders, dev game folders build\game-<engine>, HalfCraft.exe
 #   make mc                        the minecraft mod's jar
 #   make mc-run                    the minecraft dev client
+#   make mc-test                   the minecraft test client (after test-start): its own run folder and world
 #   make run [ENGINE=hl2] [MAP=d1_canals_01] [ARGS="+sv_cheats 1"]
 #   make cmd C="'save a' 'load a'" console commands into the running game
+#   make test-start [ENGINE=hl2]   set the game's saves and settings aside for tests; make test-stop: back
 #   make patches                   write sdk edits back into source\sdk\halfcraft-<engine>.patch
 #   make package                   dist\HalfCraft-<version>.zip (NOBUILD=1 packs what's built)
 #
@@ -19,7 +21,7 @@
 SHELL := $(or $(wildcard C:/Windows/Sysnative/WindowsPowerShell/v1.0/powershell.exe),powershell.exe)
 .SHELLFLAGS := -NoProfile -ExecutionPolicy Bypass -Command
 .DEFAULT_GOAL := help
-.PHONY: help setup build mc mc-run run cmd patches package clean
+.PHONY: help setup build mc mc-run mc-test run cmd test-start test-stop patches package clean
 
 ENGINE ?= all
 RUN_ENGINE := $(if $(filter all,$(ENGINE)),hl2dm,$(ENGINE))
@@ -34,7 +36,7 @@ space := $(empty) $(empty)
 ARGS_LIST := $(subst $(space),$(comma),$(foreach a,$(ARGS),'$(a)'))
 
 help:
-	@Get-Content Makefile | Select-Object -First 16 | ForEach-Object { $$_ -replace '^# ?', '' }
+	@Get-Content Makefile | Select-Object -First 18 | ForEach-Object { $$_ -replace '^# ?', '' }
 
 setup:
 	& ./tools/setup_sdk.ps1 -Engine $(ENGINE)
@@ -46,13 +48,22 @@ mc:
 	& ./tools/gradle.ps1 build
 
 mc-run:
-	& ./tools/gradle.ps1 runClient
+	& ./tools/test_session.ps1 dev-client
+
+mc-test:
+	& ./tools/test_session.ps1 minecraft
 
 run:
 	& ./tools/run_hl2.ps1 -Engine $(RUN_ENGINE) $(if $(MAP),-Map $(MAP)) $(if $(ARGS),-Extra $(ARGS_LIST))
 
 cmd:
 	& ./tools/hl2_command.ps1 $(C)
+
+test-start:
+	& ./tools/test_session.ps1 start -Engine $(ENGINE)
+
+test-stop:
+	& ./tools/test_session.ps1 stop -Engine $(ENGINE)
 
 patches:
 	& ./tools/update_patches.ps1 -Engine $(ENGINE)

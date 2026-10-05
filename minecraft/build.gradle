@@ -14,6 +14,16 @@ loom {
 			programArgs "--username", (System.getenv("HALFCRAFT_USERNAME") ?: "Gordon")
 			vmArgs "--enable-native-access=ALL-UNNAMED", "-Dhalfcraft.quitWithHost=false"
 		}
+		// make mc-test (runTestClient): a client with a run folder and a world of its own, for tests
+		// that would change the player's world
+		testClient {
+			inherit client
+			configName = "Minecraft Test Client"
+			runDir "run/test"
+			// adding to the inherited arguments would replace them
+			vmArgs client.vmArgs
+			vmArg "-Dhalfcraft.world=HalfCraftTest"
+		}
 	}
 
 	mods {

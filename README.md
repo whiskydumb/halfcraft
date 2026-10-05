@@ -115,6 +115,17 @@ sends console commands to the running game, and `python tools/read_dump.py <dump
 names where a crash dump died: `build/game-hl2/bin` for `hl2.exe`, `build/game-hl2dm/bin/x64` for
 `hl2mp_win64.exe` (Steam keeps the dumps in `Steam/dumps`).
 
+Tests that change things play apart from your own games. `make test-start` sets the game folders'
+saves and `config.cfg` aside, then `make mc-test` starts a Minecraft dev client with a run folder
+(`minecraft/run/test`) and a world (`HalfCraftTest`) of its own; quit both games before
+`make test-stop` puts your saves and settings back (`tools/test_session.ps1`). Neither client starts
+while another Minecraft runs (they'd share the link), the test client only in a test session and
+yours only outside one. In the game, `hc_mc <command>` runs a Minecraft command as the player (the
+answer goes to chat and to Minecraft's log). For scripts (`tools/hl2_command.ps1`; typed into the
+console they're let go as it closes), `hc_key <SDL scancode> [1|0] [seconds]`,
+`hc_hold <mouse button> <1|0> [seconds]` and `hc_use <1|0> [seconds]` press Minecraft's keys and
+buttons and Source's use, and `tools/wait_log.ps1` waits for a line in either game's log.
+
 ## Not done yet
 
 - multiplayer

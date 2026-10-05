@@ -9,6 +9,8 @@ minecraft/.gradle/
 minecraft/build/
 minecraft/run/
 minecraft/out/
+# junit tests log through minecraft's log4j setup, which writes logs/latest.log
+minecraft/logs/
 
 # ide
 .vs/

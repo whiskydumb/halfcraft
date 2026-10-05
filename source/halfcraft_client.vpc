@@ -32,6 +32,7 @@ $Project
 			$File	"$HALFCRAFTDIR\src\client\hc_campaign_text.cpp"
 			$File	"$HALFCRAFTDIR\src\client\hc_client.h"
 			$File	"$HALFCRAFTDIR\src\client\hc_client.cpp"
+			$File	"$HALFCRAFTDIR\src\client\hc_console_input.cpp"
 			$File	"$HALFCRAFTDIR\src\client\hc_input.cpp"
 			$File	"$HALFCRAFTDIR\src\client\hc_minecraft.cpp"
 			$File	"$HALFCRAFTDIR\src\client\hc_overlay.cpp"

@@ -15,8 +15,8 @@ import org.slf4j.LoggerFactory;
 
 public final class HalfCraft implements ModInitializer {
 	public static final String MOD_ID = "halfcraft";
-	public static final String WORLD_NAME = "HalfCraft";
 	public static final Logger LOG = LoggerFactory.getLogger(MOD_ID);
+	public static final String WORLD_NAME = WorldName.resolve(System.getProperty("halfcraft.world"));
 	private static final String KIT2_TAG = "halfcraft_builder_kit";
 
 	@Override

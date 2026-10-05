@@ -10,6 +10,7 @@ public final class HalfCraftClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		dev.halfcraft.link.HostLink.announceRunning();
+		HostCommands.register();
 
 		ClientTickEvents.END_CLIENT_TICK.register(HostClient::clientTick);
 		// Half-Life draws the real NPC; its Minecraft stand-in is only a hitbox.
