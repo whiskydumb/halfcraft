@@ -22,6 +22,8 @@ public final class HalfCraft implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		HostCombat.init();
+		// Minecraft's mobs and Half-Life's characters see and fight each other
+		dev.halfcraft.mobs.HostMobs.init();
 		ServerLifecycleEvents.SERVER_STARTED.register(HalfCraft::configureServer);
 		// Half-Life's saves roll Minecraft's world and player back too
 		ServerLifecycleEvents.SERVER_STARTED.register(dev.halfcraft.world.Rollback::load);

@@ -368,6 +368,30 @@ namespace halfcraft
 		return false;
 	}
 
+	bool Link::read_mobs(proto::MobTable& out) const
+	{
+		if (!base_) {
+			return false;
+		}
+		const auto* src = at<proto::MobTable>(proto::kOffMobTable);
+		const auto& seq = as_atomic(src->seq);
+		for (int attempt = 0; attempt < 16; ++attempt) {
+			const auto s1 = seq.load(std::memory_order_acquire);
+			if (s1 & 1) {
+				_mm_pause();
+				continue;
+			}
+			const auto count = std::min(src->count, proto::kMaxMobs);
+			std::memcpy(&out, src, offsetof(proto::MobTable, mobs) + sizeof(proto::MobRecord) * count);
+			out.count = count;
+			std::atomic_thread_fence(std::memory_order_acquire);
+			if (seq.load(std::memory_order_relaxed) == s1) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	void Link::drain_render(const std::function<void(std::uint32_t, const std::uint8_t*, std::uint32_t)>& fn, std::uint64_t max_bytes)
 	{
 		// past an attach()ed view's end: the render ring is client.dll's

@@ -11,14 +11,24 @@
     "EntitySwimMixin",
     "FallingBlockMixin",
     "FlowingFluidMixin",
+    "GroundPathNavigationMixin",
     "ItemMixin",
     "LevelChunkMixin",
+    "LineOfSightMixin",
+    "MobHoldMixin",
+    "MobSunMixin",
+    "PathMixin",
+    "PathNavigationMixin",
+    "PathNavigationRegionAccessor",
+    "PathfindingContextMixin",
+    "PetTeleportMixin",
     "PlayerEdgeMixin",
     "PressurePlateMixin",
     "ProjectileMixin",
     "ProjectileUtilMixin",
     "ServerExplosionMixin",
-    "ServerPlayerMixin"
+    "ServerPlayerMixin",
+    "WalkNodeEvaluatorMixin"
   ],
   "injectors": { "defaultRequire": 1 }
 }

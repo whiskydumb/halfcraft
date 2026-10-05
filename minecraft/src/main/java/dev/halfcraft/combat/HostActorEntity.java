@@ -12,6 +12,7 @@ import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.entity.projectile.Projectile;
@@ -38,6 +39,25 @@ public class HostActorEntity extends LivingEntity {
 	private double pushX, pushZ;
 	private float pushStrength;
 	private boolean hitThisTick;
+	// This tick's hits by Minecraft's own mobs (a pet, a monster fighting back), one per mob: Half-Life
+	// blames each on that mob's stand-in, not on the player (HostMobs sends them)
+	private final java.util.Map<Integer, MobHit> mobHits = new java.util.LinkedHashMap<>();
+
+	/** What one of Minecraft's mobs did to this actor in a tick. */
+	public static final class MobHit {
+		public final int attackerId;
+		public final String attackerName;
+		public float damage;
+		public int flags;
+		public int weapon;
+		public double pushX, pushZ;
+		public float pushStrength;
+
+		MobHit(Mob attacker) {
+			this.attackerId = attacker.getId();
+			this.attackerName = attacker.getName().getString();
+		}
+	}
 
 	public HostActorEntity(EntityType<? extends HostActorEntity> type, Level level) {
 		super(type, level);
@@ -91,16 +111,30 @@ public class HostActorEntity extends LivingEntity {
 		if (this.isInvulnerableTo(level, source) || dmg <= 0.0F) {
 			return;
 		}
+		if (source.getEntity() instanceof Mob attacker) {
+			MobHit hit = this.mobHits.computeIfAbsent(attacker.getId(), id -> new MobHit(attacker));
+			hit.damage += dmg;
+			hit.flags |= hitFlags(source);
+			hit.weapon = weaponClass(source);
+			this.getCombatTracker().recordDamage(source, dmg);
+			return;
+		}
 		this.pendingDamage += dmg;
-		if (source.getDirectEntity() instanceof Projectile) {
-			this.pendingFlags |= Proto.HIT_PROJECTILE;
-		}
+		this.pendingFlags |= hitFlags(source);
 		this.pendingWeapon = weaponClass(source);
-		if (source.is(net.minecraft.tags.DamageTypeTags.IS_FIRE)) {
-			this.pendingFlags |= Proto.HIT_FIRE;
-		}
 		this.hitThisTick = true;
 		this.getCombatTracker().recordDamage(source, dmg);
+	}
+
+	private static int hitFlags(DamageSource source) {
+		int flags = 0;
+		if (source.getDirectEntity() instanceof Projectile) {
+			flags |= Proto.HIT_PROJECTILE;
+		}
+		if (source.is(net.minecraft.tags.DamageTypeTags.IS_FIRE)) {
+			flags |= Proto.HIT_FIRE;
+		}
+		return flags;
 	}
 
 	@Override
@@ -108,6 +142,15 @@ public class HostActorEntity extends LivingEntity {
 		// Half-Life owns this actor's position. Remember the strongest push for Half-Life's stagger:
 		// Minecraft pushes towards -(xd, zd).
 		double len = Math.sqrt(xd * xd + zd * zd);
+		if (source.getEntity() instanceof Mob attacker) {
+			MobHit hit = this.mobHits.computeIfAbsent(attacker.getId(), id -> new MobHit(attacker));
+			if (len > 1e-6 && power > hit.pushStrength) {
+				hit.pushStrength = (float) power;
+				hit.pushX = -xd / len;
+				hit.pushZ = -zd / len;
+			}
+			return;
+		}
 		if (len > 1e-6 && power > this.pushStrength) {
 			this.pushStrength = (float) power;
 			this.pushX = -xd / len;
@@ -161,6 +204,22 @@ public class HostActorEntity extends LivingEntity {
 		this.pushStrength = 0.0F;
 		this.hitThisTick = false;
 		return hit;
+	}
+
+	/** This tick's hits by Minecraft's mobs, one per mob, and clears them. */
+	public java.util.List<MobHit> takeMobHits() {
+		if (this.mobHits.isEmpty()) {
+			return java.util.List.of();
+		}
+		java.util.List<MobHit> hits = new java.util.ArrayList<>(this.mobHits.values());
+		this.mobHits.clear();
+		return hits;
+	}
+
+	@Override
+	public double getVisibilityPercent(ServerLevel level, @Nullable Entity lookingEntity) {
+		// invisible only to the eye (Half-Life draws the actor): pets and mobs target it at full range
+		return 1.0;
 	}
 
 	@Override

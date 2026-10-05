@@ -18,6 +18,7 @@
 #include "server/hc_checkpoints.h"
 #include "server/hc_combat.h"
 #include "server/hc_hazards.h"
+#include "server/hc_mobs.h"
 #include "server/hc_vitals.h"
 #include "server/hc_world_collision.h"
 #include "shared/hc_bridge.h"
@@ -87,6 +88,7 @@ namespace halfcraft
 			void LevelShutdownPreEntity() override
 			{
 				world_.reset({});
+				mobs_.reset();
 			}
 
 			void FrameUpdatePostEntityThink() override;
@@ -101,6 +103,7 @@ namespace halfcraft
 			WorldCollision                     world_;
 			BlockSolids                        solids_;
 			Combat                             combat_;
+			Mobs                               mobs_;
 			Vitals                             vitals_;
 			Hazards                            hazards_;
 			Checkpoints                        checkpoints_;
@@ -124,6 +127,7 @@ namespace halfcraft
 				update_use(player);
 			}
 			combat_.update(link_, player, slot_, puppeted && link_.mc_alive());
+			mobs_.update(link_, slot_);
 			vitals_.update(link_, player);
 			if (link_.mc_alive()) {
 				hazards_.update(player, slot_);

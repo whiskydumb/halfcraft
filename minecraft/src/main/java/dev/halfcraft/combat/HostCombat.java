@@ -70,6 +70,11 @@ public final class HostCombat {
 		return PROXIES.get(actorId);
 	}
 
+	/** Every Half-Life actor's stand-in right now. Server thread only. */
+	public static java.util.Collection<HostActorEntity> proxies() {
+		return java.util.Collections.unmodifiableCollection(PROXIES.values());
+	}
+
 	private static void serverTick(MinecraftServer server) {
 		List<ServerPlayer> players = server.getPlayerList().getPlayers();
 		if (!HostLink.active() || players.isEmpty()) {
@@ -191,13 +196,7 @@ public final class HostCombat {
 		}
 		ServerLevel level = player.level();
 		HostActorEntity attacker = PROXIES.get(attackerActorId);
-		DamageSources sources = level.damageSources();
-		DamageSource source = switch (kind) {
-			case Proto.HURT_MELEE -> attacker != null ? sources.mobAttack(attacker) : sources.generic();
-			case Proto.HURT_PROJECTILE -> attacker != null ? sources.mobProjectile(attacker, attacker) : sources.generic();
-			case Proto.HURT_MAGIC -> attacker != null ? sources.indirectMagic(attacker, attacker) : sources.magic();
-			default -> sources.generic();
-		};
+		DamageSource source = damageSource(level.damageSources(), kind, attacker);
 		float damage = hostDamage / HOST_TO_MC_DAMAGE;
 		float healthBefore = player.getHealth();
 		boolean hurt = player.hurtServer(level, source, damage);
@@ -207,6 +206,16 @@ public final class HostCombat {
 			// Power attacks shove harder, like a sprint hit does in Minecraft.
 			player.knockback(0.5, attacker.getX() - player.getX(), attacker.getZ() - player.getZ(), source, damage);
 		}
+	}
+
+	/** How Minecraft takes a Half-Life hit of this kind (a Proto.HURT_* value), from the actor's stand-in if any. */
+	public static DamageSource damageSource(DamageSources sources, int kind, @Nullable HostActorEntity attacker) {
+		return switch (kind) {
+			case Proto.HURT_MELEE -> attacker != null ? sources.mobAttack(attacker) : sources.generic();
+			case Proto.HURT_PROJECTILE -> attacker != null ? sources.mobProjectile(attacker, attacker) : sources.generic();
+			case Proto.HURT_MAGIC -> attacker != null ? sources.indirectMagic(attacker, attacker) : sources.magic();
+			default -> sources.generic();
+		};
 	}
 
 	/** The host's armour can fill this much absorption (Half-Life's full suit: 100 / 5). */

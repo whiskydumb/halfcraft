@@ -38,6 +38,8 @@ $Project
 			$File	"$HALFCRAFTDIR\src\server\hc_combat.cpp"
 			$File	"$HALFCRAFTDIR\src\server\hc_hazards.h"
 			$File	"$HALFCRAFTDIR\src\server\hc_hazards.cpp"
+			$File	"$HALFCRAFTDIR\src\server\hc_mobs.h"
+			$File	"$HALFCRAFTDIR\src\server\hc_mobs.cpp"
 			$File	"$HALFCRAFTDIR\src\server\hc_server.cpp"
 			$File	"$HALFCRAFTDIR\src\server\hc_vitals.h"
 			$File	"$HALFCRAFTDIR\src\server\hc_vitals.cpp"

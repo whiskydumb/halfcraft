@@ -17,6 +17,7 @@
 #include "core/hc_units.h"
 
 class CBasePlayer;
+class CBaseEntity;
 
 namespace halfcraft
 {
@@ -38,4 +39,10 @@ namespace halfcraft
 		std::vector<proto::ActorRecord> records_;
 		bool                            actors_sent_ = false;
 	};
+
+	/// the id minecraft knows a host actor by (proto::ActorRecord::id, and the attacker of its hurts).
+	std::uint32_t host_actor_id(CBaseEntity* entity);
+	/// how minecraft should take a half-life hit of this damage type (DMG_*).
+	/// @return proto::HurtKind
+	int hurt_kind(int damage_type);
 }

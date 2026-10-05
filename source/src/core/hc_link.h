@@ -65,6 +65,8 @@ namespace halfcraft
 		/// @return false when there is nothing to pop
 		bool pop_event(proto::McEvent& out);
 		bool read_world_entities(proto::WorldEntities& out) const;
+		/// minecraft's mobs near its player (seqlock); out.count says how many records were read.
+		bool read_mobs(proto::MobTable& out) const;
 
 		/// render ring, consumer side: calls fn(type, payload, bytes) per pending message, up to
 		/// about max_bytes of payload. payload points into shared memory.

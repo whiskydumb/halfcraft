@@ -67,6 +67,7 @@ public final class InputBridge {
 			case Proto.IN_RELEASE_ALL -> releaseAll();
 			case Proto.IN_HURT -> hurt(minecraft, code, a / 100.0F, b, c);
 			case Proto.IN_HEAL -> heal(minecraft, code, a / 100.0F);
+			case Proto.IN_HURT_MOB -> dev.halfcraft.mobs.HostMobs.hurtFromHost(minecraft.getSingleplayerServer(), code, a, b / 100.0F, c);
 			case Proto.IN_CHECKPOINT -> rollback(minecraft, checkpointId(a, b), false);
 			case Proto.IN_RESTORE -> rollback(minecraft, checkpointId(a, b), true);
 			case Proto.IN_STRING -> HostStrings.accept(code, a, b, c);

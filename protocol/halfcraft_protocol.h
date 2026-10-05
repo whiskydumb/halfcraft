@@ -205,7 +205,7 @@ namespace halfcraft::proto
 		                     // | (bytes in this piece << 8) | kStringEnd on the last piece, a/b/c = up to 12 bytes
 		                     // (little-endian, a's low byte first)
 		kInHurtMob = 13,     // (#13) the host hurt a Minecraft mob: code = HurtKind, a = its Minecraft entity id,
-		                     // b = host damage * 100, c = the attacker's actor id (0: none)
+		                     // b = host damage * 100, c = the attacker's actor id (0: none, kMobAttackerPlayer: the host's player)
 	};
 
 	// What a kInString is for; Minecraft collects the pieces of each channel until kStringEnd.
@@ -381,11 +381,42 @@ namespace halfcraft::proto
 	static_assert(sizeof(WeaponTable) <= kWeaponTableBytes);
 
 	// ---- mob table @0x24000 (MC -> host, seqlock) ---------------------------------------------
-	// (#13) Minecraft's mobs near the player, which the host's characters see and fight.
+	// (#13) Minecraft's mobs near the player, which the host's characters see and fight: its monsters
+	// and the player's pets (no animals or villagers), nearest first. Written once per Minecraft tick.
+	inline constexpr std::uint32_t kMaxMobs = 256;
+
+	enum MobFlags : std::uint32_t
+	{
+		kMobHostile = 1u << 0,  // a monster: the host's enemies of monsters fight it
+		kMobPet = 1u << 1,      // tamed by the player: the host's characters see it as the player's ally
+		kMobUndead = 1u << 2,   // zombies, skeletons, ...
+	};
+
+	// kInHurtMob's attacker when the host's own player landed the hit (an actor id is never this).
+	inline constexpr std::uint32_t kMobAttackerPlayer = 0xFFFFFFFFu;
+
+	struct MobRecord
+	{
+		std::uint32_t id;         // the Minecraft entity id, stable while the mob exists
+		std::uint32_t flags;      // MobFlags
+		float         x, y, z;    // feet, MC coords
+		float         yaw;        // MC degrees
+		float         width;      // blocks
+		float         height;     // blocks
+		float         health;     // Minecraft points
+		float         maxHealth;
+		std::uint32_t pad[2];
+	};
+	static_assert(sizeof(MobRecord) == 48);
+
 	struct MobTable
 	{
 		std::uint32_t seq;
+		std::uint32_t count;
+		std::uint8_t  pad[0x40 - 8];
+		MobRecord     mobs[kMaxMobs];
 	};
+	static_assert(sizeof(MobTable) == 0x40 + sizeof(MobRecord) * kMaxMobs);
 	static_assert(sizeof(MobTable) <= kMobTableBytes);
 	static_assert(kOffHostDebug + kHostDebugBytes <= kOffWeaponTable);
 	static_assert(kOffWeaponTable + kWeaponTableBytes <= kOffMobTable);

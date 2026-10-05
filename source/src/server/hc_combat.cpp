@@ -17,6 +17,7 @@
 #include "core/hc_module.h"
 #include "core/hc_units.h"
 #include "server/hc_combat.h"
+#include "server/hc_mobs.h"
 #include "server/hc_vitals.h"
 #include "shared/hc_hooks.h"
 #include "shared/hc_bridge.h"
@@ -229,13 +230,22 @@ namespace halfcraft
 		}
 		const float damage = event.a * std::max(0.0f, hc_damage_to_npc.GetFloat());
 
-		// a weapon's trace from the player's eye, so blood, decals and hit reactions come out right
-		const Vector eye = player->EyePosition();
+		// a minecraft mob's hit comes from its stand-in, so the character fights that mob; one with no
+		// stand-in (an animal) blames nobody, and only the player's own hits are the player's
+		CBaseEntity* stand_in = event.attackerId != 0 ? mob_stand_in(event.attackerId) : nullptr;
+		CBaseEntity* attacker = event.attackerId == 0 ? player : stand_in ? stand_in : GetWorldEntity();
+		if (event.attackerId != 0) {
+			log_info("minecraft's mob %u hit %s for %.1f%s", event.attackerId, target->GetClassname(), damage, stand_in ? "" : " (it has no stand-in: nobody to blame)");
+		}
+
+		// a weapon's trace from the attacker, so blood, decals and hit reactions come out right
+		CBaseEntity* from = stand_in ? stand_in : player;
+		const Vector eye = stand_in ? stand_in->WorldSpaceCenter() : player->EyePosition();
 		const Vector centre = target->WorldSpaceCenter();
 		Vector       dir = centre - eye;
 		VectorNormalize(dir);
 		trace_t tr;
-		UTIL_TraceLine(eye, centre + dir * 16.0f, MASK_SHOT, player, COLLISION_GROUP_NONE, &tr);
+		UTIL_TraceLine(eye, centre + dir * 16.0f, MASK_SHOT, from, COLLISION_GROUP_NONE, &tr);
 		if (tr.m_pEnt != target) {
 			tr.m_pEnt = target;
 			tr.endpos = centre;
@@ -244,7 +254,7 @@ namespace halfcraft
 			tr.plane.normal = -dir;
 		}
 
-		CTakeDamageInfo info(player, player, damage, type);
+		CTakeDamageInfo info(attacker, attacker, damage, type);
 		info.SetDamagePosition(tr.endpos);
 		// minecraft's knockback (its direction, in minecraft's x/z) pushes physics props and ragdolls
 		Vector push = dir;
@@ -310,6 +320,25 @@ namespace halfcraft
 		stick(target->entindex(), hit, direction);
 	}
 
+	std::uint32_t host_actor_id(CBaseEntity* entity)
+	{
+		return actor_id(entity);
+	}
+
+	int hurt_kind(int damage_type)
+	{
+		if (damage_type & (DMG_CLUB | DMG_SLASH)) {
+			return proto::kHurtMelee;
+		}
+		if (damage_type & (DMG_BULLET | DMG_BUCKSHOT)) {
+			return proto::kHurtProjectile;
+		}
+		if (damage_type & (DMG_SHOCK | DMG_ENERGYBEAM | DMG_DISSOLVE | DMG_PLASMA | DMG_RADIATION | DMG_ACID | DMG_POISON | DMG_NERVEGAS)) {
+			return proto::kHurtMagic;
+		}
+		return proto::kHurtOther;
+	}
+
 	bool server_player_damage(CBasePlayer* player, const CTakeDamageInfo& info)
 	{
 		if (g_killing_player || !minecraft_owns_health()) {
@@ -327,14 +356,7 @@ namespace halfcraft
 			}
 		}
 
-		int kind = proto::kHurtOther;
-		if (type & (DMG_CLUB | DMG_SLASH)) {
-			kind = proto::kHurtMelee;
-		} else if (type & (DMG_BULLET | DMG_BUCKSHOT)) {
-			kind = proto::kHurtProjectile;
-		} else if (type & (DMG_SHOCK | DMG_ENERGYBEAM | DMG_DISSOLVE | DMG_PLASMA | DMG_RADIATION | DMG_ACID | DMG_POISON | DMG_NERVEGAS)) {
-			kind = proto::kHurtMagic;
-		}
+		const int           kind = hurt_kind(type);
 		CBaseEntity*        attacker = info.GetAttacker();
 		const std::uint32_t attacker_id = attacker && attacker != player && g_actors.count(actor_id(attacker)) ? actor_id(attacker) : 0;
 		if (info.GetDamage() > 0.0f) {

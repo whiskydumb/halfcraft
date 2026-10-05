@@ -30,6 +30,9 @@ public final class HostCollision {
 	private static final int FILL_LOWER = 1 << 10;
 	private static final int FILL_UPPER = 1 << 11;
 	private static final int FILL_TOP_SHIFT = 12; // highest occupied of the 8 voxel layers (3 bits)
+	private static final int FILL_NAV_SHIFT = 16; // how mobs path through the cell (NavGrid.classify)
+	// Per block: its 8 occupancy layers, for the box tests mobs' pathfinding makes between cells (NavGrid).
+	private static final ConcurrentHashMap<Long, long[]> LAYERS = new ConcurrentHashMap<>();
 	private static final ConcurrentHashMap<Long, HostTri[]> TRIS = new ConcurrentHashMap<>();
 	private static volatile java.util.function.Predicate<net.minecraft.world.entity.Entity> smoothCollider = e -> false;
 	private static final Set<Long> KNOWN_REGIONS = ConcurrentHashMap.newKeySet();
@@ -124,6 +127,17 @@ public final class HostCollision {
 	public static float solidFraction(BlockPos pos) {
 		Integer fill = FILL.isEmpty() ? null : FILL.get(pos.asLong());
 		return fill == null ? 0.0F : (fill & 0x3FF) / 512.0F;
+	}
+
+	/** How mobs path through this cell: a {@link NavGrid#classify} result (NavGrid.EMPTY without geometry). */
+	public static int navAt(int x, int y, int z) {
+		Integer fill = FILL.isEmpty() ? null : FILL.get(BlockPos.asLong(x, y, z));
+		return fill == null ? NavGrid.EMPTY : fill >>> FILL_NAV_SHIFT & ((1 << NavGrid.BITS) - 1);
+	}
+
+	/** This cell's 8 occupancy layers (bit z * 8 + x of layer y), or null without geometry. Never change them. */
+	public static long @Nullable [] layersAt(int x, int y, int z) {
+		return LAYERS.isEmpty() ? null : LAYERS.get(BlockPos.asLong(x, y, z));
 	}
 
 	/** True if any Half-Life geometry is in this cell. */
@@ -265,10 +279,13 @@ public final class HostCollision {
 	}
 
 	private static void clear(int newEpoch) {
+		// forgotten before the shapes go: whatever holds still until its region is known (the player,
+		// mobs) never sees a known region without its ground
+		KNOWN_REGIONS.clear();
 		SHAPES.clear();
 		FILL.clear();
+		LAYERS.clear();
 		TRIS.clear();
-		KNOWN_REGIONS.clear();
 		epoch = newEpoch;
 		HalfCraft.LOG.info("HalfCraft: collision cleared (epoch {})", newEpoch);
 	}
@@ -290,16 +307,19 @@ public final class HostCollision {
 		// Build the new shapes first so readers never see a half-empty region.
 		java.util.HashMap<Long, VoxelShape> fresh = new java.util.HashMap<>(count * 2);
 		java.util.HashMap<Long, Integer> freshFill = new java.util.HashMap<>(count * 2);
+		java.util.HashMap<Long, long[]> freshLayers = new java.util.HashMap<>(count * 2);
 		long e = p + COL_REGION_HEADER_BYTES;
 		for (int i = 0; i < count; i++, e += COL_BLOCK_BYTES) {
 			int x = s.get(JAVA_INT, e);
 			int y = s.get(JAVA_INT, e + 4);
 			int z = s.get(JAVA_INT, e + 8);
-			VoxelShape shape = buildShape(s, e + 16);
+			long[] layers = readLayers(s, e + 16);
+			VoxelShape shape = buildShape(layers);
 			if (shape != null) {
 				long key = BlockPos.asLong(x, y, z);
 				fresh.put(key, shape);
-				freshFill.put(key, fillInfo(s, e + 16));
+				freshFill.put(key, fillInfo(layers));
+				freshLayers.put(key, layers);
 			}
 		}
 
@@ -311,9 +331,11 @@ public final class HostCollision {
 					if (shape != null) {
 						SHAPES.put(key, shape);
 						FILL.put(key, freshFill.get(key));
+						LAYERS.put(key, freshLayers.get(key));
 					} else {
 						SHAPES.remove(key);
 						FILL.remove(key);
+						LAYERS.remove(key);
 					}
 				}
 			}
@@ -363,27 +385,33 @@ public final class HostCollision {
 		return n;
 	}
 
-	private static int fillInfo(MemorySegment s, long bitsOff) {
+	private static long[] readLayers(MemorySegment s, long bitsOff) {
+		long[] layers = new long[8];
+		for (int y = 0; y < 8; y++) {
+			layers[y] = s.get(JAVA_LONG, bitsOff + y * 8L);
+		}
+		return layers;
+	}
+
+	private static int fillInfo(long[] layers) {
 		int count = 0;
 		int info = 0;
 		int top = 0;
 		for (int y = 0; y < 8; y++) {
-			long layer = s.get(JAVA_LONG, bitsOff + y * 8L);
+			long layer = layers[y];
 			count += Long.bitCount(layer);
 			if (layer != 0) {
 				info |= y < 4 ? FILL_LOWER : FILL_UPPER;
 				top = y;
 			}
 		}
-		return info | count | top << FILL_TOP_SHIFT;
+		return info | count | top << FILL_TOP_SHIFT | NavGrid.classify(layers) << FILL_NAV_SHIFT;
 	}
 
-	private static @Nullable VoxelShape buildShape(MemorySegment s, long bitsOff) {
+	private static @Nullable VoxelShape buildShape(long[] layers) {
 		boolean any = false;
 		boolean full = true;
-		long[] layers = new long[8];
 		for (int y = 0; y < 8; y++) {
-			layers[y] = s.get(JAVA_LONG, bitsOff + y * 8L);
 			any |= layers[y] != 0;
 			full &= layers[y] == -1L;
 		}

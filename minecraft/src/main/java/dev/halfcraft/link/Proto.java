@@ -251,4 +251,14 @@ public final class Proto {
 
 	// Mob table (relative to OFF_MOB_TABLE): (#13)
 	public static final long MT_SEQ = 0x00;
+	public static final long MT_COUNT = 0x04;
+	public static final long MT_RECORDS = 0x40;
+	public static final int MAX_MOBS = 256;
+	public static final long MOB_RECORD_BYTES = 48;
+	public static final long MR_ID = 0x00, MR_FLAGS = 0x04, MR_X = 0x08, MR_Y = 0x0C, MR_Z = 0x10, MR_YAW = 0x14, MR_WIDTH = 0x18,
+		MR_HEIGHT = 0x1C, MR_HEALTH = 0x20, MR_MAX_HEALTH = 0x24;
+	public static final int MOB_HOSTILE = 1;
+	public static final int MOB_PET = 1 << 1;
+	public static final int MOB_UNDEAD = 1 << 2;
+	public static final int MOB_ATTACKER_PLAYER = 0xFFFFFFFF;
 }
