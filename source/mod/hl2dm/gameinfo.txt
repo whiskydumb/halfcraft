@@ -7,9 +7,11 @@
 
 	FileSystem
 	{
-		// runs on half-life 2: deathmatch's 64-bit engine (app 320): unlike source sdk base 2013
-		// multiplayer's (february 2025), it carries valve's 2026 fixes singleplayer needs.
-		// half-life 2 itself (app 220) has to be installed for its maps, models and sounds.
+		// game-hl2dm: runs on half-life 2: deathmatch's 64-bit engine (app 320). source sdk base 2013
+		// multiplayer's engine (february 2025) would crash singleplayer: its local network backdoor
+		// compares a 64-bit "no route yet" marker against 0xffffffff, so (void*)-1 reaches the send
+		// proxies; hl2:dm's 2026 engine has that fixed. half-life 2 itself (app 220) has to be
+		// installed for its maps, models and sounds.
 		SteamAppId				320
 
 		SearchPaths

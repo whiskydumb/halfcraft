@@ -129,6 +129,14 @@ namespace halfcraft
 			bool Init() override
 			{
 				set_log_sink(console_sink);
+				// our game folder runs as half-life 2 (or hl2:dm) and must never trade cfg/config.cfg with
+				// that game's steam cloud: the player's own binds (E for use) would take minecraft's keys,
+				// and ours would land in their half-life 2. valve.rc says so too, but only after the engine
+				// has synced; the game systems start before that
+				ConVarRef cloud_settings("cl_cloud_settings");
+				if (cloud_settings.IsValid()) {
+					cloud_settings.SetValue(0);
+				}
 				auto& s = client_session();
 				// starts somewhere new each run, so a minecraft still acknowledging the last run's
 				// teleport can't be taken for having arrived at this run's.

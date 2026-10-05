@@ -2,6 +2,7 @@
 
 Reads the exception and module list from the dump, then names the crashing function (and the
 likely callers found on the crashing thread's stack) with dbghelp and the build's .pdb files.
+Works for both engines: 64-bit hl2mp_win64.exe and 32-bit hl2.exe dumps.
 
     python tools/read_dump.py <dump.dmp> [pdb dir ...]
 """
@@ -15,6 +16,15 @@ from pathlib import Path
 STREAM_THREAD_LIST = 3
 STREAM_MODULE_LIST = 4
 STREAM_EXCEPTION = 6
+STREAM_SYSTEM_INFO = 7
+
+
+def is_x86(data, streams):
+    """Whether the dumped process was 32-bit (PROCESSOR_ARCHITECTURE_INTEL)."""
+    if STREAM_SYSTEM_INFO not in streams:
+        return False
+    rva, _ = streams[STREAM_SYSTEM_INFO]
+    return struct.unpack_from("<H", data, rva)[0] == 0
 
 
 def read_streams(data):
@@ -106,7 +116,7 @@ def thread_context(data, streams, thread_id):
     return None
 
 
-def walk_stack(data, streams, thread_id, symbols, modules):
+def walk_stack(data, streams, thread_id, symbols, modules, x86):
     """Unwinds the crashing thread with dbghelp's StackWalk64 over the dump's memory."""
     ctx_bytes = thread_context(data, streams, thread_id)
     if not ctx_bytes:
@@ -131,12 +141,18 @@ def walk_stack(data, streams, thread_id, symbols, modules):
                     return image[offset : offset + size]
         return None
 
-    # x64 CONTEXT: 1232 bytes, 16-byte aligned (the dump may hold an extended one after it)
-    raw_ctx = (ctypes.c_byte * (1232 + 16))()
+    if x86:
+        # x86 CONTEXT: 716 bytes; eip, esp, ebp
+        ctx_size, machine = 716, 0x014C
+        rip, rsp, rbp = (struct.unpack_from("<I", ctx_bytes, offset)[0] for offset in (0xB8, 0xC4, 0xB4))
+    else:
+        # x64 CONTEXT: 1232 bytes, 16-byte aligned (the dump may hold an extended one after it)
+        ctx_size, machine = 1232, 0x8664
+        rip, rsp, rbp = (struct.unpack_from("<Q", ctx_bytes, offset)[0] for offset in (0xF8, 0x98, 0xA0))
+    raw_ctx = (ctypes.c_byte * (ctx_size + 16))()
     aligned = (ctypes.addressof(raw_ctx) + 15) & ~15
-    ctypes.memmove(aligned, bytes(ctx_bytes[:1232]), 1232)
+    ctypes.memmove(aligned, bytes(ctx_bytes[:ctx_size]), ctx_size)
     ctx = ctypes.c_void_p(aligned)
-    rip, rsp, rbp = struct.unpack_from("<Q", ctx_bytes, 0xF8)[0], struct.unpack_from("<Q", ctx_bytes, 0x98)[0], struct.unpack_from("<Q", ctx_bytes, 0xA0)[0]
 
     class Address64(ctypes.Structure):
         _fields_ = [("Offset", ctypes.c_uint64), ("Segment", wt.WORD), ("Mode", wt.DWORD)]
@@ -172,7 +188,7 @@ def walk_stack(data, streams, thread_id, symbols, modules):
     frame.AddrFrame.Offset, frame.AddrFrame.Mode = rbp, 3
     frames = []
     for _ in range(64):
-        if not dbghelp.StackWalk64(0x8664, symbols.process, wt.HANDLE(0), ctypes.byref(frame), ctx, read_memory, table_access, module_base, None):
+        if not dbghelp.StackWalk64(machine, symbols.process, wt.HANDLE(0), ctypes.byref(frame), ctx, read_memory, table_access, module_base, None):
             break
         if frame.AddrPC.Offset == 0:
             break
@@ -242,6 +258,8 @@ def main():
     streams = read_streams(data)
     modules = read_modules(data, streams)
     thread_id, code, address, params = read_exception(data, streams)
+    x86 = is_x86(data, streams)
+    pointer, digits = (4, 8) if x86 else (8, 16)
 
     def module_of(addr):
         for base, size, name in modules:
@@ -258,7 +276,7 @@ def main():
         mod = module_of(addr)
         where = f"{Path(mod[2]).name}+0x{addr - mod[0]:x}" if mod else "?"
         sym = symbols.name(addr) if mod else None
-        return f"0x{addr:016x} {where}" + (f"  {sym}" if sym else "")
+        return f"0x{addr:0{digits}x} {where}" + (f"  {sym}" if sym else "")
 
     print(f"exception 0x{code:08x} on thread {thread_id}")
     if code == 0xC0000005 and len(params) >= 2:
@@ -266,7 +284,7 @@ def main():
     print("  at " + describe(address))
 
     print("call stack:")
-    for frame in walk_stack(data, streams, thread_id, symbols, modules):
+    for frame in walk_stack(data, streams, thread_id, symbols, modules, x86):
         print("  " + describe(frame))
 
     # return addresses into our own modules, top of the stack first
@@ -274,8 +292,8 @@ def main():
     start, stack = thread_stack(data, streams, thread_id)
     ours = [m for m in modules if Path(m[2]).stem.lower() in {Path(p).stem.lower() for d in pdb_dirs for p in Path(d).glob("*.pdb")}]
     shown = 0
-    for offset in range(0, len(stack) - 7, 8):
-        value = struct.unpack_from("<Q", stack, offset)[0]
+    for offset in range(0, len(stack) - pointer + 1, pointer):
+        value = struct.unpack_from("<I" if x86 else "<Q", stack, offset)[0]
         if any(base <= value < base + size for base, size, _ in ours):
             text = describe(value)
             if "+0x0" not in text.split("  ")[-1]:

@@ -1,22 +1,23 @@
 # builds both halves of halfcraft and packs a release into dist\:
 #   HalfCraft-<version>.zip       unpack anywhere, start HalfCraft.exe (package\README.txt says the rest)
-#   HalfCraft-<version>-pdb.zip   client.dll's and server.dll's debug symbols, for crash dumps
+#   HalfCraft-<version>-pdb.zip   both engines' client.dll and server.dll debug symbols (hl2\, hl2dm\),
+#                                 for crash dumps
 #
 #   tools/package.ps1 [-NoBuild]
 #
-# the zip's HalfCraft folder: HalfCraft.exe, game\ (the mod folder: hl2dm-sp's files, source\mod,
-# the dlls and shaders), minecraft\ (portable Prism Launcher with the HalfCraft instance and its mods, from
-# package\minecraft), README.txt, LICENSE.txt, THIRD-PARTY-NOTICES.md.
+# the zip's HalfCraft folder: HalfCraft.exe, game-hl2\ and game-hl2dm\ (the game folders of the two
+# engines, laid out by tools/engines.ps1), minecraft\ (portable Prism Launcher with the HalfCraft instance
+# and its mods, from package\minecraft), README.txt, LICENSE.txt, THIRD-PARTY-NOTICES.md.
 #
-# building needs what tools/build_hl2.ps1 needs plus JDK 25 (JAVA_HOME, or one installed in program
-# files). Prism Launcher and Fabric API are downloaded once into .cache\package and checked against
-# the hashes pinned below.
+# building needs what tools/build_hl2.ps1 needs plus JDK 25 (tools/gradle.ps1 finds it). Prism Launcher
+# and Fabric API are downloaded once into .cache\package and checked against the hashes pinned below.
 
 param([switch]$NoBuild)
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 $repo = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "engines.ps1")
 $properties = Get-Content (Join-Path $repo "minecraft\gradle.properties") -Raw
 function Get-Property([string]$name) {
 	$match = [regex]::Match($properties, "(?m)^$([regex]::Escape($name))=(.+)$")
@@ -51,23 +52,6 @@ function Get-Pinned([string]$url, [string]$path, [string]$algorithm, [string]$ha
 	}
 }
 
-function Find-Jdk25 {
-	$candidates = @()
-	if ($env:JAVA_HOME) { $candidates += $env:JAVA_HOME }
-	foreach ($vendor in @("Eclipse Adoptium", "Java", "Microsoft", "Zulu", "Amazon Corretto")) {
-		$root = Join-Path $env:ProgramFiles $vendor
-		if (Test-Path $root) { $candidates += Get-ChildItem $root -Directory | Sort-Object Name -Descending | ForEach-Object FullName }
-	}
-	foreach ($jdk in $candidates) {
-		$release = Join-Path $jdk "release"
-		if ((Test-Path (Join-Path $jdk "bin\javac.exe")) -and (Test-Path $release) -and
-			((Get-Content $release -Raw) -match 'JAVA_VERSION="(\d+)') -and [int]$Matches[1] -ge 25) {
-			return $jdk
-		}
-	}
-	throw "no JDK 25 or newer found: set JAVA_HOME to one"
-}
-
 # zip entries named with forward slashes, as the zip format expects (windows powershell's own
 # zipping writes backslashes)
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
@@ -96,25 +80,16 @@ function Copy-Text([string]$from, [string]$to, [hashtable]$values = @{}) {
 }
 
 if (-not $NoBuild) {
-	$javaHome = $env:JAVA_HOME
-	try {
-		$env:JAVA_HOME = Find-Jdk25
-		Push-Location (Join-Path $repo "minecraft")
-		try {
-			.\gradlew.bat build --no-configuration-cache
-			if ($LASTEXITCODE) { throw "the minecraft mod didn't build" }
-		} finally { Pop-Location }
-	} finally { $env:JAVA_HOME = $javaHome }
+	& (Join-Path $PSScriptRoot "gradle.ps1") build
 	& (Join-Path $PSScriptRoot "build_hl2.ps1")
 }
 
-$sdk = Join-Path $repo "source-sdk-2013"
-$modDir = Join-Path $sdk "game\mod_hl2"
 $jar = Join-Path $repo "minecraft\build\libs\halfcraft-$version.jar"
 $launcher = Join-Path $repo "build\launcher\HalfCraft.exe"
-$dlls = @("client", "server") | ForEach-Object { Join-Path $modDir "bin\x64\$_.dll" }
-# the world flashlight shaders build_hl2.ps1 compiles (hl2dm-sp's git doesn't have them)
-$shaders = @("flashlight_ps20b", "lightmappedgeneric_flashlight_vs20") | ForEach-Object { Join-Path $modDir "shaders\fxc\$_.vcs" }
+$engines = @("hl2", "hl2dm")
+# the dlls and the world flashlight shaders build_hl2.ps1 makes for both engines
+$dlls = $engines | ForEach-Object { Get-EngineDlls $_ }
+$shaders = @("flashlight_ps20b", "lightmappedgeneric_flashlight_vs20") | ForEach-Object { Join-Path $repo "build\shaders\out\$_.vcs" }
 foreach ($file in @($jar, $launcher) + $dlls + $shaders) {
 	if (-not (Test-Path $file)) { throw "missing $file (build first, or drop -NoBuild)" }
 }
@@ -132,21 +107,10 @@ Get-ChildItem $dist -Filter "HalfCraft-*.zip" | Remove-Item -Force
 if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
 New-Item -ItemType Directory $stage | Out-Null
 
-# game\: the mod folder. hl2dm-sp's own files (what its git tracks, not what running it left behind),
-# halfcraft's over them, the dlls and shaders
-$game = Join-Path $stage "game"
-foreach ($file in (git -C $sdk ls-files "game/mod_hl2")) {
-	$target = Join-Path $game ($file.Substring("game/mod_hl2/".Length) -replace '/', '\')
-	New-Item -ItemType Directory (Split-Path $target) -Force | Out-Null
-	Copy-Item (Join-Path $sdk ($file -replace '/', '\')) $target
+# game-hl2\ and game-hl2dm\: one game folder per engine (their saves don't mix), laid out like the dev ones
+foreach ($engine in $engines) {
+	Copy-GameFolder -Engine $engine -Destination (Join-Path $stage "game-$engine")
 }
-Copy-Item -Recurse -Force (Join-Path $repo "source\mod\*") $game
-# the engine reads the mod's strings (chapter titles) from resource\<mod folder>_<language>.txt
-Move-Item (Join-Path $game "resource\mod_hl2_english.txt") (Join-Path $game "resource\game_english.txt")
-New-Item -ItemType Directory (Join-Path $game "bin\x64") -Force | Out-Null
-Copy-Item $dlls (Join-Path $game "bin\x64")
-New-Item -ItemType Directory (Join-Path $game "shaders\fxc") -Force | Out-Null
-Copy-Item $shaders (Join-Path $game "shaders\fxc")
 
 # minecraft\: portable prism with the halfcraft instance and its mods (names without versions, so
 # unpacking a new release over an old one replaces them)
@@ -167,10 +131,14 @@ Copy-Text (Join-Path $repo "LICENSE") (Join-Path $stage "LICENSE.txt")
 Copy-Text (Join-Path $repo "THIRD-PARTY-NOTICES.md") (Join-Path $stage "THIRD-PARTY-NOTICES.md")
 
 New-ZipFromFolder (Join-Path $dist "HalfCraft-$version.zip") $stage "HalfCraft/"
-New-Zip (Join-Path $dist "HalfCraft-$version-pdb.zip") ([ordered]@{
-	"client.pdb" = Join-Path $modDir "bin\x64\client.pdb"
-	"server.pdb" = Join-Path $modDir "bin\x64\server.pdb"
-})
+$symbols = [ordered]@{}
+foreach ($engine in $engines) {
+	foreach ($dll in (Get-EngineDlls $engine)) {
+		$pdb = [IO.Path]::ChangeExtension($dll, "pdb")
+		$symbols["$engine/$(Split-Path -Leaf $pdb)"] = $pdb
+	}
+}
+New-Zip (Join-Path $dist "HalfCraft-$version-pdb.zip") $symbols
 Remove-Item -Recurse -Force $stage
 
 Get-ChildItem $dist -Filter "HalfCraft-*.zip" | ForEach-Object { "{0,-32} {1,8:N1} MB" -f $_.Name, ($_.Length / 1MB) }

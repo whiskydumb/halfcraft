@@ -1,6 +1,6 @@
 #pragma once
 
-// the few places where valve's game code calls into halfcraft (see source/sdk/halfcraft-sdk.patch). everything
+// the few places where valve's game code calls into halfcraft (see source/sdk/halfcraft-<engine>.patch). everything
 // else halfcraft does runs from its own game systems.
 
 #include "inputsystem/ButtonCode.h"

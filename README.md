@@ -15,6 +15,16 @@ The two games talk over shared memory (`protocol/halfcraft_protocol.h`). Half-Li
 is open source (Source SDK 2013), so the Half-Life side is a regular Source mod with a handful of
 hooks into Valve's code.
 
+It runs on either of two engines, from the same code:
+
+| Engine id | Engine | Built from |
+|---|---|---|
+| `hl2` | Half-Life 2's own (`hl2.exe`, 32-bit): Half-Life 2 is all a player needs | Valve's singleplayer SDK as of 2015 (`source-sdk-2013-sp`), patched to build with today's Visual Studio |
+| `hl2dm` | Half-Life 2: Deathmatch's (`hl2mp_win64.exe`, 64-bit, more memory) | [hl2dm-sp](https://github.com/hardlightbridge/hl2dm-sp): Valve's 2025 SDK with the campaigns running on that engine (`source-sdk-2013`) |
+
+Each engine gets its own game folder (`game-hl2`, `game-hl2dm`): their saves don't mix. Minecraft's
+world is the same.
+
 ## Layout
 
 ```
@@ -24,13 +34,14 @@ source/          the Source mod (C++)
   src/client/      client.dll: host state, input, camera, Minecraft overlay, blocks, entities, particles, lights, water
   src/server/      server.dll: Half-Life's collision as Minecraft geometry, block collision, combat, health, hazards
   src/shared/      the hook entry points, the puppet movement (CGameMovement::HalfCraftMove), the client/server bridge
-  sdk/             halfcraft-sdk.patch: the hooks into Valve's game code
-  mod/             files laid over the mod folder (gameinfo.txt, cfg)
+  sdk/             halfcraft-<engine>.patch: the hooks into Valve's game code, one per SDK tree
+  mod/             files laid over the game folders: common/ (cfg), hl2/ and hl2dm/ (gameinfo.txt)
   launcher/        HalfCraft.exe: a release's one click (finds Steam's games, starts Minecraft, then the mod)
   halfcraft_*.vpc  pulled into Valve's client/server projects
 protocol/        the shared memory layout, the one source of truth for both sides
 package/         what a release carries besides code: the Prism instance template, the players' README
 tools/           setup, build, run and packaging scripts, link and crash-dump debugging helpers
+Makefile         the tasks, wrapping tools/
 ```
 
 ## How it maps
@@ -54,15 +65,21 @@ tools/           setup, build, run and packaging scripts, link and crash-dump de
 
 ## Build and run
 
-Needs Visual Studio 2022+ (C++ desktop workload), Python 3, Git, JDK 25, a Minecraft: Java Edition
-account, and on Steam: Half-Life 2 and Half-Life 2: Deathmatch (its 64-bit engine runs the mod).
+Needs Visual Studio 2022+ (C++ desktop workload with its x64 and x86 tools), Python 3, Git, GNU
+make 4+ (`winget install ezwinports.make`), JDK 25, a Minecraft: Java Edition account, and on Steam:
+Half-Life 2 (plus Half-Life 2: Deathmatch for the `hl2dm` engine).
 
 ```powershell
-tools/setup_sdk.ps1          # clones the SDK (hl2dm-sp) into source-sdk-2013 and applies the patch
-tools/build_hl2.ps1          # client.dll + server.dll into source-sdk-2013/game/mod_hl2
-tools/launch_minecraft.bat   # the Minecraft dev client (JAVA_HOME on JDK 25); waits for the game
-tools/run_hl2.ps1 -Map d1_trainstation_02
+make setup                   # clones both SDK trees into the repo (git-ignored) and applies the patches
+make build                   # both engines' dlls and shaders, game folders build/game-<engine>, HalfCraft.exe
+make mc-run                  # the Minecraft dev client (finds a JDK 25 itself); waits for the game
+make run ENGINE=hl2 MAP=d1_trainstation_02
 ```
+
+`make` alone lists the tasks; `ENGINE=hl2` or `ENGINE=hl2dm` limits one to an engine (`make run`
+defaults to `hl2dm`; the `hl2` build takes its shaders and campaign files from `source-sdk-2013` too,
+so its setup clones both trees). After changing Valve code inside an SDK tree, `make patches` writes
+it back into `source/sdk`.
 
 Minecraft waits on its title screen, then hides its window and loads its mirror world once the
 game is up.
@@ -70,13 +87,15 @@ game is up.
 A release is one command:
 
 ```powershell
-tools/package.ps1            # builds both halves -> dist/HalfCraft-<version>.zip (+ -pdb.zip)
+make package                 # builds both halves -> dist/HalfCraft-<version>.zip (+ -pdb.zip)
 ```
 
-The zip's `HalfCraft` folder holds `HalfCraft.exe`, the mod folder (`game/`) and a portable Prism
-Launcher with the HalfCraft instance (`minecraft/`); `package/README.txt` is what players read.
-`HalfCraft.exe` checks Steam has Half-Life 2 and Deathmatch, starts Minecraft through Prism (the
-first time it waits for the Microsoft sign-in), then the engine on `game/`. `client.dll` starts
+The zip's `HalfCraft` folder holds `HalfCraft.exe`, the two game folders (`game-hl2/`,
+`game-hl2dm/`) and a portable Prism Launcher with the HalfCraft instance (`minecraft/`);
+`package/README.txt` is what players read. `HalfCraft.exe` checks Steam has Half-Life 2, asks which
+engine to run when Half-Life 2: Deathmatch is installed too (and remembers it; Shift asks again),
+starts Minecraft through Prism (the first time it waits for the Microsoft sign-in), then the
+engine on its game folder. `client.dll` starts
 Minecraft too when nothing else did, and again if it quits on its own, and says on screen what
 it's doing until it connects. Prism Launcher and Fabric API downloads are pinned by hash.
 
@@ -84,8 +103,10 @@ Console variables: `hc_block_light` (block brightness in the map's light, defaul
 overbright), `hc_torch_light` / `hc_torch_light_count` (Minecraft's lights on the map),
 `hc_damage_to_npc`, `hc_explosion_damage`; for debugging `hc_debug_blocks 1` (outline the blocks'
 collision), `hc_debug_drop 1` (drop a watermelon onto the blocks), `hc_debug_use 1` (log what use
-finds), `hc_debug_torch` (a torch light where you look, without Minecraft), and the commands `hc_look <pitch> <yaw>`, `hc_click <1|2|3>` and `hc_scroll <notches>`. `tools/hl2_command.ps1 "save test" "load test"`
-sends console commands to the running game.
+finds), `hc_debug_torch` (a torch light where you look, without Minecraft), and the commands `hc_look <pitch> <yaw>`, `hc_click <1|2|3>` and `hc_scroll <notches>`. `make cmd C="'save test' 'load test'"`
+sends console commands to the running game, and `python tools/read_dump.py <dump> <folder with the pdbs>`
+names where a crash dump died: `build/game-hl2/bin` for `hl2.exe`, `build/game-hl2dm/bin/x64` for
+`hl2mp_win64.exe` (Steam keeps the dumps in `Steam/dumps`).
 
 ## Not done yet
 

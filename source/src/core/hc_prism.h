@@ -1,12 +1,13 @@
 #pragma once
 
 // the minecraft a halfcraft release ships: a portable prism launcher with a ready "HalfCraft"
-// instance, in the release's minecraft folder beside the half-life mod folder (game). HalfCraft.exe
-// and client.dll both start it from there. engine-agnostic (win32 only).
+// instance, in the release's minecraft folder beside the half-life game folders. HalfCraft.exe and
+// client.dll both start it from there. engine-agnostic (win32 only).
 //
 //   HalfCraft/
 //     HalfCraft.exe
-//     game/                       the mod folder hl2mp_win64.exe runs (-game)
+//     game-hl2/                   the game folder half-life 2's hl2.exe runs (-game), 32-bit
+//     game-hl2dm/                 the one half-life 2: deathmatch's hl2mp_win64.exe runs, 64-bit
 //     minecraft/
 //       Prism/prismlauncher.exe   portable prism: the account, minecraft, java and the world live here
 //       defaults/                 prism's settings for its first start
@@ -17,7 +18,7 @@
 namespace halfcraft::prism
 {
 	/// the bundled minecraft beside a mod folder.
-	/// @param game_dir - the mod folder (<release>/game)
+	/// @param game_dir - the game folder (<release>/game-hl2 or game-hl2dm)
 	/// @return <release>/minecraft, or empty when there's no bundled prism (a development checkout)
 	std::filesystem::path find_bundle(const std::filesystem::path& game_dir);
 

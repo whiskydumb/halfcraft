@@ -9,7 +9,9 @@ the Combine with a diamond sword, light City 17 with torches.
 YOU NEED
 
 - Windows 10 or 11, 64-bit
-- Steam, with Half-Life 2 and Half-Life 2: Deathmatch installed (Deathmatch's engine runs HalfCraft)
+- Steam, with Half-Life 2 installed
+- optional: Half-Life 2: Deathmatch. HalfCraft can run on its engine too, which is 64-bit and can
+  use more memory than Half-Life 2's own 32-bit one
 - a Microsoft account that owns Minecraft: Java Edition
 - about 1 GB of free space for Minecraft and Java, which download on the first start
 
@@ -17,7 +19,8 @@ YOU NEED
 PLAY
 
 1. Unpack the zip anywhere, e.g. C:\Games\HalfCraft. A path with only English letters is safest.
-2. Start HalfCraft.exe.
+2. Start HalfCraft.exe. If you have Half-Life 2: Deathmatch too, it asks which engine to run and
+   can remember your choice. Hold Shift while starting HalfCraft.exe to choose again.
 3. The first time, Prism Launcher opens: sign in with your Microsoft account. Half-Life 2 starts
    once you're signed in. Minecraft downloads (a few minutes the first time) and joins by itself;
    a line at the top of the screen says how far along it is.
@@ -42,7 +45,8 @@ camera, ...), plus Half-Life's own:
 
 SAVES
 
-Half-Life's saves are in game\save. Minecraft's world is in
+Half-Life's saves are in game-hl2\save, or game-hl2dm\save on Deathmatch's engine: each engine
+keeps its own. Minecraft's world is in
 minecraft\Prism\instances\HalfCraft\.minecraft\saves\HalfCraft.
 Loading a Half-Life save rolls Minecraft's blocks and your inventory back to that save too.
 
@@ -57,8 +61,9 @@ IF SOMETHING'S WRONG
 
 - The line at the top of the screen says what Minecraft is doing. If it says Minecraft isn't
   running, quit and start HalfCraft.exe again.
-- Logs: game\console.log (Half-Life), minecraft\Prism\instances\HalfCraft\.minecraft\logs\latest.log
-  (Minecraft), minecraft\Prism\logs (Prism Launcher).
+- Logs: game-hl2\console.log or game-hl2dm\console.log (Half-Life, by engine),
+  minecraft\Prism\instances\HalfCraft\.minecraft\logs\latest.log (Minecraft), minecraft\Prism\logs
+  (Prism Launcher).
 
 
 HalfCraft is MIT-licensed (LICENSE.txt) and based on SkyCraft by chasmlol. What it bundles is

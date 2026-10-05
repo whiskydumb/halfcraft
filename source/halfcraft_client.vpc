@@ -1,13 +1,13 @@
 //-----------------------------------------------------------------------------
 //	HALFCRAFT_CLIENT.VPC
 //
-//	halfcraft's code in client.dll. included from game\client\client_hl2.vpc
-//	(source\sdk\halfcraft-sdk.patch). expects the sdk checked out at
-//	<halfcraft>\source-sdk-2013.
+//	halfcraft's code in client.dll. included from game\client\client_hl2.vpc of
+//	both sdk trees (source\sdk\halfcraft-<engine>.patch), which set
+//	$HALFCRAFTROOT to the repo: the trees sit at different depths below it.
 //-----------------------------------------------------------------------------
 
-$Macro HALFCRAFTDIR		"$SRCDIR\..\..\source"
-$Macro HALFCRAFTPROTO	"$SRCDIR\..\..\protocol"
+$Macro HALFCRAFTDIR		"$HALFCRAFTROOT\source"
+$Macro HALFCRAFTPROTO	"$HALFCRAFTROOT\protocol"
 
 $Configuration
 {

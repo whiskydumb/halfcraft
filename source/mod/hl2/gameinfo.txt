@@ -1,0 +1,38 @@
+"GameInfo"
+{
+	game		"HalfCraft"
+	title		"HALF-LIFE'"
+	title2		"halfcraft"
+	type		singleplayer_only
+
+	FileSystem
+	{
+		// game-hl2: runs on half-life 2's own 32-bit engine (app 220, hl2.exe), built from valve's
+		// singleplayer sdk. plain paths and |all_source_engine_paths| resolve against the folder of the
+		// running hl2.exe; this engine doesn't know |appid_N|.
+		SteamAppId				220
+
+		SearchPaths
+		{
+			game+mod			|gameinfo_path|custom/*
+			game+mod+mod_write+default_write_path		|gameinfo_path|.
+			// ours is the only gamebin: if our dlls fail to load, the engine mustn't quietly take hl2's
+			gamebin				|gameinfo_path|bin
+
+			game_lv				hl2/hl2_lv.vpk
+			game				|all_source_engine_paths|hl2/hl2_textures.vpk
+			game				|all_source_engine_paths|hl2/hl2_sound_vo_english.vpk
+			game				|all_source_engine_paths|hl2/hl2_sound_misc.vpk
+			game				|all_source_engine_paths|hl2/hl2_misc.vpk
+			game				|all_source_engine_paths|hl2/hl2_pak.vpk
+			game				|all_source_engine_paths|hl2_complete/hl2_complete_misc.vpk
+			platform			|all_source_engine_paths|platform/platform_misc.vpk
+
+			game				|all_source_engine_paths|hl2
+			game				|all_source_engine_paths|hl2_complete
+			platform			|all_source_engine_paths|platform
+
+			game+download		|gameinfo_path|download
+		}
+	}
+}

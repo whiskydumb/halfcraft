@@ -6,10 +6,12 @@ HalfCraft is MIT-licensed (see `LICENSE`). It is built from, or a release contai
 
 | Component | License | Source |
 |---|---|---|
-| Source SDK 2013, via the hl2dm-sp fork (pinned in `tools/setup_sdk.ps1`) | Source 1 SDK License (Valve) | https://github.com/hardlightbridge/hl2dm-sp, https://github.com/ValveSoftware/source-sdk-2013 |
+| Source SDK 2013 for Half-Life 2: Deathmatch's engine, via the hl2dm-sp fork (pinned in `tools/setup_sdk.ps1`) | Source 1 SDK License (Valve) | https://github.com/hardlightbridge/hl2dm-sp, https://github.com/ValveSoftware/source-sdk-2013 |
+| Source SDK 2013 for Half-Life 2's engine: Valve's singleplayer tree as of 2015 (pinned in `tools/setup_sdk.ps1`) | Source 1 SDK License (Valve) | https://github.com/ValveSoftware/source-sdk-2013 |
 
-`source/sdk/halfcraft-sdk.patch` is a modification of SDK files and falls under the same license.
-The SDK itself isn't in this repository: `tools/setup_sdk.ps1` downloads it.
+`source/sdk/halfcraft-hl2.patch` and `source/sdk/halfcraft-hl2dm.patch` are modifications of SDK
+files and fall under the same license. The SDK itself isn't in this repository: `tools/setup_sdk.ps1`
+downloads it.
 
 ## The bundled Minecraft (when packaged)
 
@@ -20,8 +22,8 @@ The SDK itself isn't in this repository: `tools/setup_sdk.ps1` downloads it.
 
 ## Not included
 
-Half-Life 2, Half-Life 2: Deathmatch (whose engine runs the mod), Minecraft, Java and Fabric
-Loader aren't included. Half-Life 2 and Half-Life 2: Deathmatch come from Steam; Prism Launcher
+Half-Life 2, Half-Life 2: Deathmatch (whose engine can run the mod instead of Half-Life 2's), Minecraft,
+Java and Fabric Loader aren't included. Half-Life 2 and Half-Life 2: Deathmatch come from Steam; Prism Launcher
 downloads Minecraft, Java and Fabric Loader after the player signs in with a Microsoft account
 that owns Minecraft: Java Edition.
 

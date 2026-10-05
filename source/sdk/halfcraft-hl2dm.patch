@@ -23,14 +23,15 @@ index 41f2d0e0..57ed651b 100644
  	if ( !g_pEngineReplay || !g_pEngineReplay->IsSupportedModAndPlatform() )
  		return false;
 diff --git a/src/game/client/client_hl2.vpc b/src/game/client/client_hl2.vpc
-index d9cfcd3f..b8ce511b 100644
+index d9cfcd3f..e0e2dfc0 100644
 --- a/src/game/client/client_hl2.vpc
 +++ b/src/game/client/client_hl2.vpc
-@@ -10,6 +10,7 @@ $Macro GAMENAME 	"mod_hl2" [$SOURCESDK]
+@@ -10,6 +10,8 @@ $Macro GAMENAME 	"mod_hl2" [$SOURCESDK]
  
  $Include "$SRCDIR\game\client\client_base.vpc"
  $Include "$SRCDIR\game\protobuf_include.vpc"
-+$Include "$SRCDIR\..\..\source\halfcraft_client.vpc"
++$Macro HALFCRAFTROOT "$SRCDIR\..\.."
++$Include "$HALFCRAFTROOT\source\halfcraft_client.vpc"
  
  $Configuration
  {
@@ -233,14 +234,15 @@ index 2c0fa74f..fc314f6a 100644
  	{
  		if ((m_iHealth - info.GetDamage()) <= 0)
 diff --git a/src/game/server/server_hl2.vpc b/src/game/server/server_hl2.vpc
-index 0fc2e64b..c7a4cbba 100644
+index 0fc2e64b..78139395 100644
 --- a/src/game/server/server_hl2.vpc
 +++ b/src/game/server/server_hl2.vpc
-@@ -9,6 +9,7 @@ $Macro GAMENAME 	"hl2" [!$SOURCESDK]
+@@ -9,6 +9,8 @@ $Macro GAMENAME 	"hl2" [!$SOURCESDK]
  $Macro GAMENAME 	"mod_hl2" [$SOURCESDK]
  
  $Include "$SRCDIR\game\server\server_base.vpc"
-+$Include "$SRCDIR\..\..\source\halfcraft_server.vpc"
++$Macro HALFCRAFTROOT "$SRCDIR\..\.."
++$Include "$HALFCRAFTROOT\source\halfcraft_server.vpc"
  
  $Configuration
  {

@@ -1,0 +1,1207 @@
+diff --git a/sp/src/game/client/c_baseentity.cpp b/sp/src/game/client/c_baseentity.cpp
+index 8f40d7ef..43b0befc 100644
+--- a/sp/src/game/client/c_baseentity.cpp
++++ b/sp/src/game/client/c_baseentity.cpp
+@@ -4742,7 +4742,7 @@ C_BaseEntity *C_BaseEntity::Instance( int iEnt )
+ 
+ #ifdef WIN32
+ #pragma warning( push )
+-#include <typeinfo.h>
++#include <typeinfo>
+ #pragma warning( pop )
+ #endif
+ 
+diff --git a/sp/src/game/client/cdll_client_int.cpp b/sp/src/game/client/cdll_client_int.cpp
+index 10cce078..d92482fc 100644
+--- a/sp/src/game/client/cdll_client_int.cpp
++++ b/sp/src/game/client/cdll_client_int.cpp
+@@ -169,6 +169,8 @@ extern vgui::IInputInternal *g_InputInternal;
+ #include "sixense/in_sixense.h"
+ #endif
+ 
++#include "shared/hc_hooks.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -2503,6 +2505,10 @@ void CHLClient::ReloadFilesInList( IFileList *pFilesToReload )
+ 
+ bool CHLClient::HandleUiToggle()
+ {
++	// halfcraft: esc closes minecraft's screen (inventory, chat, ...) instead of opening source's menu
++	if ( halfcraft::client_ui_toggle() )
++		return true;
++
+ #if defined( REPLAY_ENABLED )
+ 	if ( !g_pEngineReplay || !g_pEngineReplay->IsSupportedModAndPlatform() )
+ 		return false;
+diff --git a/sp/src/game/client/client_hl2.vpc b/sp/src/game/client/client_hl2.vpc
+index db44981b..035e9b08 100644
+--- a/sp/src/game/client/client_hl2.vpc
++++ b/sp/src/game/client/client_hl2.vpc
+@@ -10,6 +10,8 @@ $Macro GAMENAME 	"mod_hl2" [$SOURCESDK]
+ 
+ $Include "$SRCDIR\game\client\client_base.vpc"
+ $Include "$SRCDIR\game\protobuf_include.vpc"
++$Macro HALFCRAFTROOT "$SRCDIR\..\..\.."
++$Include "$HALFCRAFTROOT\source\halfcraft_client.vpc"
+ 
+ $Configuration
+ {
+diff --git a/sp/src/game/client/clientmode_shared.cpp b/sp/src/game/client/clientmode_shared.cpp
+index 5d10db6c..4dbec1d2 100644
+--- a/sp/src/game/client/clientmode_shared.cpp
++++ b/sp/src/game/client/clientmode_shared.cpp
+@@ -65,6 +65,8 @@ extern ConVar replay_rendersetting_renderglow;
+ #include "econ_item_description.h"
+ #endif
+ 
++#include "shared/hc_hooks.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -401,7 +403,11 @@ bool ClientModeShared::CreateMove( float flInputSampleTime, CUserCmd *cmd )
+ 		return true;
+ 
+ 	// Let the player at it
+-	return pPlayer->CreateMove( flInputSampleTime, cmd );
++	bool bResult = pPlayer->CreateMove( flInputSampleTime, cmd );
++
++	// halfcraft: minecraft's player position goes into the command
++	halfcraft::client_create_move( cmd );
++	return bResult;
+ }
+ 
+ //-----------------------------------------------------------------------------
+@@ -419,6 +425,9 @@ void ClientModeShared::OverrideView( CViewSetup *pSetup )
+ 
+ 	pPlayer->OverrideView( pSetup );
+ 
++	// halfcraft: the camera sits where minecraft's player looks from
++	halfcraft::client_override_view( pSetup );
++
+ 	if( ::input->CAM_IsThirdPerson() )
+ 	{
+ 		Vector cam_ofs = g_ThirdPersonManager.GetCameraOffsetAngles();
+@@ -631,6 +640,10 @@ int	ClientModeShared::KeyInput( int down, ButtonCode_t keynum, const char *pszCu
+ {
+ 	if ( engine->Con_IsVisible() )
+ 		return 1;
++
++	// halfcraft: keys minecraft takes never reach source's bindings
++	if ( !halfcraft::client_key_event( down, keynum, pszCurrentBinding ) )
++		return 0;
+ 	
+ 	// Should we start typing a message?
+ 	if ( pszCurrentBinding &&
+diff --git a/sp/src/game/client/clientshadowmgr.cpp b/sp/src/game/client/clientshadowmgr.cpp
+index c37e7650..6f40b39d 100644
+--- a/sp/src/game/client/clientshadowmgr.cpp
++++ b/sp/src/game/client/clientshadowmgr.cpp
+@@ -83,6 +83,8 @@
+ #include "cmodel.h"
+ 
+ 
++#include "shared/hc_hooks.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -1291,7 +1293,8 @@ bool CClientShadowMgr::Init()
+ 	SetShadowBlobbyCutoffArea( 0.005 );
+ 
+ 	bool bTools = CommandLine()->CheckParm( "-tools" ) != NULL;
+-	m_nMaxDepthTextureShadows = bTools ? 4 : 1;	// Just one shadow depth texture in games, more in tools
++	// one shadow depth texture in games, more in tools; halfcraft adds its block lights' faces
++	m_nMaxDepthTextureShadows = bTools ? 4 : 1 + halfcraft::SHADOWED_FACES;
+ 
+ 	bool bLowEnd = ( g_pMaterialSystemHardwareConfig->GetDXSupportLevel() < 80 );
+ 
+@@ -3971,6 +3974,7 @@ void CClientShadowMgr::ComputeShadowDepthTextures( const CViewSetup &viewSetup )
+ 		pRenderContext->SetShadowDepthBiasFactors( flashlightState.m_flShadowSlopeScaleDepthBias, flashlightState.m_flShadowDepthBias );
+ 
+ 		// Render to the shadow depth texture with appropriate view
++		halfcraft::client_shadow_depth_begin( pActiveDepthShadows[j] );
+ 		view->UpdateShadowDepthTexture( m_DummyColorTexture, shadowDepthTexture, shadowView );
+ 
+ 		// Associate the shadow depth texture and stencil bit with the flashlight for use during scene rendering
+diff --git a/sp/src/game/client/hud_pdump.cpp b/sp/src/game/client/hud_pdump.cpp
+index 612a18d7..666c8888 100644
+--- a/sp/src/game/client/hud_pdump.cpp
++++ b/sp/src/game/client/hud_pdump.cpp
+@@ -22,7 +22,7 @@ static CPDumpPanel *g_pPDumpPanel = NULL;
+ //  retaining our own warning setup...ywb
+ #ifdef WIN32
+ #pragma warning( push )
+-#include <typeinfo.h>
++#include <typeinfo>
+ #pragma warning( pop )
+ #endif
+ 
+diff --git a/sp/src/game/client/in_mouse.cpp b/sp/src/game/client/in_mouse.cpp
+index bcf715a1..d5ca41dd 100644
+--- a/sp/src/game/client/in_mouse.cpp
++++ b/sp/src/game/client/in_mouse.cpp
+@@ -34,6 +34,8 @@
+ #endif
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
++#include "shared/hc_hooks.h"
++
+ #include "tier0/memdbgon.h"
+ 
+ // up / down
+@@ -670,6 +672,14 @@ void CInput::MouseMove( CUserCmd *cmd )
+ 		// Latch accumulated mouse movements and reset accumulators
+ 		GetAccumulatedMouseDeltasAndResetAccumulators( &mx, &my );
+ 
++		// halfcraft: minecraft's look (or cursor) takes the raw mouse instead
++		if ( halfcraft::client_mouse_move( mx, my, viewangles ) )
++		{
++			ResetMouse();
++			engine->SetViewAngles( viewangles );
++			return;
++		}
++
+ 		// Filter, etc. the delta values and place into mouse_x and mouse_y
+ 		GetMouseDelta( mx, my, &mouse_x, &mouse_y );
+ 
+diff --git a/sp/src/game/client/particlemgr.h b/sp/src/game/client/particlemgr.h
+index 3214a55f..26393edb 100644
+--- a/sp/src/game/client/particlemgr.h
++++ b/sp/src/game/client/particlemgr.h
+@@ -120,7 +120,7 @@ entities. Each one is useful under different conditions.
+ #include "utllinkedlist.h"
+ #include "utldict.h"
+ #ifdef WIN32
+-#include <typeinfo.h>
++#include <typeinfo>
+ #else
+ #include <typeinfo>
+ #endif
+diff --git a/sp/src/game/client/physics_main_client.cpp b/sp/src/game/client/physics_main_client.cpp
+index b1af5b23..9944a73d 100644
+--- a/sp/src/game/client/physics_main_client.cpp
++++ b/sp/src/game/client/physics_main_client.cpp
+@@ -7,7 +7,7 @@
+ #include "cbase.h"
+ #include "c_baseentity.h"
+ #ifdef WIN32
+-#include <typeinfo.h>
++#include <typeinfo>
+ #endif
+ #include "tier0/vprof.h"
+ 
+diff --git a/sp/src/game/client/viewrender.cpp b/sp/src/game/client/viewrender.cpp
+index a629071b..d18dc104 100644
+--- a/sp/src/game/client/viewrender.cpp
++++ b/sp/src/game/client/viewrender.cpp
+@@ -77,6 +77,8 @@
+ // Projective textures
+ #include "C_Env_Projected_Texture.h"
+ 
++#include "shared/hc_hooks.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -4987,11 +4989,16 @@ void CShadowDepthView::Draw()
+ 
+ 	MDLCACHE_CRITICAL_SECTION();
+ 
++	// halfcraft: some of its lights' shadow maps hold nothing but the far cap
++	const bool bDrawScene = halfcraft::client_shadow_depth_scene();
++
++	if ( bDrawScene )
+ 	{
+ 		VPROF_BUDGET( "BuildWorldRenderLists", VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING );
+ 		BuildWorldRenderLists( true, -1, true, true ); // @MULTICORE (toml 8/9/2006): Portal problem, not sending custom vis down
+ 	}
+ 
++	if ( bDrawScene )
+ 	{
+ 		VPROF_BUDGET( "BuildRenderableRenderLists", VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING );
+ 		BuildRenderableRenderLists( CurrentViewID() );
+@@ -5001,21 +5008,27 @@ void CShadowDepthView::Draw()
+ 
+ 	m_DrawFlags = m_pMainView->GetBaseDrawFlags() | DF_RENDER_UNDERWATER | DF_RENDER_ABOVEWATER | DF_SHADOW_DEPTH_MAP;	// Don't draw water surface...
+ 
++	if ( bDrawScene )
+ 	{
+-		VPROF_BUDGET( "DrawWorld", VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING );
+-		DrawWorld( 0.0f );
+-	}
++		{
++			VPROF_BUDGET( "DrawWorld", VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING );
++			DrawWorld( 0.0f );
++		}
+ 
+-	// Draw opaque and translucent renderables with appropriate override materials
+-	// OVERRIDE_DEPTH_WRITE is OK with a NULL material pointer
+-	modelrender->ForcedMaterialOverride( NULL, OVERRIDE_DEPTH_WRITE );	
++		// Draw opaque and translucent renderables with appropriate override materials
++		// OVERRIDE_DEPTH_WRITE is OK with a NULL material pointer
++		modelrender->ForcedMaterialOverride( NULL, OVERRIDE_DEPTH_WRITE );
+ 
+-	{
+-		VPROF_BUDGET( "DrawOpaqueRenderables", VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING );
+-		DrawOpaqueRenderables( DEPTH_MODE_SHADOW );
++		{
++			VPROF_BUDGET( "DrawOpaqueRenderables", VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING );
++			DrawOpaqueRenderables( DEPTH_MODE_SHADOW );
++		}
++
++		modelrender->ForcedMaterialOverride( 0 );
+ 	}
+ 
+-	modelrender->ForcedMaterialOverride( 0 );
++	// halfcraft: a far cap, so that what lies behind the light is always in shadow
++	halfcraft::client_shadow_depth_view( *this );
+ 
+ 	m_DrawFlags = 0;
+ 
+diff --git a/sp/src/game/server/physics_main.cpp b/sp/src/game/server/physics_main.cpp
+index b0b2d867..326321ac 100644
+--- a/sp/src/game/server/physics_main.cpp
++++ b/sp/src/game/server/physics_main.cpp
+@@ -8,7 +8,7 @@
+ 
+ #include "cbase.h"
+ #ifdef _WIN32
+-#include "typeinfo.h"
++#include <typeinfo>
+ // BUGBUG: typeinfo stomps some of the warning settings (in yvals.h)
+ #pragma warning(disable:4244)
+ #elif POSIX
+diff --git a/sp/src/game/server/player.cpp b/sp/src/game/server/player.cpp
+index 0538f90a..b99ca3cb 100644
+--- a/sp/src/game/server/player.cpp
++++ b/sp/src/game/server/player.cpp
+@@ -97,6 +97,8 @@ ConVar sv_bonus_challenge( "sv_bonus_challenge", "0", FCVAR_REPLICATED, "Set to
+ 
+ static ConVar sv_maxusrcmdprocessticks( "sv_maxusrcmdprocessticks", "24", FCVAR_NOTIFY, "Maximum number of client-issued usrcmd ticks that can be replayed in packet loss conditions, 0 to allow no restrictions" );
+ 
++#include "shared/hc_hooks.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -1086,6 +1088,10 @@ int CBasePlayer::OnTakeDamage( const CTakeDamageInfo &inputInfo )
+ 	if ( GetFlags() & FL_GODMODE )
+ 		return 0;
+ 
++	// halfcraft: while minecraft drives the player, minecraft's health takes the hit
++	if ( halfcraft::server_player_damage( this, info ) )
++		return 0;
++
+ 	if ( m_debugOverlays & OVERLAY_BUDDHA_MODE ) 
+ 	{
+ 		if ((m_iHealth - info.GetDamage()) <= 0)
+diff --git a/sp/src/game/server/server_hl2.vpc b/sp/src/game/server/server_hl2.vpc
+index 0fc2e64b..f2885746 100644
+--- a/sp/src/game/server/server_hl2.vpc
++++ b/sp/src/game/server/server_hl2.vpc
+@@ -9,6 +9,8 @@ $Macro GAMENAME 	"hl2" [!$SOURCESDK]
+ $Macro GAMENAME 	"mod_hl2" [$SOURCESDK]
+ 
+ $Include "$SRCDIR\game\server\server_base.vpc"
++$Macro HALFCRAFTROOT "$SRCDIR\..\..\.."
++$Include "$HALFCRAFTROOT\source\halfcraft_server.vpc"
+ 
+ $Configuration
+ {
+diff --git a/sp/src/game/shared/gamemovement.cpp b/sp/src/game/shared/gamemovement.cpp
+index 8de6fc32..270242b9 100644
+--- a/sp/src/game/shared/gamemovement.cpp
++++ b/sp/src/game/shared/gamemovement.cpp
+@@ -4562,6 +4562,10 @@ void CGameMovement::PlayerMove( void )
+ 
+ 	AngleVectors (mv->m_vecViewAngles, &m_vecForward, &m_vecRight, &m_vecUp );  // Determine movement angles
+ 
++	// halfcraft: minecraft's physics already moved the player
++	if ( HalfCraftMove() )
++		return;
++
+ 	// Always try and unstick us unless we are using a couple of the movement modes
+ 	if ( player->GetMoveType() != MOVETYPE_NOCLIP && 
+ 		 player->GetMoveType() != MOVETYPE_NONE && 		 
+diff --git a/sp/src/game/shared/gamemovement.h b/sp/src/game/shared/gamemovement.h
+index 79c83fc1..182f9090 100644
+--- a/sp/src/game/shared/gamemovement.h
++++ b/sp/src/game/shared/gamemovement.h
+@@ -197,6 +197,9 @@ protected:
+ 	// Determine if player is in water, on ground, etc.
+ 	virtual void CategorizePosition( void );
+ 
++	// halfcraft: minecraft moved the player this command (source/src/shared/hc_movement.cpp)
++	bool			HalfCraftMove( void );
++
+ 	virtual void	CheckParameters( void );
+ 
+ 	virtual	void	ReduceTimers( void );
+diff --git a/sp/src/game/shared/usercmd.cpp b/sp/src/game/shared/usercmd.cpp
+index 84ffa243..0e0d20f4 100644
+--- a/sp/src/game/shared/usercmd.cpp
++++ b/sp/src/game/shared/usercmd.cpp
+@@ -169,6 +169,37 @@ void WriteUsercmd( bf_write *buf, const CUserCmd *to, const CUserCmd *from )
+ 		buf->WriteOneBit( 0 );
+ 	}
+ 
++	// halfcraft
++	if ( to->hc_flags != from->hc_flags )
++	{
++		buf->WriteOneBit( 1 );
++		buf->WriteUBitLong( to->hc_flags, 8 );
++	}
++	else
++	{
++		buf->WriteOneBit( 0 );
++	}
++
++	if ( to->hc_origin != from->hc_origin )
++	{
++		buf->WriteOneBit( 1 );
++		buf->WriteBitVec3Coord( to->hc_origin );
++	}
++	else
++	{
++		buf->WriteOneBit( 0 );
++	}
++
++	if ( to->hc_velocity != from->hc_velocity )
++	{
++		buf->WriteOneBit( 1 );
++		buf->WriteBitVec3Coord( to->hc_velocity );
++	}
++	else
++	{
++		buf->WriteOneBit( 0 );
++	}
++
+ #if defined( HL2_CLIENT_DLL )
+ 	if ( to->entitygroundcontact.Count() != 0 )
+ 	{
+@@ -289,6 +320,22 @@ void ReadUsercmd( bf_read *buf, CUserCmd *move, CUserCmd *from )
+ 		move->mousedy = buf->ReadShort();
+ 	}
+ 
++	// halfcraft
++	if ( buf->ReadOneBit() )
++	{
++		move->hc_flags = buf->ReadUBitLong( 8 );
++	}
++
++	if ( buf->ReadOneBit() )
++	{
++		buf->ReadBitVec3Coord( move->hc_origin );
++	}
++
++	if ( buf->ReadOneBit() )
++	{
++		buf->ReadBitVec3Coord( move->hc_velocity );
++	}
++
+ #if defined( HL2_DLL )
+ 	if ( buf->ReadOneBit() )
+ 	{
+diff --git a/sp/src/game/shared/usercmd.h b/sp/src/game/shared/usercmd.h
+index 20b40345..398b4100 100644
+--- a/sp/src/game/shared/usercmd.h
++++ b/sp/src/game/shared/usercmd.h
+@@ -53,6 +53,9 @@ public:
+ 		random_seed = 0;
+ 		mousedx = 0;
+ 		mousedy = 0;
++		hc_flags = 0;
++		hc_origin.Init();
++		hc_velocity.Init();
+ 
+ 		hasbeenpredicted = false;
+ #if defined( HL2_DLL ) || defined( HL2_CLIENT_DLL )
+@@ -78,6 +81,9 @@ public:
+ 		random_seed			= src.random_seed;
+ 		mousedx				= src.mousedx;
+ 		mousedy				= src.mousedy;
++		hc_flags			= src.hc_flags;
++		hc_origin			= src.hc_origin;
++		hc_velocity			= src.hc_velocity;
+ 
+ 		hasbeenpredicted	= src.hasbeenpredicted;
+ 
+@@ -155,6 +161,11 @@ public:
+ 	short	mousedx;		// mouse accum in x from create move
+ 	short	mousedy;		// mouse accum in y from create move
+ 
++	// halfcraft: where minecraft's physics put the player (halfcraft::UserCmdFlag)
++	int		hc_flags;
++	Vector	hc_origin;
++	Vector	hc_velocity;
++
+ 	// Client only, tracks whether we've predicted this command at least once
+ 	bool	hasbeenpredicted;
+ 
+diff --git a/sp/src/lib/public/particles.lib b/sp/src/lib/public/particles.lib
+index adcab9f4fa58871b9eb95d9497bd4a72291b965c..bbc27c63c43a980eff68f23e91898b821104f07c 100644
+GIT binary patch
+delta 1007
+zcmZwESx}8(9LMqLaOlM$dxb1TNTpLLvgG8*mb8+xoG3@xA{7TM^t@TJ^OiPbuc;ZD
+zo(oqla@%zClF^;1D>qFpGrl?ROqy}=nR(_v&-42~&+{Mr)?pq*S%=5hbaP5-nk`K2
+zOZR{Y<1ij(Ou$6hm+l!<VeGT?da9OQMOu0%wf}b4<fku_6SLfFZ8&$WRgI6B0t=>M
+z8oV$aGcXggFdK6)7v3^H!Y3%u2rSO@sjC?cY*V|2eBg_Dn2!bU!$K^=Vl06_0<aXz
+z5Qybift3i7T|=v4;*3V-=wMf^d#zUX1S3RN_JkHixobjMEtD{!ScMWUln9|j3T2H@
+zqB@o6s`o}j^~dP^79)bktHZhL5QFvDfQ{IMSZsz3ao7Sowjv(eupK+F6T9SaZi27V
+zovjrpQQlhXaA}Cl?oQ}2I*xpIo7(T%jYRB05|WXERHPvtd$A80*pEzP;Q$We5DvqE
+zY#hN+<RBNvWWUQ<l5AXuXIr(O{w)ETS9oK+OzU=LjG36jd0cfk^N^1dIEhm@jWZ~~
+zS?O?|Yxwd1%wGwG4P!Fx1BI%6;5>>@j1pYHMYwPYmvIH9C_}ll4^&w5j2<3slOwfQ
+zzq}y%J?ZL)cBA_D8*Qd*s?Agh0TorajvKg%Td2lu+`(Pk!+ku!Lp;J`XsAIgo}do(
+zXplBjV`-?nvHTp?s5bv|386O%y-Da#h5k(F&xPJB^cO;ZDfCxDe=YPkLVw$-zw1me
+d&WwyfGKQq8(GXv)sVCS|&1r3sIjyah@;@&4#rpsN
+
+delta 1007
+zcmZwETTqN)9LMn~mR?zMu8>0!QfVti4%sB9q-aSwY?M`~NC%+<J#P*<v!&XQb2~Ld
+z({tg<MQ)qDdCBO`)Rmhiml@yeJCkNyd}f~c&-48L&-46;zI7RfP}Sw})nc%f7Zwz&
+z{T2^+Vge?@fJvAv`z>A}HTphdpO<RvQ>3wPO6PBPO@8{~os#8V+edQOnbf4HsW4(1
+zro#s_FcY&d8*?xh^WZC!qWnUF^}y0hzov$<zz(%%*bn}gj|EtW04%~{EWuI)A_&W{
+z9Kl$Dl~{!k*)zO4E<tZ(hz+f1bg$J~S17_{tt-4F#$6N28lgl8#UzwSp+pHKS}1FU
+z64R~3*1gvw>OaQjx9br+ULDC@k2q|=Mr^`n#A6H0NWfMkVjGgM9XqfSyRci1<R<&u
+z+}ZXbCC1n89H|VG*}cgwz2oS2cc=pudys;?NJSd<VL#Gg!2ujZ1`Z(;SvZU%IErJi
+zA{)nX0y)UVNjXqqD@)U_!?R8HpMmW`cArQ`vrO-`WsIAc)pkm?+VYT((>Q~(C_o{K
+za86on=UaaKKl4{|am%>O#KB@Uaqt34P>M2?<02|>372sNm8e3sOdPB+<>@^<I=rLp
+z@d0@u@_Xvl51o4T?>Cw~uc>CwS_r79!*$%iP255~ZsQK_;vVkf0UqKJ9>b0XG~x-G
+z(2N#o_H<N+yBo{T5e~KOpGyeMA+%PZJr&wBp*<H`o6uee?WNFO3GKDe-U#h&xAv|(
+eSwAy62FVyw>&8O-?X9j*FEz*6E_0ktWAz_eRoAWn
+
+diff --git a/sp/src/public/const.h b/sp/src/public/const.h
+index 98293c08..60589488 100644
+--- a/sp/src/public/const.h
++++ b/sp/src/public/const.h
+@@ -98,7 +98,8 @@
+ // CBaseEntity::m_fFlags
+ // PLAYER SPECIFIC FLAGS FIRST BECAUSE WE USE ONLY A FEW BITS OF NETWORK PRECISION
+ // This top block is for singleplayer games only....no HL2:DM (which defines HL2_DLL)
+-#if !defined( HL2MP ) && ( defined( PORTAL ) || defined( HL2_EPISODIC ) || defined ( HL2_DLL ) || defined( HL2_LOSTCOAST ) )
++// halfcraft: the singleplayer client (HL2_CLIENT_DLL) must read the server's flags with the same bits
++#if !defined( HL2MP ) && ( defined( PORTAL ) || defined( HL2_EPISODIC ) || defined ( HL2_DLL ) || defined( HL2_CLIENT_DLL ) || defined( HL2_LOSTCOAST ) )
+ #define	FL_ONGROUND				(1<<0)	// At rest / on the ground
+ #define FL_DUCKING				(1<<1)	// Player flag -- Player is fully crouched
+ #define	FL_WATERJUMP			(1<<2)	// player jumping out of water
+diff --git a/sp/src/public/tier0/memoverride.cpp b/sp/src/public/tier0/memoverride.cpp
+index 5c679e45..14b099ca 100644
+--- a/sp/src/public/tier0/memoverride.cpp
++++ b/sp/src/public/tier0/memoverride.cpp
+@@ -16,12 +16,6 @@
+ #include <windows.h>
+ #endif
+ 
+-#include "tier0/dbg.h"
+-#include "tier0/memalloc.h"
+-#include <string.h>
+-#include <stdio.h>
+-#include "memdbgoff.h"
+-
+ #ifdef _WIN32
+ // ARG: crtdbg is necessary for certain definitions below,
+ // but it also redefines malloc as a macro in release.
+@@ -31,19 +25,27 @@
+ #ifdef NDEBUG
+ #undef _DEBUG
+ #endif
+-
+ // Turn this back off in release mode.
+ #ifdef NDEBUG
+ #undef _DEBUG
+ #endif
+-#elif POSIX
++#endif
++
++#include "tier0/dbg.h"
++#include "tier0/memalloc.h"
++#include <string.h>
++#include <stdio.h>
++#include "memdbgoff.h"
++
++
++#if POSIX
+ #define __cdecl
+ #endif
+ 
+ #if defined( _WIN32 ) && !defined( _X360 )
+ const char *MakeModuleFileName()
+ {
+-	if ( g_pMemAlloc->IsDebugHeap() )
++	if ( g_pMemAlloc && g_pMemAlloc->IsDebugHeap() )
+ 	{
+ 		char *pszModuleName = (char *)HeapAlloc( GetProcessHeap(), 0, MAX_PATH ); // small leak, debug only
+ 
+@@ -68,9 +70,32 @@ const char *MakeModuleFileName()
+ 	return NULL;
+ }
+ 
+-static void *AllocUnattributed( size_t nSize )
++//-----------------------------------------------------------------------------
++// Purpose: helper class to detect when static construction has been done by the CRT
++//-----------------------------------------------------------------------------
++class CStaticConstructionCheck
++{
++public:
++	volatile bool m_bConstructed = true;
++};
++
++static CStaticConstructionCheck s_CheckStaticsConstructed;
++
++const char *GetModuleFileName()
+ {
++#if !defined(_MSC_VER) || ( _MSC_VER >= 1900 ) //  VC 2015 and above, with the UCRT, will crash if you use a static before it is constructed
++	if ( !s_CheckStaticsConstructed.m_bConstructed )
++		return nullptr;
++#endif
++
+ 	static const char *pszOwner = MakeModuleFileName();
++	return pszOwner;
++}
++
++
++static void *AllocUnattributed( size_t nSize )
++{
++	const char *pszOwner = GetModuleFileName();
+ 
+ 	if ( !pszOwner )
+ 		return g_pMemAlloc->Alloc(nSize);
+@@ -80,7 +105,7 @@ static void *AllocUnattributed( size_t nSize )
+ 
+ static void *ReallocUnattributed( void *pMem, size_t nSize )
+ {
+-	static const char *pszOwner = MakeModuleFileName();
++	const char *pszOwner = GetModuleFileName();
+ 
+ 	if ( !pszOwner )
+ 		return g_pMemAlloc->Realloc(pMem, nSize);
+@@ -108,7 +133,11 @@ inline void *ReallocUnattributed( void *pMem, size_t nSize )
+ // this magic only works under win32
+ // under linux this malloc() overrides the libc malloc() and so we
+ // end up in a recursion (as g_pMemAlloc->Alloc() calls malloc)
+-#if _MSC_VER >= 1400
++#if _MSC_VER >= 1900
++#define SUPPRESS_INVALID_PARAMETER_NO_INFO
++#define ALLOC_CALL  __declspec(restrict)
++#define FREE_CALL 
++#elif _MSC_VER >= 1400
+ #define ALLOC_CALL _CRTNOALIAS _CRTRESTRICT 
+ #define FREE_CALL _CRTNOALIAS 
+ #else
+@@ -151,35 +180,53 @@ extern "C"
+ 
+ // 64-bit
+ #ifdef _WIN64
++#if ( defined ( _MSC_VER ) && _MSC_VER >= 1900 )
++	_CRTRESTRICT
++#endif
+ void* __cdecl _malloc_base( size_t nSize )
+ {
+ 	return AllocUnattributed( nSize );
+ }
+ #else
+-void *_malloc_base( size_t nSize )
++ALLOC_CALL void *_malloc_base( size_t nSize )
+ {
+ 	return AllocUnattributed( nSize );
+ }
+ #endif
+ 
+-void *_calloc_base( size_t nSize )
++ALLOC_CALL void *_calloc_base( size_t nCount, size_t nSize )
+ {
+-	void *pMem = AllocUnattributed( nSize );
+-	memset(pMem, 0, nSize);
++	void *pMem = AllocUnattributed( nSize*nCount );
++	memset(pMem, 0, nSize*nCount );
+ 	return pMem;
+ }
+ 
+-void *_realloc_base( void *pMem, size_t nSize )
++ALLOC_CALL void *_realloc_base( void *pMem, size_t nSize )
+ {
+ 	return ReallocUnattributed( pMem, nSize );
+ }
+ 
+-void *_recalloc_base( void *pMem, size_t nSize )
++#if ( defined ( _MSC_VER ) && _MSC_VER >= 1920 )
++ALLOC_CALL void* _recalloc_base( void* pMem, size_t nCount, size_t nSize )
++{
++	void* pMemOut = ReallocUnattributed( pMem, nSize * nCount );
++	if ( !pMem )
++	{
++		memset( pMemOut, 0, nSize * nCount );
++	}
++	return pMemOut;
++}
++#else
++ALLOC_CALL void *_recalloc_base( void *pMem, size_t nSize )
+ {
+ 	void *pMemOut = ReallocUnattributed( pMem, nSize );
+-	memset(pMemOut, 0, nSize);
++	if ( !pMem )
++	{
++		memset( pMemOut, 0, nSize );
++	}
+ 	return pMemOut;
+ }
++#endif
+ 
+ void _free_base( void *pMem )
+ {
+@@ -200,7 +247,7 @@ void * __cdecl _malloc_crt(size_t size)
+ 
+ void * __cdecl _calloc_crt(size_t count, size_t size)
+ {
+-	return _calloc_base( count * size );
++	return _calloc_base( count, size );
+ }
+ 
+ void * __cdecl _realloc_crt(void *ptr, size_t size)
+@@ -210,17 +257,28 @@ void * __cdecl _realloc_crt(void *ptr, size_t size)
+ 
+ void * __cdecl _recalloc_crt(void *ptr, size_t count, size_t size)
+ {
++#if ( defined ( _MSC_VER ) && _MSC_VER >= 1920 )
++	return _recalloc_base( ptr, count, size );
++#else
+ 	return _recalloc_base( ptr, size * count );
++#endif
+ }
+ 
+ ALLOC_CALL void * __cdecl _recalloc ( void * memblock, size_t count, size_t size )
+ {
+ 	void *pMem = ReallocUnattributed( memblock, size * count );
+-	memset( pMem, 0, size * count );
++	if ( !memblock )
++	{
++		memset( pMem, 0, size * count );
++	}
+ 	return pMem;
+ }
+ 
++#if ( defined ( _MSC_VER ) && _MSC_VER >= 1930 )
++size_t _msize_base( void* pMem ) noexcept
++#else
+ size_t _msize_base( void *pMem )
++#endif
+ {
+ 	return g_pMemAlloc->GetSize(pMem);
+ }
+@@ -378,6 +436,15 @@ void __cdecl operator delete( void *pMem )
+ 	g_pMemAlloc->Free( pMem );
+ }
+ 
++#ifdef OSX
++void operator delete(void*pMem, std::size_t)
++#else
++void operator delete(void*pMem, std::size_t) throw()
++#endif
++{
++	g_pMemAlloc->Free( pMem );
++}
++
+ #ifdef OSX
+ void *__cdecl operator new[]( size_t nSize ) throw (std::bad_alloc)
+ #else
+@@ -519,17 +586,44 @@ size_t __cdecl _msize_dbg( void *pMem, int nBlockUse )
+ #ifdef _WIN32
+ 
+ #if defined(_DEBUG) && _MSC_VER >= 1300
+-// X360TBD: aligned and offset allocations may be important on the 360
+-
+ // aligned base
+ ALLOC_CALL void *__cdecl _aligned_malloc_base( size_t size, size_t align )
+ {
+ 	return MemAlloc_AllocAligned( size, align );
+ }
+ 
++inline void *MemAlloc_Unalign( void *pMemBlock )
++{
++	unsigned *pAlloc = (unsigned *)pMemBlock;
++
++	// pAlloc points to the pointer to starting of the memory block
++	pAlloc = (unsigned *)(((size_t)pAlloc & ~(sizeof( void * ) - 1)) - sizeof( void * ));
++
++	// pAlloc is the pointer to the start of memory block
++	return *((unsigned **)pAlloc);
++}
++
+ ALLOC_CALL void *__cdecl _aligned_realloc_base( void *ptr, size_t size, size_t align )
+ {
+-	return MemAlloc_ReallocAligned( ptr, size, align );
++	if ( ptr && !size )
++	{
++		MemAlloc_FreeAligned( ptr );
++		return NULL;
++	}
++
++	void *pNew = MemAlloc_AllocAligned( size, align );
++	if ( ptr )
++	{
++		void *ptrUnaligned = MemAlloc_Unalign( ptr );
++		size_t oldSize = g_pMemAlloc->GetSize( ptrUnaligned );
++		size_t oldOffset = (uintp)ptr - (uintp)ptrUnaligned;
++		size_t copySize = oldSize - oldOffset;
++		if ( copySize > size )
++			copySize = size;
++		memcpy( pNew, ptr, copySize );
++		MemAlloc_FreeAligned( ptr );
++	}
++	return pNew;
+ }
+ 
+ ALLOC_CALL void *__cdecl _aligned_recalloc_base( void *ptr, size_t size, size_t align )
+@@ -630,8 +724,14 @@ int _CrtSetDbgFlag( int nNewFlag )
+ }
+ 
+ // 64-bit port.
+-#define AFNAME(var) __p_ ## var
++#define AFNAME(var) __p_##var
+ #define AFRET(var)  &var
++#if defined(_crtDbgFlag)
++#undef _crtDbgFlag
++#endif
++#if defined(_crtBreakAlloc)
++#undef _crtBreakAlloc
++#endif
+ 
+ int _crtDbgFlag = _CRTDBG_ALLOC_MEM_DF;
+ int* AFNAME(_crtDbgFlag)(void)
+@@ -898,12 +998,21 @@ int __cdecl _CrtDbgReportW( int nRptType, const wchar_t *szFile, int nLine,
+ 	return 0;
+ }
+ 
+-int __cdecl _VCrtDbgReportA( int nRptType, const wchar_t * szFile, int nLine, 
+-							 const wchar_t * szModule, const wchar_t * szFormat, va_list arglist )
++#if _MSC_VER >= 1900
++int __cdecl _VCrtDbgReportA( int nRptType, void* ReturnAddress, const char * szFile, int nLine,
++							 const char * szModule, const char * szFormat, va_list arglist )
+ {
+ 	Assert(0);
+ 	return 0;
+ }
++#else
++int __cdecl _VCrtDbgReportA( int nRptType, const wchar_t * szFile, int nLine,
++	const wchar_t * szModule, const wchar_t * szFormat, va_list arglist )
++{
++	Assert( 0 );
++	return 0;
++}
++#endif
+ 
+ int __cdecl _CrtSetReportHook2( int mode, _CRT_REPORT_HOOK pfnNewHook )
+ {
+@@ -932,7 +1041,10 @@ extern "C" void * __cdecl _aligned_offset_recalloc_dbg( void * memblock, size_t
+ {
+ 	Assert( IsPC() || 0 );
+ 	void *pMem = ReallocUnattributed( memblock, size * count );
+-	memset( pMem, 0, size * count );
++	if ( !memblock )
++	{
++		memset( pMem, 0, size * count );
++	}
+ 	return pMem;
+ }
+ 
+@@ -1074,6 +1186,7 @@ void __cdecl _aligned_free_dbg( void * memblock)
+     _aligned_free(memblock);
+ }
+ 
++#if _MSC_VER < 1900
+ size_t __cdecl _CrtSetDebugFillThreshold( size_t _NewDebugFillThreshold)
+ {
+ 	assert(0);
+@@ -1094,6 +1207,7 @@ char * __cdecl _strdup ( const char * string )
+ 		memcpy( pCopy, string, nSize );
+ 	return pCopy;
+ }
++#endif
+ 
+ #if 0
+ _TSCHAR * __cdecl _tfullpath_dbg ( _TSCHAR *UserBuf, const _TSCHAR *path, size_t maxlen, int nBlockUse, const char * szFileName, int nLine )
+@@ -1143,7 +1257,6 @@ _TSCHAR * __cdecl _ttempnam ( const _TSCHAR *dir, const _TSCHAR *pfx )
+ 	Assert(0);
+ 	return 0;
+ }
+-#endif
+ 
+ wchar_t * __cdecl _wcsdup_dbg ( const wchar_t * string, int nBlockUse, const char * szFileName, int nLine )
+ {
+@@ -1156,7 +1269,7 @@ wchar_t * __cdecl _wcsdup ( const wchar_t * string )
+ 	Assert(0);
+ 	return 0;
+ }
+-
++#endif
+ } // end extern "C"
+ 
+ #if _MSC_VER >= 1400
+@@ -1165,7 +1278,7 @@ wchar_t * __cdecl _wcsdup ( const wchar_t * string )
+ // 	XBox Memory Allocator Override
+ //-----------------------------------------------------------------------------
+ #if defined( _X360 )
+-#if defined( _DEBUG ) || defined( USE_MEM_DEBUG )
++#if defined( USE_MEM_DEBUG )
+ #include "utlmap.h"
+ 
+ MEMALLOC_DEFINE_EXTERNAL_TRACKING( XMem );
+@@ -1304,293 +1417,7 @@ SIZE_T WINAPI XMemSize( PVOID pAddress, DWORD dwAllocAttributes )
+ 
+ 	return XMemSizeDefault( pAddress, dwAllocAttributes );
+ }
+-#endif // _X360
+-
+-#define MAX_LANG_LEN        64  /* max language name length */
+-#define MAX_CTRY_LEN        64  /* max country name length */
+-#define MAX_MODIFIER_LEN    0   /* max modifier name length - n/a */
+-#define MAX_LC_LEN          (MAX_LANG_LEN+MAX_CTRY_LEN+MAX_MODIFIER_LEN+3)
+-
+-#if _MSC_VER >= 1700 // VS 11
+-// Copied from C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\crt\src\mtdll.h
+-#ifndef _SETLOC_STRUCT_DEFINED
+-struct _is_ctype_compatible {
+-        unsigned long id;
+-        int is_clike;
+-};
+-
+-typedef struct setloc_struct {
+-    /* getqloc static variables */
+-    wchar_t *pchLanguage;
+-    wchar_t *pchCountry;
+-    int iLocState;
+-    int iPrimaryLen;
+-    BOOL bAbbrevLanguage;
+-    BOOL bAbbrevCountry;
+-    UINT        _cachecp;
+-    wchar_t     _cachein[MAX_LC_LEN];
+-    wchar_t     _cacheout[MAX_LC_LEN];
+-    /* _setlocale_set_cat (LC_CTYPE) static variable */
+-    struct _is_ctype_compatible _Loc_c[5];
+-    wchar_t _cacheLocaleName[LOCALE_NAME_MAX_LENGTH];
+-} _setloc_struct, *_psetloc_struct;
+-#define _SETLOC_STRUCT_DEFINED
+-#endif  /* _SETLOC_STRUCT_DEFINED */
+-
+-_CRTIMP extern unsigned long __cdecl __threadid(void);
+-#define _threadid   (__threadid())
+-_CRTIMP extern uintptr_t __cdecl __threadhandle(void);
+-#define _threadhandle   (__threadhandle())
+-
+-/* Structure for each thread's data */
+-
+-struct _tiddata {
+-    unsigned long   _tid;       /* thread ID */
+-
+-
+-    uintptr_t _thandle;         /* thread handle */
+-
+-    int     _terrno;            /* errno value */
+-    unsigned long   _tdoserrno; /* _doserrno value */
+-    unsigned int    _fpds;      /* Floating Point data segment */
+-    unsigned long   _holdrand;  /* rand() seed value */
+-    char *      _token;         /* ptr to strtok() token */
+-    wchar_t *   _wtoken;        /* ptr to wcstok() token */
+-    unsigned char * _mtoken;    /* ptr to _mbstok() token */
+-
+-    /* following pointers get malloc'd at runtime */
+-    char *      _errmsg;        /* ptr to strerror()/_strerror() buff */
+-    wchar_t *   _werrmsg;       /* ptr to _wcserror()/__wcserror() buff */
+-    char *      _namebuf0;      /* ptr to tmpnam() buffer */
+-    wchar_t *   _wnamebuf0;     /* ptr to _wtmpnam() buffer */
+-    char *      _namebuf1;      /* ptr to tmpfile() buffer */
+-    wchar_t *   _wnamebuf1;     /* ptr to _wtmpfile() buffer */
+-    char *      _asctimebuf;    /* ptr to asctime() buffer */
+-    wchar_t *   _wasctimebuf;   /* ptr to _wasctime() buffer */
+-    void *      _gmtimebuf;     /* ptr to gmtime() structure */
+-    char *      _cvtbuf;        /* ptr to ecvt()/fcvt buffer */
+-    unsigned char _con_ch_buf[MB_LEN_MAX];
+-                                /* ptr to putch() buffer */
+-    unsigned short _ch_buf_used;   /* if the _con_ch_buf is used */
+-
+-    /* following fields are needed by _beginthread code */
+-    void *      _initaddr;      /* initial user thread address */
+-    void *      _initarg;       /* initial user thread argument */
+-
+-    /* following three fields are needed to support signal handling and
+-     * runtime errors */
+-    void *      _pxcptacttab;   /* ptr to exception-action table */
+-    void *      _tpxcptinfoptrs; /* ptr to exception info pointers */
+-    int         _tfpecode;      /* float point exception code */
+-
+-    /* pointer to the copy of the multibyte character information used by
+-     * the thread */
+-    pthreadmbcinfo  ptmbcinfo;
+-
+-    /* pointer to the copy of the locale informaton used by the thead */
+-    pthreadlocinfo  ptlocinfo;
+-    int         _ownlocale;     /* if 1, this thread owns its own locale */
+-
+-    /* following field is needed by NLG routines */
+-    unsigned long   _NLG_dwCode;
+-
+-    /*
+-     * Per-Thread data needed by C++ Exception Handling
+-     */
+-    void *      _terminate;     /* terminate() routine */
+-    void *      _unexpected;    /* unexpected() routine */
+-    void *      _translator;    /* S.E. translator */
+-    void *      _purecall;      /* called when pure virtual happens */
+-    void *      _curexception;  /* current exception */
+-    void *      _curcontext;    /* current exception context */
+-    int         _ProcessingThrow; /* for uncaught_exception */
+-    void *      _curexcspec;    /* for handling exceptions thrown from std::unexpected */
+-#if defined (_M_X64) || defined (_M_ARM)
+-    void *      _pExitContext;
+-    void *      _pUnwindContext;
+-    void *      _pFrameInfoChain;
+-#if defined (_WIN64)
+-    unsigned __int64    _ImageBase;
+-    unsigned __int64    _ThrowImageBase;
+-#else  /* defined (_WIN64) */
+-    unsigned __int32    _ImageBase;
+-    unsigned __int32    _ThrowImageBase;
+-#endif  /* defined (_WIN64) */
+-    void *      _pForeignException;
+-#elif defined (_M_IX86)
+-    void *      _pFrameInfoChain;
+-#endif  /* defined (_M_IX86) */
+-    _setloc_struct _setloc_data;
+-
+-    void *      _reserved1;     /* nothing */
+-    void *      _reserved2;     /* nothing */
+-    void *      _reserved3;     /* nothing */
+-#ifdef _M_IX86
+-    void *      _reserved4;     /* nothing */
+-    void *      _reserved5;     /* nothing */
+-#endif  /* _M_IX86 */
+-
+-    int _cxxReThrow;        /* Set to True if it's a rethrown C++ Exception */
+-
+-    unsigned long __initDomain;     /* initial domain used by _beginthread[ex] for managed function */
+-};
+-#else
+-struct _is_ctype_compatible {
+-        unsigned long id;
+-        int is_clike;
+-};
+-
+-typedef struct setloc_struct {
+-    /* getqloc static variables */
+-    char *pchLanguage;
+-    char *pchCountry;
+-    int iLcidState;
+-    int iPrimaryLen;
+-    BOOL bAbbrevLanguage;
+-    BOOL bAbbrevCountry;
+-    LCID lcidLanguage;
+-    LCID lcidCountry;
+-    /* expand_locale static variables */
+-    LC_ID       _cacheid;
+-    UINT        _cachecp;
+-    char        _cachein[MAX_LC_LEN];
+-    char        _cacheout[MAX_LC_LEN];
+-    /* _setlocale_set_cat (LC_CTYPE) static variable */
+-    struct _is_ctype_compatible _Lcid_c[5];
+-} _setloc_struct, *_psetloc_struct;
+-
+-struct _tiddata {
+-    unsigned long   _tid;       /* thread ID */
+-
+-
+-    uintptr_t _thandle;         /* thread handle */
+-
+-    int     _terrno;            /* errno value */
+-    unsigned long   _tdoserrno; /* _doserrno value */
+-    unsigned int    _fpds;      /* Floating Point data segment */
+-    unsigned long   _holdrand;  /* rand() seed value */
+-    char *      _token;         /* ptr to strtok() token */
+-    wchar_t *   _wtoken;        /* ptr to wcstok() token */
+-    unsigned char * _mtoken;    /* ptr to _mbstok() token */
+-
+-    /* following pointers get malloc'd at runtime */
+-    char *      _errmsg;        /* ptr to strerror()/_strerror() buff */
+-    wchar_t *   _werrmsg;       /* ptr to _wcserror()/__wcserror() buff */
+-    char *      _namebuf0;      /* ptr to tmpnam() buffer */
+-    wchar_t *   _wnamebuf0;     /* ptr to _wtmpnam() buffer */
+-    char *      _namebuf1;      /* ptr to tmpfile() buffer */
+-    wchar_t *   _wnamebuf1;     /* ptr to _wtmpfile() buffer */
+-    char *      _asctimebuf;    /* ptr to asctime() buffer */
+-    wchar_t *   _wasctimebuf;   /* ptr to _wasctime() buffer */
+-    void *      _gmtimebuf;     /* ptr to gmtime() structure */
+-    char *      _cvtbuf;        /* ptr to ecvt()/fcvt buffer */
+-    unsigned char _con_ch_buf[MB_LEN_MAX];
+-                                /* ptr to putch() buffer */
+-    unsigned short _ch_buf_used;   /* if the _con_ch_buf is used */
+-
+-    /* following fields are needed by _beginthread code */
+-    void *      _initaddr;      /* initial user thread address */
+-    void *      _initarg;       /* initial user thread argument */
+-
+-    /* following three fields are needed to support signal handling and
+-     * runtime errors */
+-    void *      _pxcptacttab;   /* ptr to exception-action table */
+-    void *      _tpxcptinfoptrs; /* ptr to exception info pointers */
+-    int         _tfpecode;      /* float point exception code */
+-
+-    /* pointer to the copy of the multibyte character information used by
+-     * the thread */
+-    pthreadmbcinfo  ptmbcinfo;
+-
+-    /* pointer to the copy of the locale informaton used by the thead */
+-    pthreadlocinfo  ptlocinfo;
+-    int         _ownlocale;     /* if 1, this thread owns its own locale */
+-
+-    /* following field is needed by NLG routines */
+-    unsigned long   _NLG_dwCode;
+-
+-    /*
+-     * Per-Thread data needed by C++ Exception Handling
+-     */
+-    void *      _terminate;     /* terminate() routine */
+-    void *      _unexpected;    /* unexpected() routine */
+-    void *      _translator;    /* S.E. translator */
+-    void *      _purecall;      /* called when pure virtual happens */
+-    void *      _curexception;  /* current exception */
+-    void *      _curcontext;    /* current exception context */
+-    int         _ProcessingThrow; /* for uncaught_exception */
+-    void *              _curexcspec;    /* for handling exceptions thrown from std::unexpected */
+-#if defined (_M_IA64) || defined (_M_AMD64)
+-    void *      _pExitContext;
+-    void *      _pUnwindContext;
+-    void *      _pFrameInfoChain;
+-    unsigned __int64    _ImageBase;
+-#if defined (_M_IA64)
+-    unsigned __int64    _TargetGp;
+-#endif  /* defined (_M_IA64) */
+-    unsigned __int64    _ThrowImageBase;
+-    void *      _pForeignException;
+-#elif defined (_M_IX86)
+-    void *      _pFrameInfoChain;
+-#endif  /* defined (_M_IX86) */
+-    _setloc_struct _setloc_data;
+-
+-    void *      _encode_ptr;    /* EncodePointer() routine */
+-    void *      _decode_ptr;    /* DecodePointer() routine */
+-
+-    void *      _reserved1;     /* nothing */
+-    void *      _reserved2;     /* nothing */
+-    void *      _reserved3;     /* nothing */
+-
+-    int _cxxReThrow;        /* Set to True if it's a rethrown C++ Exception */
+-
+-    unsigned long __initDomain;     /* initial domain used by _beginthread[ex] for managed function */
+-};
+-#endif
+-
+-typedef struct _tiddata * _ptiddata;
+-
+-class _LocaleUpdate
+-{
+-    _locale_tstruct localeinfo;
+-    _ptiddata ptd;
+-    bool updated;
+-    public:
+-    _LocaleUpdate(_locale_t plocinfo)
+-        : updated(false)
+-    {
+-		/*
+-        if (plocinfo == NULL)
+-        {
+-            ptd = _getptd();
+-            localeinfo.locinfo = ptd->ptlocinfo;
+-            localeinfo.mbcinfo = ptd->ptmbcinfo;
+-
+-            __UPDATE_LOCALE(ptd, localeinfo.locinfo);
+-            __UPDATE_MBCP(ptd, localeinfo.mbcinfo);
+-            if (!(ptd->_ownlocale & _PER_THREAD_LOCALE_BIT))
+-            {
+-                ptd->_ownlocale |= _PER_THREAD_LOCALE_BIT;
+-                updated = true;
+-            }
+-        }
+-        else
+-        {
+-            localeinfo=*plocinfo;
+-        }
+-		*/
+-    }
+-    ~_LocaleUpdate()
+-    {
+-//        if (updated)
+-//	        ptd->_ownlocale = ptd->_ownlocale & ~_PER_THREAD_LOCALE_BIT;
+-    }
+-    _locale_t GetLocaleT()
+-    {
+-        return &localeinfo;
+-    }
+-};
+-
++#endif 
+ 
+ #pragma warning(push)
+ #pragma warning(disable: 4483)
+diff --git a/sp/src/public/vgui_controls/Panel.h b/sp/src/public/vgui_controls/Panel.h
+index 07b63d8d..334b05ee 100644
+--- a/sp/src/public/vgui_controls/Panel.h
++++ b/sp/src/public/vgui_controls/Panel.h
+@@ -139,7 +139,7 @@ class IForceVirtualInheritancePanel
+ //			This is designed as an easy-access to the vgui-functionality; for more
+ //			low-level access to vgui functions use the IPanel/IClientPanel interfaces directly
+ //-----------------------------------------------------------------------------
+-class Panel : public IClientPanel, virtual IForceVirtualInheritancePanel
++class Panel : public IClientPanel, virtual public IForceVirtualInheritancePanel
+ {
+ 	DECLARE_CLASS_SIMPLE_NOBASE( Panel );
+ 
+diff --git a/sp/src/vpc_scripts/source_dll_win32_base.vpc b/sp/src/vpc_scripts/source_dll_win32_base.vpc
+index cec539ad..4cf56c47 100644
+--- a/sp/src/vpc_scripts/source_dll_win32_base.vpc
++++ b/sp/src/vpc_scripts/source_dll_win32_base.vpc
+@@ -45,6 +45,8 @@ $Configuration
+ 	$Linker
+ 	{
+ 		$AdditionalDependencies				"$BASE shell32.lib user32.lib advapi32.lib gdi32.lib comdlg32.lib ole32.lib" [$WIN32||$WIN64]
++		// b1-spbuild: prebuilt VS2013 libs (dmxloader, ...) import old CRT stdio symbols that UCRT only has inline
++		$AdditionalDependencies				"$BASE legacy_stdio_definitions.lib" [$WIN32]
+ 		$TargetMachine						"MachineX86 (/MACHINE:X86)"	[$WIN32]
+ 		$TargetMachine						"MachineX64 (/MACHINE:X64)"	[$WIN64]
+ 		// Suppress this pointless warning using the undocumented /ignore linker switch
+@@ -114,7 +116,7 @@ $Project
+ 				$CustomBuildStep
+ 				{
+ 					// General
+-					$CommandLine				"$QUOTE$(VCInstallDir)bin\ml.exe$QUOTE /safeseh /c /Cp /Zi /Fo$QUOTE$(IntDir)\$(InputName).obj$QUOTE $QUOTE$(InputPath)$QUOTE"
++					$CommandLine				"ml.exe /safeseh /c /Cp /Zi /Fo$QUOTE$(IntDir)\$(InputName).obj$QUOTE $QUOTE$(InputPath)$QUOTE"
+ 					$Description				"Compiling pointeroverride.asm"
+ 					$Outputs					"$(IntDir)\$(InputName).obj"
+ 				}		
+diff --git a/sp/src/vpc_scripts/source_exe_win_win32_base.vpc b/sp/src/vpc_scripts/source_exe_win_win32_base.vpc
+index 47ce40fd..7df78ae8 100644
+--- a/sp/src/vpc_scripts/source_exe_win_win32_base.vpc
++++ b/sp/src/vpc_scripts/source_exe_win_win32_base.vpc
+@@ -109,7 +109,7 @@ $Project
+ 				$CustomBuildStep
+ 				{
+ 					// General
+-					$CommandLine				"$QUOTE$(VCInstallDir)bin\ml.exe$QUOTE /c /Cp /Zi /Fo$QUOTE$(IntDir)\$(InputName).obj$QUOTE $QUOTE$(InputPath)$QUOTE"
++					$CommandLine				"ml.exe /c /Cp /Zi /Fo$QUOTE$(IntDir)\$(InputName).obj$QUOTE $QUOTE$(InputPath)$QUOTE"
+ 					$Description				"Compiling pointeroverride.asm"
+ 					$Outputs					"$(IntDir)\$(InputName).obj"
+ 				}		
+diff --git a/sp/src/vpc_scripts/source_win32_base.vpc b/sp/src/vpc_scripts/source_win32_base.vpc
+index 245366f4..f16c50f9 100644
+--- a/sp/src/vpc_scripts/source_win32_base.vpc
++++ b/sp/src/vpc_scripts/source_win32_base.vpc
+@@ -38,7 +38,8 @@ $Configuration
+ 		// window since F8 stops on both warnings and errors. The only way to
+ 		// keep the warning count down is to have warnings-as-errors.
+ 		// We will not be warning free on 64-bit for a while...
+-		$TreatWarningsAsErrors				"Yes (/WX)" [!$ANALYZE && !$WIN64]
++		// b1-spbuild: modern MSVC adds many new warnings; do not fail the build on them
++		$TreatWarningsAsErrors				"No" [!$ANALYZE && !$WIN64]
+ 
+ 		// Defines to differentiate 32 from 64 bit builds
+ 		$PreprocessorDefinitions			"$BASE;PLATFORM_64BITS;WIN64;_WIN64;COMPILER_MSVC64" [$WIN64]
