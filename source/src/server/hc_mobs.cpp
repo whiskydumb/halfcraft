@@ -114,14 +114,12 @@ int CHalfCraftMob::OnTakeDamage(const CTakeDamageInfo& info)
 {
 	using namespace halfcraft;
 	CBaseEntity* attacker = info.GetAttacker();
-	CBaseEntity* inflictor = info.GetInflictor();
 	if (info.GetDamage() <= 0.0f || !attacker) {
 		return 0;
 	}
-	// the world's hurts are minecraft's own fire, lava and magma (hc_hazards) and a player's
-	// env_explosion is a minecraft explosion repeated in half-life (Combat::apply_explosion): minecraft
-	// already did those to its mob
-	if (attacker->IsWorld() || (attacker->IsPlayer() && inflictor && FClassnameIs(inflictor, "env_explosion"))) {
+	// the world's hurts are minecraft's own fire, lava and magma (hc_hazards): minecraft already did
+	// those to its mob. so are minecraft's explosions, but their half-life blast spares stand-ins (hc_blast)
+	if (attacker->IsWorld()) {
 		return 0;
 	}
 	static PushInputFn push_input = nullptr;
@@ -191,6 +189,11 @@ namespace halfcraft
 	{
 		const auto found = g_stand_ins.find(mc_id);
 		return found != g_stand_ins.end() ? found->second.entity.Get() : nullptr;
+	}
+
+	bool is_mob_stand_in(CBaseEntity* entity)
+	{
+		return entity && FClassnameIs(entity, MOB_CLASSNAME);
 	}
 
 	void Mobs::update(Link& link, MapSlot slot)

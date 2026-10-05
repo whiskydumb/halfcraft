@@ -18,6 +18,7 @@ import net.minecraft.tags.ItemTags;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Explosion;
 import net.minecraft.world.level.Level;
 import org.jspecify.annotations.Nullable;
 
@@ -214,6 +215,13 @@ public class HostActorEntity extends LivingEntity {
 		java.util.List<MobHit> hits = new java.util.ArrayList<>(this.mobHits.values());
 		this.mobHits.clear();
 		return hits;
+	}
+
+	@Override
+	public boolean ignoreExplosion(Explosion explosion) {
+		// Half-Life's own blast hurts the actor (ServerExplosionMixin sends it); hit here too, it would take
+		// the explosion twice, once typed as whatever the player holds. Wind bursts only push, and only here.
+		return !HostBlasts.isWindBurst(explosion);
 	}
 
 	@Override

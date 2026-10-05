@@ -22,6 +22,7 @@ namespace halfcraft
 		constexpr float SOURCE_PER_MINECRAFT = 5.0f;  // minecraft divides host damage and healing by 5
 		constexpr int   MAX_ARMOR = 100;              // half-life's full suit
 		constexpr float PENDING_SECONDS = 1.0f;       // healing minecraft hasn't shown by then was refused (full already)
+		constexpr int   DROWN_DEBT_RESET = 1 << 30;   // CBasePlayer::AdjustDrownDmg clamps the count to what it gave back already
 
 		bool g_minecraft_owns_health = false;
 
@@ -73,6 +74,10 @@ namespace halfcraft
 			armor_.reset();
 			return;
 		}
+		// minecraft drowns the player on its own air (server_player_damage drops half-life's DMG_DROWN), but
+		// half-life still counts the drowning it would have dealt and gives it back as health once the
+		// player surfaces: drop that count so its recovery never heals minecraft for damage it never took
+		player->AdjustDrownDmg(-DROWN_DEBT_RESET);
 		const float frametime = gpGlobals->frametime;
 		const int   max_health = static_cast<int>(std::lround(mc.maxHealth * SOURCE_PER_MINECRAFT));
 		const int   health = std::clamp(health_.update(player->GetHealth(), mc.health, proto::kHealHealth, frametime), 1, max_health);

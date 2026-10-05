@@ -223,7 +223,9 @@ namespace halfcraft::proto
 		                     // while Minecraft drives it: a/b/c = Minecraft blocks per second * 1000 along x/y/z, repeated
 		                     // every kPushRepeatMs while it lasts. (0, 0, 0): it stopped, and the player keeps the last
 		                     // push as momentum (as Source does); nothing for kPushStaleMs: it's over, without momentum
-		// 23: kept for the puppet group (A), 24-25 for the damage group (B), 26-27 for the world group (C)
+		// 23: kept for the puppet group (A), 26-27 for the world group (C)
+		kInHurtFrom = 24,    // where the next kInHurt came from, for Minecraft's shield: a/b/c = Minecraft x/y/z (float bits)
+		                     // of the blast's centre or of what dealt it; only that one kInHurt uses it
 	};
 	inline constexpr std::uint32_t kPushRepeatMs = 200;
 	inline constexpr std::uint32_t kPushStaleMs = 500;
@@ -237,7 +239,7 @@ namespace halfcraft::proto
 		                     //   halfcraft-screenshot-*.rgb, width * height RGB8 pixels, top row first, nothing else;
 		                     //   Minecraft saves it as its own screenshot and deletes the file
 		                     //   "fail <request> <reason>": the host had no frame to give (loading, ...)
-		// 6: kept for the puppet group (A), 7 for the damage group (B), 8 for the world group (C)
+		// 6: kept for the puppet group (A), 8 for the world group (C)
 	};
 	inline constexpr std::uint16_t kStringChannelMask = 0xFF;
 	inline constexpr std::uint16_t kStringBytesShift = 8;  // 4 bits: 0-12 bytes
@@ -256,7 +258,9 @@ namespace halfcraft::proto
 		kHurtProjectile = 1,
 		kHurtMagic = 2,
 		kHurtOther = 3,
-		// 4-15: kept for the damage group (B)
+		kHurtBlast = 4,  // grenades, rockets, barrels: Minecraft's explosion damage (blast protection; a shield facing kInHurtFrom)
+		kHurtFire = 5,   // burning: Minecraft's fire damage (fire protection)
+		kHurtCrush = 6,  // physics props, vehicles, crushers: damage armour takes
 	};
 
 	enum HurtFlags : std::uint32_t
@@ -311,13 +315,14 @@ namespace halfcraft::proto
 	{
 		kEvHitActor = 1,    // actorId, a = MC damage (after MC's own modifiers), b/c = knockback dir x/z (MC), d = knockback strength
 		kEvPlayerDied = 2,  // the Minecraft player died: kill the host's player
-		kEvExplosion = 3,   // a Minecraft explosion (TNT, creeper, ...): a/b/c = centre (MC coords), d = radius (blocks)
+		kEvExplosion = 3,   // a Minecraft explosion (TNT, creeper, ...): a/b/c = centre (MC coords), d = radius (blocks),
+		                    // attackerId = the Minecraft entity id of the mob that set it off (a creeper); 0: nobody (TNT)
 		kEvArrowStuck = 4,  // an arrow stuck in a host actor: actorId, a/b/c = where it hit (MC coords), d = flight yaw,
 		                    // flags = flight pitch (float bits), weapon = arrow texture (0 plain, 1 tipped, 2 spectral)
 		kEvScreenshot = 5,  // (#6) Minecraft's screenshot key: actorId = Minecraft's request number (1+); the host saves its
 		                    // own finished frame (its world, its hud and Minecraft's overlay) and answers on kStrScreenshot
 		// 6-7: kept for #12 (the host's weapons), 8-9 for #13 (Minecraft's mobs), 12-13 for the puppet group (A),
-		// 14-15 for the damage group (B), 16-17 for the world group (C)
+		// 16-17 for the world group (C)
 	};
 
 	enum HitFlags : std::uint32_t
@@ -346,7 +351,8 @@ namespace halfcraft::proto
 		float         a, b, c, d;
 		std::uint32_t flags;
 		std::uint32_t weapon;      // HitWeapon for kEvHitActor
-		std::uint32_t attackerId;  // (#13) kEvHitActor: the Minecraft entity id of the mob that landed it; 0: the player
+		std::uint32_t attackerId;  // (#13) kEvHitActor: the Minecraft entity id of the mob that landed it; 0: the player.
+		                           // kEvExplosion: the mob that set it off
 		std::uint32_t reserved[3];
 	};
 	static_assert(sizeof(McEvent) == 48);

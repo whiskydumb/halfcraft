@@ -1,6 +1,7 @@
 package dev.halfcraft.client;
 
 import dev.halfcraft.combat.HostCombat;
+import dev.halfcraft.combat.HostHurts;
 import dev.halfcraft.link.Proto;
 import dev.halfcraft.link.HostLink;
 import dev.halfcraft.link.HostPush;
@@ -10,6 +11,7 @@ import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonInfo;
+import net.minecraft.world.phys.Vec3;
 import org.lwjgl.sdl.SDLKeyboard;
 
 /**
@@ -24,6 +26,8 @@ public final class InputBridge {
 	private static int clickLogs;
 	// A restore that came before Minecraft's world was open (Half-Life loaded a save first thing).
 	private static long pendingRestore;
+	// Where the next hurt came from (Proto.IN_HURT_FROM comes right before its IN_HURT).
+	private static Vec3 hurtFrom;
 
 	private InputBridge() {
 	}
@@ -66,6 +70,7 @@ public final class InputBridge {
 				}
 			}
 			case Proto.IN_RELEASE_ALL -> releaseAll();
+			case Proto.IN_HURT_FROM -> hurtFrom = new Vec3(HostHurts.coordinate(a), HostHurts.coordinate(b), HostHurts.coordinate(c));
 			case Proto.IN_HURT -> hurt(minecraft, code, a / 100.0F, b, c);
 			case Proto.IN_HEAL -> heal(minecraft, code, a / 100.0F);
 			case Proto.IN_HURT_MOB -> dev.halfcraft.mobs.HostMobs.hurtFromHost(minecraft.getSingleplayerServer(), code, a, b / 100.0F, c);
@@ -121,6 +126,8 @@ public final class InputBridge {
 
 	/** Half-Life hit the player: apply it as Minecraft damage on the integrated server (or the host's). */
 	private static void hurt(Minecraft minecraft, int kind, float hostDamage, int attacker, int flags) {
+		Vec3 from = hurtFrom;
+		hurtFrom = null;
 		var server = minecraft.getSingleplayerServer();
 		if (minecraft.player == null || server == null) {
 			return;
@@ -129,7 +136,7 @@ public final class InputBridge {
 		server.execute(() -> {
 			ServerPlayer player = server.getPlayerList().getPlayer(uuid);
 			if (player != null) {
-				HostCombat.hurtPlayer(player, kind, hostDamage, attacker, flags);
+				HostCombat.hurtPlayer(player, kind, hostDamage, attacker, flags, from);
 			}
 		});
 	}

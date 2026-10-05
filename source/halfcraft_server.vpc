@@ -30,6 +30,8 @@ $Project
 			$File	"$HALFCRAFTDIR\src\shared\hc_floors.cpp"
 			$File	"$HALFCRAFTDIR\src\shared\hc_bridge.h"
 			$File	"$HALFCRAFTDIR\src\shared\hc_weapon_ids.h"
+			$File	"$HALFCRAFTDIR\src\server\hc_blast.h"
+			$File	"$HALFCRAFTDIR\src\server\hc_blast.cpp"
 			$File	"$HALFCRAFTDIR\src\server\hc_block_solids.h"
 			$File	"$HALFCRAFTDIR\src\server\hc_block_solids.cpp"
 			$File	"$HALFCRAFTDIR\src\server\hc_campaign.cpp"

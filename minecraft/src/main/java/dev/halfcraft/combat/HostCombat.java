@@ -3,6 +3,7 @@ package dev.halfcraft.combat;
 import dev.halfcraft.HalfCraft;
 import dev.halfcraft.link.Proto;
 import dev.halfcraft.link.HostLink;
+import dev.halfcraft.mixin.DamageSourceInvoker;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -25,6 +26,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -55,8 +57,12 @@ public final class HostCombat {
 	/** Half-Life damage is divided by this for Minecraft (a 15-damage bandit swing = 3 = 1.5 hearts). */
 	public static final float HOST_TO_MC_DAMAGE = 5.0F;
 
+	/** Minecraft's default knockback (LivingEntity.dealDefaultKnockback). */
+	private static final double DEFAULT_KNOCKBACK = 0.4;
+
 	private static final Map<Integer, HostActorEntity> PROXIES = new HashMap<>();
 	private static final List<HostLink.Actor> ACTORS = new ArrayList<>();
+	private static boolean missingTypeLogged;
 
 	private HostCombat() {
 	}
@@ -188,20 +194,24 @@ public final class HostCombat {
 
 	/**
 	 * Half-Life hit the player. Runs on the server thread. {@code kind} is a Proto.HURT_* value and
-	 * {@code hostDamage} is what Half-Life would have taken off the player's health.
+	 * {@code hostDamage} is what Half-Life would have taken off the player's health; {@code from} is
+	 * where it came from (Proto.IN_HURT_FROM), if Half-Life said.
 	 */
-	public static void hurtPlayer(ServerPlayer player, int kind, float hostDamage, int attackerActorId, int flags) {
+	public static void hurtPlayer(ServerPlayer player, int kind, float hostDamage, int attackerActorId, int flags, @Nullable Vec3 from) {
 		if (!player.isAlive() || hostDamage <= 0.0F) {
 			return;
 		}
 		ServerLevel level = player.level();
 		HostActorEntity attacker = PROXIES.get(attackerActorId);
-		DamageSource source = damageSource(level.damageSources(), kind, attacker);
+		DamageSource source = damageSource(level.damageSources(), kind, attacker, from);
 		float damage = hostDamage / HOST_TO_MC_DAMAGE;
 		float healthBefore = player.getHealth();
 		boolean hurt = player.hurtServer(level, source, damage);
-		HalfCraft.LOG.info("HalfCraft: Half-Life hit the player for {} ({} Minecraft): health {} -> {}{}", hostDamage, damage, healthBefore, player.getHealth(),
-			hurt ? "" : " (blocked/immune)");
+		HalfCraft.LOG.info("HalfCraft: Half-Life hit the player for {} ({} Minecraft, {}): health {} -> {}{}", hostDamage, damage,
+			source.typeHolder().getRegisteredName(), healthBefore, player.getHealth(), hurt ? "" : " (blocked/immune)");
+		if (hurt) {
+			knockBack(player, source, damage);
+		}
 		if (hurt && attacker != null && (flags & Proto.HURT_POWER_ATTACK) != 0 && !player.isBlocking()) {
 			// Power attacks shove harder, like a sprint hit does in Minecraft.
 			player.knockback(0.5, attacker.getX() - player.getX(), attacker.getZ() - player.getZ(), source, damage);
@@ -210,12 +220,37 @@ public final class HostCombat {
 
 	/** How Minecraft takes a Half-Life hit of this kind (a Proto.HURT_* value), from the actor's stand-in if any. */
 	public static DamageSource damageSource(DamageSources sources, int kind, @Nullable HostActorEntity attacker) {
-		return switch (kind) {
-			case Proto.HURT_MELEE -> attacker != null ? sources.mobAttack(attacker) : sources.generic();
-			case Proto.HURT_PROJECTILE -> attacker != null ? sources.mobProjectile(attacker, attacker) : sources.generic();
-			case Proto.HURT_MAGIC -> attacker != null ? sources.indirectMagic(attacker, attacker) : sources.magic();
-			default -> sources.generic();
-		};
+		return damageSource(sources, kind, attacker, null);
+	}
+
+	/** The same, coming from {@code from} when Half-Life said where (see {@link HostHurts}). */
+	public static DamageSource damageSource(DamageSources sources, int kind, @Nullable HostActorEntity attacker, @Nullable Vec3 from) {
+		HostHurts.Recipe recipe = HostHurts.recipe(kind, attacker != null);
+		var type = sources.damageTypes.get(ResourceKey.create(Registries.DAMAGE_TYPE, Identifier.parse(recipe.typeId())));
+		if (type.isEmpty()) {
+			// HalfCraft's own types come with its data pack; a world that has it turned off has none
+			if (!missingTypeLogged) {
+				missingTypeLogged = true;
+				HalfCraft.LOG.warn("HalfCraft: no damage type {} (is HalfCraft's data pack off?); Half-Life's hits fall back to generic damage", recipe.typeId());
+			}
+			return sources.generic();
+		}
+		// with no word from Half-Life on where it came from, it comes from the character who dealt it
+		Vec3 at = from != null ? from : attacker != null ? attacker.position() : null;
+		return DamageSourceInvoker.halfcraft$create(type.get(), recipe.standInDirect() ? attacker : null, recipe.standInCausing() ? attacker : null,
+			recipe.positioned() ? at : null);
+	}
+
+	/**
+	 * After a hit that landed: pushes the target away from where a hit of HalfCraft's own types came from,
+	 * as Minecraft's default knockback would (those types skip it, see {@link HostHurts}). Nothing when
+	 * nothing says where it came from (a map's trigger).
+	 */
+	public static void knockBack(LivingEntity target, DamageSource source, float damage) {
+		Vec3 at = source.getSourcePosition();
+		if (at != null && HostHurts.isOwnType(source.typeHolder().getRegisteredName())) {
+			target.knockback(DEFAULT_KNOCKBACK, at.x - target.getX(), at.z - target.getZ(), source, damage);
+		}
 	}
 
 	/** The host's armour can fill this much absorption (Half-Life's full suit: 100 / 5). */

@@ -177,7 +177,7 @@ public final class HostMobs {
 			from = player.getName().getString();
 		} else {
 			HostActorEntity attacker = HostCombat.proxy(attackerId);
-			// blasts, fire and the like from a character still come from that character: the mob fights back
+			// an untyped hit (HURT_OTHER) from a character still comes from that character: the mob fights back
 			int as = kind == HURT_OTHER && attacker != null ? HURT_MELEE : kind;
 			source = HostCombat.damageSource(level.damageSources(), as, attacker);
 			from = attacker != null ? attacker.getName().getString() : "nothing Minecraft knows";
@@ -185,6 +185,9 @@ public final class HostMobs {
 		float damage = hostDamage / HostCombat.HOST_TO_MC_DAMAGE;
 		float healthBefore = mob.getHealth();
 		boolean hurt = mob.hurtServer(level, source, damage);
+		if (hurt) {
+			HostCombat.knockBack(mob, source, damage);
+		}
 		if (HURT_LOG.size() > HURT_LOG_MOBS) {
 			HURT_LOG.clear();
 		}

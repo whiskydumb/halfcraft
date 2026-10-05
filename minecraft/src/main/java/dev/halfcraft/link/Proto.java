@@ -51,7 +51,8 @@ public final class Proto {
 	public static final int IN_PUSH = 22; // a/b/c = blocks per second * 1000 (HostPush)
 	public static final int PUSH_REPEAT_MS = 200;
 	public static final int PUSH_STALE_MS = 500;
-	// 23: kept for the puppet group (A), 24-25 for the damage group (B), 26-27 for the world group (C)
+	// 23: kept for the puppet group (A), 26-27 for the world group (C)
+	public static final int IN_HURT_FROM = 24; // where the next IN_HURT came from: a/b/c = x/y/z (float bits)
 
 	// String channels (IN_STRING)
 	public static final int STR_COMMAND = 1; // (#11)
@@ -66,7 +67,9 @@ public final class Proto {
 	public static final int HURT_PROJECTILE = 1;
 	public static final int HURT_MAGIC = 2;
 	public static final int HURT_OTHER = 3;
-	// 4-15: kept for the damage group (B)
+	public static final int HURT_BLAST = 4;
+	public static final int HURT_FIRE = 5;
+	public static final int HURT_CRUSH = 6;
 	public static final int HURT_POWER_ATTACK = 2;
 
 	// Actor table (relative to OFF_ACTOR_TABLE)
@@ -88,10 +91,10 @@ public final class Proto {
 	public static final long EVENT_BYTES = 48;
 	public static final int EV_HIT_ACTOR = 1;
 	public static final int EV_PLAYER_DIED = 2;
-	public static final int EV_EXPLOSION = 3;
+	public static final int EV_EXPLOSION = 3; // attackerId = the mob that set it off (0: nobody)
 	public static final int EV_ARROW_STUCK = 4;
 	public static final int EV_SCREENSHOT = 5; // (#6) actorId = the request number (1+)
-	// 12-13: kept for the puppet group (A), 14-15 for the damage group (B), 16-17 for the world group (C)
+	// 12-13: kept for the puppet group (A), 16-17 for the world group (C)
 	// 6-7: kept for #12 (the host's weapons), 8-9 for #13 (Minecraft's mobs)
 	public static final int HIT_CRITICAL = 1;
 	public static final int HIT_PROJECTILE = 1 << 1;

@@ -80,6 +80,7 @@ namespace halfcraft
 				slot_ = { map_slot(STRING(gpGlobals->mapname)), map_grid_z(STRING(gpGlobals->mapname)) };
 				world_.reset(slot_);
 				solids_.reset(slot_);
+				combat_.reset(slot_);
 				vitals_.reset();
 				checkpoints_.on_level_loaded();
 				g_last_puppet_move = -1.0f;  // the clock starts over with the map

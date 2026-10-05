@@ -2,7 +2,6 @@
 
 #include "cbase.h"
 #include "ai_basenpc.h"
-#include "explode.h"
 #include "player.h"
 #include "takedamageinfo.h"
 #include "world.h"
@@ -16,6 +15,7 @@
 #include "core/hc_log.h"
 #include "core/hc_module.h"
 #include "core/hc_units.h"
+#include "server/hc_blast.h"
 #include "server/hc_combat.h"
 #include "server/hc_mobs.h"
 #include "server/hc_vitals.h"
@@ -81,6 +81,8 @@ namespace halfcraft
 		}
 
 		bool g_killing_player = false;  // minecraft's own death: let source's damage through
+		// where the map sits in minecraft, from the map's load on (the player's hurts need it)
+		MapSlot g_slot;
 
 		// actor id -> entity, as of the last table sent (events refer to it)
 		std::unordered_map<std::uint32_t, EHANDLE> g_actors;
@@ -103,6 +105,46 @@ namespace halfcraft
 			}
 			request(event.actorId);
 		}
+
+		/// where a hit on the player came from, so minecraft's shield can face it: a blast's centre, else
+		/// what dealt it (a grenade, a prop, a gun far off). triggers and the world have no side to face.
+		bool hurt_origin(CBasePlayer* player, const CTakeDamageInfo& info, Vector& out)
+		{
+			if ((info.GetDamageType() & (DMG_BLAST | DMG_BLAST_SURFACE)) && info.GetDamagePosition() != vec3_origin) {
+				out = info.GetDamagePosition();
+				return true;
+			}
+			for (CBaseEntity* entity : { info.GetInflictor(), info.GetAttacker() }) {
+				if (entity && entity != player && !entity->IsWorld() && !entity->IsSolidFlagSet(FSOLID_TRIGGER)) {
+					out = entity->WorldSpaceCenter();
+					return true;
+				}
+			}
+			return false;
+		}
+
+		/// proto::kInHurtFrom, ahead of the hurt itself (both go through client.dll's queue, in order).
+		void push_hurt_from(CBasePlayer* player, const CTakeDamageInfo& info)
+		{
+			static PushInputFn push_input = nullptr;
+			if (!push_input) {
+				push_input = reinterpret_cast<PushInputFn>(find_export("client.dll", HC_PUSH_INPUT_EXPORT));
+			}
+			Vector origin;
+			if (!push_input || !hurt_origin(player, info, origin)) {
+				return;
+			}
+			const auto   mc = source_to_mc(origin.Base(), g_slot);
+			const float  at[3] = { static_cast<float>(mc.x), static_cast<float>(mc.y), static_cast<float>(mc.z) };
+			std::int32_t bits[3];
+			std::memcpy(bits, at, sizeof(bits));
+			push_input(proto::kInHurtFrom, 0, bits[0], bits[1], bits[2]);
+		}
+	}
+
+	void Combat::reset(MapSlot slot)
+	{
+		g_slot = slot;
 	}
 
 	void Combat::update(Link& link, CBasePlayer* player, MapSlot slot, bool minecraft_playing)
@@ -307,12 +349,11 @@ namespace halfcraft
 	{
 		float centre[3];
 		mc_to_source(event.a, event.b, event.c, slot, centre);
-		const float   radius = std::max(1.0f, event.d) * static_cast<float>(UNITS_PER_BLOCK);
-		const int     magnitude = static_cast<int>(std::max(1.0f, event.d) * std::max(0.0f, hc_explosion_damage.GetFloat()));
-		const EHANDLE ignore = player;  // minecraft already hurt its own player
-		// half-life's own fireball, blast damage and push; minecraft makes the sound
-		ExplosionCreate(Vector(centre[0], centre[1], centre[2]), vec3_angle, player, magnitude, static_cast<int>(radius), true, &ignore, CLASS_NONE, 0.0f, false,
-			true);
+		const float radius = std::max(1.0f, event.d) * static_cast<float>(UNITS_PER_BLOCK);
+		const int   magnitude = static_cast<int>(std::max(1.0f, event.d) * std::max(0.0f, hc_explosion_damage.GetFloat()));
+		// a creeper's blast is the creeper's (its stand-in), tnt's nobody's
+		CBaseEntity* owner = event.attackerId != 0 ? mob_stand_in(event.attackerId) : nullptr;
+		minecraft_blast(Vector(centre[0], centre[1], centre[2]), radius, magnitude, owner, player);
 	}
 
 	void Combat::stick_arrow(const proto::McEvent& event, MapSlot slot)
@@ -353,20 +394,40 @@ namespace halfcraft
 		if (damage_type & (DMG_BULLET | DMG_BUCKSHOT)) {
 			return proto::kHurtProjectile;
 		}
+		if (damage_type & (DMG_BLAST | DMG_BLAST_SURFACE)) {
+			return proto::kHurtBlast;
+		}
+		if (damage_type & (DMG_BURN | DMG_SLOWBURN)) {
+			return proto::kHurtFire;
+		}
+		if (damage_type & DMG_CRUSH) {
+			return proto::kHurtCrush;
+		}
 		if (damage_type & (DMG_SHOCK | DMG_ENERGYBEAM | DMG_DISSOLVE | DMG_PLASMA | DMG_RADIATION | DMG_ACID | DMG_POISON | DMG_NERVEGAS)) {
 			return proto::kHurtMagic;
+		}
+		// a vehicle adds DMG_VEHICLE to every hit it hands its driver, so it only decides when nothing else did
+		// (run over)
+		if (damage_type & DMG_VEHICLE) {
+			return proto::kHurtCrush;
 		}
 		return proto::kHurtOther;
 	}
 
 	bool server_player_damage(CBasePlayer* player, const CTakeDamageInfo& info)
 	{
+		if (minecraft_blast_running()) {
+			return true;  // minecraft's own explosion, reaching the player through a vehicle: minecraft hurt them already
+		}
 		if (g_killing_player || !minecraft_owns_health()) {
 			return false;
 		}
 		const int type = info.GetDamageType();
-		if (type & DMG_FALL) {
-			return true;  // minecraft takes its own falls
+		// minecraft takes its own falls and drowns on its own air (Vitals drops half-life's drown recovery).
+		// half-life's own come from the world; a map's pit or deep-water trigger_hurt (d2_coast_05, ...) still lands
+		CBaseEntity* inflictor = info.GetInflictor();
+		if ((type & (DMG_FALL | DMG_DROWN)) && (!inflictor || inflictor->IsWorld())) {
+			return true;
 		}
 		static PushHurtFn push = nullptr;
 		if (!push) {
@@ -380,6 +441,7 @@ namespace halfcraft
 		CBaseEntity*        attacker = info.GetAttacker();
 		const std::uint32_t attacker_id = attacker && attacker != player && g_actors.count(actor_id(attacker)) ? actor_id(attacker) : 0;
 		if (info.GetDamage() > 0.0f) {
+			push_hurt_from(player, info);
 			push(kind, info.GetDamage(), attacker_id, 0);
 		}
 		return true;

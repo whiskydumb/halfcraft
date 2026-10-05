@@ -8,7 +8,7 @@
 //              way a weapon would deal it (blood, flinches, death, burning, knockback)
 //   hurts      half-life's damage to the player goes to minecraft's health (CBasePlayer hook), so
 //              minecraft's armour, shields and death decide
-//   explosions tnt and creepers hurt npcs and throw props around in half-life too
+//   explosions tnt and creepers hurt npcs and throw props around in half-life too (hc_blast.h)
 //   arrows     minecraft's arrows that stick in npcs stay drawn on them (client.dll pins them)
 
 #include <vector>
@@ -24,6 +24,9 @@ namespace halfcraft
 	class Combat
 	{
 	public:
+		/// a map loaded.
+		/// @param slot - where it sits in minecraft (the player's hurts need it before the first update)
+		void reset(MapSlot slot);
 		/// once per frame.
 		/// @param slot - where the map sits in minecraft (minecraft <-> source placement)
 		/// @param minecraft_playing - minecraft's player is in its world and alive (otherwise nothing is

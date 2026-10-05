@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "halfcraft:host_blast",
+    "halfcraft:host_bullet",
+    "halfcraft:host_crush",
+    "halfcraft:host_melee"
+  ]
+}

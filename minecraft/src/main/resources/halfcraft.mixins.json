@@ -6,6 +6,7 @@
     "AbstractArrowMixin",
     "BlockCollisionsMixin",
     "BlockStateBaseMixin",
+    "DamageSourceInvoker",
     "EntityFluidInteractionMixin",
     "EntityPickMixin",
     "EntitySwimMixin",

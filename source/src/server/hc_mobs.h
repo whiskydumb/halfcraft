@@ -36,4 +36,6 @@ namespace halfcraft
 
 	/// the stand-in of one of minecraft's mobs, by its minecraft entity id; nullptr when it has none.
 	CBaseEntity* mob_stand_in(std::uint32_t mc_id);
+	/// whether this is one of the stand-ins.
+	bool is_mob_stand_in(CBaseEntity* entity);
 }
