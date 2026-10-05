@@ -419,7 +419,7 @@ namespace halfcraft
 			void dump() const;
 
 		private:
-			void rebuild(const Vector& eye, bool with_minecraft, int slot);
+			void rebuild(const Vector& eye, bool with_minecraft, MapSlot slot);
 			void refresh(float now);
 
 			std::unordered_map<std::uint64_t, std::vector<LightSource>> by_section_;
@@ -524,7 +524,7 @@ namespace halfcraft
 			return std::min(blocks, MAX_RADIUS_BLOCKS) * static_cast<float>(UNITS_PER_BLOCK);
 		}
 
-		void BlockLights::rebuild(const Vector& eye, bool with_minecraft, int slot)
+		void BlockLights::rebuild(const Vector& eye, bool with_minecraft, MapSlot slot)
 		{
 			std::unordered_map<std::uint64_t, Cluster> cells;
 			if (with_minecraft) {

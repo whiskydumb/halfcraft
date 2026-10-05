@@ -8,6 +8,8 @@
 
 #include <cstdint>
 
+#include "core/hc_units.h"
+
 class IMaterial;
 class ITexture;
 
@@ -34,7 +36,7 @@ namespace halfcraft
 
 	/// the current map's slot (where minecraft's sections land in source); drops sections that
 	/// belong to another map's slot.
-	void blocks_set_slot(int slot);
+	void blocks_set_slot(MapSlot slot);
 
 	/// once per frame, main thread: builds the meshes of sections that changed, within a budget.
 	void blocks_update();

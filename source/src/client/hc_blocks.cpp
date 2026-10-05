@@ -61,7 +61,7 @@ namespace halfcraft
 
 			/// meshes from the vertices; registers with the leaf system. needs a loaded map.
 			/// @param light_scale - how much brighter than the raw light sample (source's overbright)
-			void build(const McTexture& atlas, IMaterial* cutout, IMaterial* translucent, int slot, float light_scale);
+			void build(const McTexture& atlas, IMaterial* cutout, IMaterial* translucent, MapSlot slot, float light_scale);
 			/// drops meshes and the leaf system registration (vertices are kept).
 			void unload();
 
@@ -91,7 +91,7 @@ namespace halfcraft
 			matrix3x4_t              transform_;
 		};
 
-		void Section::build(const McTexture& atlas, IMaterial* cutout, IMaterial* translucent, int slot, float light_scale)
+		void Section::build(const McTexture& atlas, IMaterial* cutout, IMaterial* translucent, MapSlot slot, float light_scale)
 		{
 			unload();
 			dirty_ = false;
@@ -202,7 +202,7 @@ namespace halfcraft
 			IMaterial*                                     cutout = nullptr;
 			IMaterial*                                     translucent = nullptr;
 			std::map<SectionKey, std::unique_ptr<Section>> sections;
-			int                                            slot = 0;
+			MapSlot                                        slot;
 			bool                                           level_loaded = false;
 			float                                          light_scale = 0.0f;  // as last built
 
@@ -390,7 +390,7 @@ namespace halfcraft
 		}
 	}
 
-	void blocks_set_slot(int slot)
+	void blocks_set_slot(MapSlot slot)
 	{
 		auto& b = blocks();
 		if (slot == b.slot) {
@@ -398,7 +398,7 @@ namespace halfcraft
 		}
 		b.slot = slot;
 		// another map: what minecraft has around the old one isn't anywhere near this one
-		const float centre = static_cast<float>(slot * MAP_SLOT_BLOCKS);
+		const float centre = static_cast<float>(slot.x_blocks());
 		for (auto it = b.sections.begin(); it != b.sections.end();) {
 			if (std::fabs(static_cast<float>(it->second->mc_x()) - centre) > KEEP_SLOT_BLOCKS) {
 				it = b.sections.erase(it);

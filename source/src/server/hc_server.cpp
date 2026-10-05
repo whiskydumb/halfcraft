@@ -21,6 +21,7 @@
 #include "server/hc_vitals.h"
 #include "server/hc_world_collision.h"
 #include "shared/hc_bridge.h"
+#include "shared/hc_floors.h"
 #include "shared/hc_hooks.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -72,7 +73,7 @@ namespace halfcraft
 
 			void LevelInitPostEntity() override
 			{
-				slot_ = map_slot(STRING(gpGlobals->mapname));
+				slot_ = { map_slot(STRING(gpGlobals->mapname)), map_grid_z(STRING(gpGlobals->mapname)) };
 				world_.reset(slot_);
 				solids_.reset(slot_);
 				vitals_.reset();
@@ -85,7 +86,7 @@ namespace halfcraft
 
 			void LevelShutdownPreEntity() override
 			{
-				world_.reset(0);
+				world_.reset({});
 			}
 
 			void FrameUpdatePostEntityThink() override;
@@ -103,7 +104,7 @@ namespace halfcraft
 			Vitals                             vitals_;
 			Hazards                            hazards_;
 			Checkpoints                        checkpoints_;
-			int                                slot_ = 0;
+			MapSlot                            slot_;
 			std::uint32_t                      epoch_ = ~0u;
 		};
 

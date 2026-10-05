@@ -28,7 +28,7 @@ namespace halfcraft
 		constexpr int    REFINES = 6;   // halvings of a step: the surface to 1/128 block
 		constexpr float  REFRESH_SECONDS = 0.5f;  // moving water (lowering canals) shows up this fast
 
-		bool wet(double x, double y, double z, int slot)
+		bool wet(double x, double y, double z, MapSlot slot)
 		{
 			float p[3];
 			mc_to_source(x, y, z, slot, p);
@@ -36,7 +36,7 @@ namespace halfcraft
 		}
 
 		/// the surface between a wet height and a dry one above it.
-		double refine(double wet_y, double dry_y, double x, double z, int slot)
+		double refine(double wet_y, double dry_y, double x, double z, MapSlot slot)
 		{
 			for (int i = 0; i < REFINES; ++i) {
 				const double mid = (wet_y + dry_y) * 0.5;
@@ -46,7 +46,7 @@ namespace halfcraft
 		}
 
 		/// minecraft y of the water surface over a column near the feet, or kNoWater.
-		float surface(double x, double z, double feet, int slot)
+		float surface(double x, double z, double feet, MapSlot slot)
 		{
 			const double top = feet + ABOVE;
 			if (wet(x, top, z, slot)) {

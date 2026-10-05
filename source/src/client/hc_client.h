@@ -53,7 +53,7 @@ namespace halfcraft
 
 		// the map
 		std::uint32_t world_id = 0;
-		int           slot = 0;
+		MapSlot       slot;
 		std::uint32_t epoch = 0;
 
 		// where minecraft put the player last (source units), to notice source moving them itself

@@ -23,8 +23,8 @@ namespace halfcraft
 	class WorldCollision final : public CollisionSource
 	{
 	public:
-		/// a new map: its slot in the minecraft world, and nothing cached from the last one.
-		void reset(int slot);
+		/// a new map: where it sits in the minecraft world, and nothing cached from the last one.
+		void reset(MapSlot slot);
 
 		void gather(const float lo[3], const float hi[3], ColPrimitives& out) override;
 
@@ -58,7 +58,7 @@ namespace halfcraft
 			int    frame;
 		};
 
-		int                                                 slot_ = 0;
+		MapSlot                                             slot_;
 		std::unordered_map<const model_t*, std::vector<Hull>> hulls_;
 		std::unordered_map<int, Mover>                      movers_;  // by entity serial-qualified index
 		int                                                 frame_ = 0;

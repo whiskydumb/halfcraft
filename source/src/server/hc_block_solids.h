@@ -10,6 +10,7 @@
 #include <tuple>
 #include <vector>
 
+#include "core/hc_units.h"
 #include "shared/hc_bridge.h"
 
 namespace halfcraft
@@ -20,7 +21,7 @@ namespace halfcraft
 	{
 	public:
 		/// a new map: the old entities went with it; everything is asked for again.
-		void reset(int slot);
+		void reset(MapSlot slot);
 		/// once per frame: picks up what changed in client.dll and updates the entities.
 		void update();
 
@@ -33,7 +34,7 @@ namespace halfcraft
 
 		SolidsSinceFn             solids_since_ = nullptr;
 		std::uint32_t             version_ = 0;
-		int                       slot_ = 0;
+		MapSlot                   slot_;
 		std::map<Key, EHANDLE>    entities_;
 		std::vector<SolidSection> changes_;
 		bool                      dropped_ = false;

@@ -184,7 +184,7 @@ LINK_ENTITY_TO_CLASS( halfcraft_blocks, CHalfCraftBlocks );
 
 namespace halfcraft
 {
-	void BlockSolids::reset(int slot)
+	void BlockSolids::reset(MapSlot slot)
 	{
 		free_dead_collides(true);  // a new level: the old one's physics objects are gone
 		slot_ = slot;
@@ -292,7 +292,7 @@ namespace halfcraft
 	void BlockSolids::apply(const SolidSection& section)
 	{
 		const Key key{ section.sx, section.sy, section.sz };
-		const float centre = static_cast<float>(slot_ * MAP_SLOT_BLOCKS);
+		const float centre = static_cast<float>(slot_.x_blocks());
 		const bool  this_map = std::fabs(static_cast<float>(section.sx * SECTION_BLOCKS) - centre) <= KEEP_SLOT_BLOCKS;
 		auto        it = entities_.find(key);
 		if (section.count == 0 || !this_map) {
@@ -305,12 +305,11 @@ namespace halfcraft
 			return;
 		}
 
-		// the section's minecraft corner -> source: x = x * U - slot offset, y = -z * U, z = y * U. the
-		// entity sits at the section's source minimum corner (minecraft's max z).
+		// the entity sits at the section's source minimum corner (minecraft's max z)
 		const float units = static_cast<float>(UNITS_PER_BLOCK);
-		const float mc_x0 = static_cast<float>(section.sx * SECTION_BLOCKS), mc_y0 = static_cast<float>(section.sy * SECTION_BLOCKS),
-					mc_z0 = static_cast<float>(section.sz * SECTION_BLOCKS);
-		const Vector origin((mc_x0 - centre) * units, -(mc_z0 + SECTION_BLOCKS) * units, mc_y0 * units);
+		float       corner[3];
+		mc_to_source(section.sx * SECTION_BLOCKS, section.sy * SECTION_BLOCKS, (section.sz + 1) * SECTION_BLOCKS, slot_, corner);
+		const Vector origin(corner[0], corner[1], corner[2]);
 
 		std::vector<Vector> mins, maxs;
 		Vector              lo(FLT_MAX, FLT_MAX, FLT_MAX), hi(-FLT_MAX, -FLT_MAX, -FLT_MAX);

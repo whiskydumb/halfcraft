@@ -107,7 +107,7 @@ namespace halfcraft
 		struct Emitter
 		{
 			DrawList& list;
-			int       slot;
+			MapSlot   slot;
 			double    base[3];  // minecraft coords the positions are relative to
 			float     u_scale, v_scale;
 
@@ -290,7 +290,7 @@ namespace halfcraft
 			}
 
 			/// pins what's queued and draws every arrow where its bone is now.
-			void emit(DrawList& list, IMaterial* material, LightCache& light, int slot, const float side_uv[4], const float back_uv[4], float u_scale,
+			void emit(DrawList& list, IMaterial* material, LightCache& light, MapSlot slot, const float side_uv[4], const float back_uv[4], float u_scale,
 				float v_scale);
 
 		private:
@@ -390,7 +390,7 @@ namespace halfcraft
 			return nullptr;
 		}
 
-		void StuckArrows::emit(DrawList& list, IMaterial* material, LightCache& light, int slot, const float side_uv[4], const float back_uv[4],
+		void StuckArrows::emit(DrawList& list, IMaterial* material, LightCache& light, MapSlot slot, const float side_uv[4], const float back_uv[4],
 			float u_scale, float v_scale)
 		{
 			{
@@ -464,7 +464,7 @@ namespace halfcraft
 
 		/// minecraft y of the ground under a point within SHADOW_REACH blocks: half-life's world or a
 		/// minecraft block, whichever is higher; NaN for none.
-		double ground_below(double x, double y, double z, int slot)
+		double ground_below(double x, double y, double z, MapSlot slot)
 		{
 			double ground = std::nan("");
 			float  top[3], bottom[3];
@@ -474,7 +474,8 @@ namespace halfcraft
 			UTIL_TraceLine(Vector(top[0], top[1], top[2]), Vector(bottom[0], bottom[1], bottom[2]), MASK_SOLID_BRUSHONLY, nullptr, COLLISION_GROUP_NONE,
 				&trace);
 			if (trace.fraction < 1.0f && !trace.startsolid) {
-				ground = trace.endpos.z / UNITS_PER_BLOCK;
+				const float end[3] = { trace.endpos.x, trace.endpos.y, trace.endpos.z };
+				ground = source_to_mc(end, slot).y;
 			}
 			const int bx = static_cast<int>(std::floor(x)), bz = static_cast<int>(std::floor(z));
 			const int to = static_cast<int>(std::floor(y - SHADOW_REACH));
@@ -556,11 +557,11 @@ namespace halfcraft
 
 		private:
 			void ensure_materials(const AtlasView& atlas);
-			void build_entities(const AtlasView& atlas, LightCache& light, int slot);
+			void build_entities(const AtlasView& atlas, LightCache& light, MapSlot slot);
 			/// a captured mesh at a minecraft origin into a draw list, lit like the blocks.
-			void build_mesh(DrawList& list, const McMesh& mesh, const double origin[3], const AtlasView& atlas, LightCache& light, int slot,
+			void build_mesh(DrawList& list, const McMesh& mesh, const double origin[3], const AtlasView& atlas, LightCache& light, MapSlot slot,
 				const double eye[3]);
-			void emit_shadow(const proto::WorldEntity& e, int slot);
+			void emit_shadow(const proto::WorldEntity& e, MapSlot slot);
 			void draw_outline();
 			void set_bounds(const Vector& lo, const Vector& hi);
 
@@ -778,7 +779,7 @@ namespace halfcraft
 			}
 		}
 
-		void Things::build_entities(const AtlasView& atlas, LightCache& light, int slot)
+		void Things::build_entities(const AtlasView& atlas, LightCache& light, MapSlot slot)
 		{
 			auto& s = client_session();
 			if (!s.link.read_world_entities(entities_)) {
@@ -865,7 +866,7 @@ namespace halfcraft
 			}
 		}
 
-		void Things::emit_shadow(const proto::WorldEntity& e, int slot)
+		void Things::emit_shadow(const proto::WorldEntity& e, MapSlot slot)
 		{
 			// the player's own only while its body shows
 			const auto& mc = client_session().mc;
@@ -890,7 +891,7 @@ namespace halfcraft
 			out.quad(p, uv, color);
 		}
 
-		void Things::build_mesh(DrawList& list, const McMesh& mesh, const double origin[3], const AtlasView& atlas, LightCache& light, int slot,
+		void Things::build_mesh(DrawList& list, const McMesh& mesh, const double origin[3], const AtlasView& atlas, LightCache& light, MapSlot slot,
 			const double eye_mc[3])
 		{
 			list.clear();

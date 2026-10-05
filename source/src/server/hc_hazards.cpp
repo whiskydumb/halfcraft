@@ -49,7 +49,7 @@ namespace halfcraft
 		}
 	}
 
-	void Hazards::update(CBasePlayer* player, int slot)
+	void Hazards::update(CBasePlayer* player, MapSlot slot)
 	{
 		if (!player || gpGlobals->curtime < next_check_) {
 			return;

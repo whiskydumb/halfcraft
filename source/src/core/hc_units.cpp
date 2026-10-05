@@ -71,6 +71,11 @@ namespace halfcraft
 		return id ? id : 1u;
 	}
 
+	std::string map_base_name(const char* map_name)
+	{
+		return base_name(map_name);
+	}
+
 	int map_slot(const char* map_name)
 	{
 		const auto name = base_name(map_name);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 // source <-> minecraft space.
 //
@@ -10,7 +11,8 @@
 //
 // every map gets its own stretch of the minecraft world (MAP_SLOT_BLOCKS apart along x): source maps
 // all sit around their own origin, and builds from one map must not show up in the next. a source
-// map spans at most +-16384 units (+-410 blocks), so a slot of 1024 blocks always fits one.
+// map spans at most +-16384 units (+-410 blocks), so a slot of 1024 blocks always fits one. the block
+// grid's height differs per map too: it's lifted onto the map's most common floor (core/hc_grid.h).
 
 namespace halfcraft
 {
@@ -22,20 +24,32 @@ namespace halfcraft
 		double x, y, z;
 	};
 
-	/// @param p - source position (units)
-	/// @param slot - the map's slot (see map_slot)
-	/// @return the same point in minecraft blocks
-	inline McVec source_to_mc(const float p[3], int slot)
+	/// where a map sits in the minecraft world.
+	struct MapSlot
 	{
-		return { p[0] / UNITS_PER_BLOCK + slot * MAP_SLOT_BLOCKS, p[2] / UNITS_PER_BLOCK, -p[1] / UNITS_PER_BLOCK };
+		int   index = 0;      // its stretch along x (see map_slot)
+		float grid_z = 0.0f;  // source z of minecraft's y = 0: the block grid's height in this map (see map_grid_z)
+
+		/// minecraft x of the map's source origin
+		double x_blocks() const { return index * MAP_SLOT_BLOCKS; }
+
+		bool operator==(const MapSlot& other) const { return index == other.index && grid_z == other.grid_z; }
+	};
+
+	/// @param p - source position (units)
+	/// @param slot - where the map sits in minecraft
+	/// @return the same point in minecraft blocks
+	inline McVec source_to_mc(const float p[3], MapSlot slot)
+	{
+		return { p[0] / UNITS_PER_BLOCK + slot.x_blocks(), (p[2] - slot.grid_z) / UNITS_PER_BLOCK, -p[1] / UNITS_PER_BLOCK };
 	}
 
 	/// @param out - the same point in source units
-	inline void mc_to_source(double x, double y, double z, int slot, float out[3])
+	inline void mc_to_source(double x, double y, double z, MapSlot slot, float out[3])
 	{
-		out[0] = static_cast<float>((x - slot * MAP_SLOT_BLOCKS) * UNITS_PER_BLOCK);
+		out[0] = static_cast<float>((x - slot.x_blocks()) * UNITS_PER_BLOCK);
 		out[1] = static_cast<float>(-z * UNITS_PER_BLOCK);
-		out[2] = static_cast<float>(y * UNITS_PER_BLOCK);
+		out[2] = static_cast<float>(y * UNITS_PER_BLOCK + slot.grid_z);
 	}
 
 	/// a direction (no scale, no slot) from source axes to minecraft axes.
@@ -71,4 +85,6 @@ namespace halfcraft
 	/// the map's slot in the minecraft world: the campaign's maps in story order, anything else
 	/// hashed into the slots after them.
 	int map_slot(const char* map_name);
+	/// "maps/d1_trainstation_01.bsp" or "D1_TrainStation_01" -> "d1_trainstation_01"
+	std::string map_base_name(const char* map_name);
 }

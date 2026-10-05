@@ -17,6 +17,7 @@
 #include "client/hc_block_lights.h"
 #include "client/hc_blocks.h"
 #include "client/hc_client.h"
+#include "shared/hc_floors.h"
 #include "client/hc_things.h"
 #include "core/hc_log.h"
 #include "shared/hc_hooks.h"
@@ -225,8 +226,8 @@ namespace halfcraft
 				const auto  id = map_world_id(level);
 				if (id != s.world_id) {
 					s.world_id = id;
-					s.slot = map_slot(level);
-					log_info("map %s (slot %d)", level, s.slot);
+					s.slot = { map_slot(level), map_grid_z(level) };
+					log_info("map %s (slot %d)", level, s.slot.index);
 				} else {
 					log_info("map %s loaded again (a save)", level);
 				}

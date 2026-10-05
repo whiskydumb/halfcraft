@@ -90,7 +90,7 @@ namespace halfcraft
 		}
 	}
 
-	void Combat::update(Link& link, CBasePlayer* player, int slot, bool puppeted)
+	void Combat::update(Link& link, CBasePlayer* player, MapSlot slot, bool puppeted)
 	{
 		if (!player || !puppeted) {
 			// nothing to fight while source has the player; still drain minecraft's events so stale hits
@@ -139,7 +139,7 @@ namespace halfcraft
 		}
 	}
 
-	void Combat::write_actors(Link& link, CBasePlayer* player, int slot)
+	void Combat::write_actors(Link& link, CBasePlayer* player, MapSlot slot)
 	{
 		records_.clear();
 		g_actors.clear();
@@ -273,7 +273,7 @@ namespace halfcraft
 		}
 	}
 
-	void Combat::apply_explosion(CBasePlayer* player, const proto::McEvent& event, int slot)
+	void Combat::apply_explosion(CBasePlayer* player, const proto::McEvent& event, MapSlot slot)
 	{
 		float centre[3];
 		mc_to_source(event.a, event.b, event.c, slot, centre);
@@ -285,7 +285,7 @@ namespace halfcraft
 			true);
 	}
 
-	void Combat::stick_arrow(const proto::McEvent& event, int slot)
+	void Combat::stick_arrow(const proto::McEvent& event, MapSlot slot)
 	{
 		const auto   found = g_actors.find(event.actorId);
 		CBaseEntity* target = found != g_actors.end() ? found->second.Get() : nullptr;

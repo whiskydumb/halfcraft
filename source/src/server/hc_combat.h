@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "core/hc_link.h"
+#include "core/hc_units.h"
 
 class CBasePlayer;
 
@@ -23,16 +24,16 @@ namespace halfcraft
 	{
 	public:
 		/// once per frame.
-		/// @param slot - the map's slot (minecraft <-> source placement)
+		/// @param slot - where the map sits in minecraft (minecraft <-> source placement)
 		/// @param puppeted - minecraft drives the player (otherwise nothing is mirrored)
-		void update(Link& link, CBasePlayer* player, int slot, bool puppeted);
+		void update(Link& link, CBasePlayer* player, MapSlot slot, bool puppeted);
 
 	private:
-		void write_actors(Link& link, CBasePlayer* player, int slot);
+		void write_actors(Link& link, CBasePlayer* player, MapSlot slot);
 		void apply_hit(CBasePlayer* player, const proto::McEvent& event);
-		void apply_explosion(CBasePlayer* player, const proto::McEvent& event, int slot);
+		void apply_explosion(CBasePlayer* player, const proto::McEvent& event, MapSlot slot);
 		/// hands a minecraft arrow that stuck in an npc to client.dll, which draws it on the npc.
-		void stick_arrow(const proto::McEvent& event, int slot);
+		void stick_arrow(const proto::McEvent& event, MapSlot slot);
 
 		std::vector<proto::ActorRecord> records_;
 		bool                            actors_sent_ = false;

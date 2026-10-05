@@ -28,12 +28,12 @@ namespace halfcraft
 		// what source's player movement collides with (MASK_PLAYERSOLID without monsters: no brush is one)
 		constexpr int PLAYER_SOLID_BRUSHES = CONTENTS_SOLID | CONTENTS_MOVEABLE | CONTENTS_PLAYERCLIP | CONTENTS_WINDOW | CONTENTS_GRATE;
 
-		float slot_offset(int slot)
+		float slot_offset(MapSlot slot)
 		{
-			return static_cast<float>(slot * MAP_SLOT_BLOCKS);
+			return static_cast<float>(slot.x_blocks());
 		}
 
-		void to_mc(const Vector& source, int slot, float out[3])
+		void to_mc(const Vector& source, MapSlot slot, float out[3])
 		{
 			const float p[3] = { source.x, source.y, source.z };
 			const auto  mc = source_to_mc(p, slot);
@@ -124,7 +124,7 @@ namespace halfcraft
 		}
 	}
 
-	void WorldCollision::reset(int slot)
+	void WorldCollision::reset(MapSlot slot)
 	{
 		slot_ = slot;
 		hulls_.clear();
@@ -135,8 +135,8 @@ namespace halfcraft
 	{
 		const float units = static_cast<float>(UNITS_PER_BLOCK);
 		const float offset = slot_offset(slot_);
-		mins.Init((lo[0] - offset) * units, -hi[2] * units, lo[1] * units);
-		maxs.Init((hi[0] - offset) * units, -lo[2] * units, hi[1] * units);
+		mins.Init((lo[0] - offset) * units, -hi[2] * units, lo[1] * units + slot_.grid_z);
+		maxs.Init((hi[0] - offset) * units, -lo[2] * units, hi[1] * units + slot_.grid_z);
 	}
 
 	void WorldCollision::to_mc_box(const Vector& mins, const Vector& maxs, float lo[3], float hi[3]) const
@@ -145,8 +145,8 @@ namespace halfcraft
 		const float offset = slot_offset(slot_);
 		lo[0] = mins.x / units + offset;
 		hi[0] = maxs.x / units + offset;
-		lo[1] = mins.z / units;
-		hi[1] = maxs.z / units;
+		lo[1] = (mins.z - slot_.grid_z) / units;
+		hi[1] = (maxs.z - slot_.grid_z) / units;
 		lo[2] = -maxs.y / units;
 		hi[2] = -mins.y / units;
 	}
@@ -175,12 +175,12 @@ namespace halfcraft
 				continue;
 			}
 			// source: inside where n.p <= dist. minecraft: n' = (nx, nz, -ny), inside where
-			// n'.p' - (nx * slot offset + dist / units) <= 0.
+			// n'.p' - (nx * slot offset + (dist - nz * grid z) / units) <= 0.
 			ColPrimitives::Convex cvx;
 			Vector                bmins = mins, bmaxs = maxs;  // the query box unless the brush is tighter
 			for (int p = 0; p < planes.Count(); ++p) {
 				const Vector4D& pl = planes[p];
-				cvx.planes.push_back({ pl.x, pl.z, -pl.y, -(pl.x * offset + pl.w / units) });
+				cvx.planes.push_back({ pl.x, pl.z, -pl.y, -(pl.x * offset + (pl.w - pl.z * slot_.grid_z) / units) });
 				for (int axis = 0; axis < 3; ++axis) {
 					if (pl[axis] > 0.9999f) {
 						bmaxs[axis] = std::min(bmaxs[axis], pl.w);
