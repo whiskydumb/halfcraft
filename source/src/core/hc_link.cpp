@@ -164,6 +164,7 @@ namespace halfcraft
 		std::memset(base_ + proto::kOffHostDebug, 0, proto::kHostDebugBytes);
 		std::memset(base_ + proto::kOffWeaponTable, 0, proto::kWeaponTableBytes);
 		std::memset(base_ + proto::kOffMobTable, 0, proto::kMobTableBytes);
+		std::memset(base_ + proto::kOffWaterProbes + proto::kWaterProbesAnswerOff, 0, sizeof(proto::WaterProbes));
 		skip_pending(proto::kOffRenderRing + proto::kRenRingHeadOff, proto::kOffRenderRing + proto::kRenRingTailOff);
 		skip_pending(proto::kOffEventRing + proto::kEventRingHeadOff, proto::kOffEventRing + proto::kEventRingTailOff);
 		header->version = proto::kVersion;
@@ -227,6 +228,22 @@ namespace halfcraft
 	{
 		if (base_) {
 			seqlock_write(at<proto::WaterGrid>(proto::kOffWaterGrid), grid);
+		}
+	}
+
+	bool Link::read_water_probe_requests(proto::WaterProbeRequests& out) const
+	{
+		if (!base_ || !seqlock_read(at<proto::WaterProbeRequests>(proto::kOffWaterProbes), out, 16)) {
+			return false;
+		}
+		out.count = std::min(out.count, proto::kMaxWaterProbes);
+		return true;
+	}
+
+	void Link::write_water_probes(const proto::WaterProbes& probes)
+	{
+		if (base_) {
+			seqlock_write(at<proto::WaterProbes>(proto::kOffWaterProbes + proto::kWaterProbesAnswerOff), probes);
 		}
 	}
 

@@ -13,6 +13,7 @@
 
 #include "hc_link.h"
 #include "hc_units.h"
+#include "hc_collision_shapes.h"
 
 // streams the game's collision around the player to minecraft, in 8x8x8-block regions: the exact
 // triangles (minecraft's smooth player collider) and an 8x8x8 sub-voxel mask per block (everything
@@ -23,24 +24,6 @@
 
 namespace halfcraft
 {
-	/// solid geometry in minecraft space.
-	struct ColPrimitives
-	{
-		struct Tri
-		{
-			float         v[9];       // three corners; solid side behind the winding's normal
-			std::uint32_t flags = 0;  // proto::ColTriFlags
-		};
-		struct Convex
-		{
-			std::vector<std::array<float, 4>> planes;  // n.p + d <= 0 inside
-			float                             lo[3], hi[3];
-			std::uint32_t                     flags = 0;
-		};
-		std::vector<Tri>    tris;
-		std::vector<Convex> convexes;
-	};
-
 	/// what the player collides with, supplied by the game (server.dll).
 	class CollisionSource
 	{
@@ -53,7 +36,8 @@ namespace halfcraft
 	class CollisionStreamer
 	{
 	public:
-		static constexpr int REGION_SIZE = 8;  // blocks per region edge (must match the java side)
+		static constexpr int REGION_SIZE = COLLISION_REGION_SIZE;  // blocks per region edge (must match the java side)
+		static constexpr int RADIUS = 8;  // regions streamed around the player horizontally: 64+ blocks, as far as npc stand-ins (hc_combat)
 
 		explicit CollisionStreamer(Link& link);
 		~CollisionStreamer();
@@ -95,5 +79,10 @@ namespace halfcraft
 		std::unordered_map<std::uint64_t, Clock::time_point> harvested_;
 		std::vector<std::array<int, 3>>                urgent_;
 		std::vector<std::array<int, 3>>                offsets_;
+		// regions new to the stream since it last had them all (a teleport, a map load): logged once
+		// they're all out, with what gathering them cost the main thread
+		Clock::time_point                              settle_start_{};
+		Clock::duration                                settle_cost_{};
+		std::size_t                                    settle_regions_ = 0;
 	};
 }

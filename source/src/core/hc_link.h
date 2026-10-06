@@ -10,8 +10,8 @@
 // the mapping, minecraft opens it.
 //
 // client.dll and server.dll each map it. every region has exactly one writer and one reader:
-//   client.dll - header/heartbeat, host state, water grid, input ring, overlay, world entities, render ring,
-//                host debug (HostDebug)
+//   client.dll - header/heartbeat, host state, water grid, water probes, input ring, overlay, world entities,
+//                render ring, host debug (HostDebug)
 //   server.dll - collision ring, actor table, event ring, weapon table, mob table, host debug
 //                (HostDebugServer) (it also reads the header and both states)
 // only client.dll resets the mapping (create()); server.dll just attaches (attach()), and only to
@@ -49,6 +49,9 @@ namespace halfcraft
 		bool read_host_state(proto::HostState& out) const;
 		bool read_mc_state(proto::McState& out) const;
 		void write_water_grid(const proto::WaterGrid& grid);
+		/// where minecraft wants the host's water probed beyond the water grid (seqlock); out.count says how many.
+		bool read_water_probe_requests(proto::WaterProbeRequests& out) const;
+		void write_water_probes(const proto::WaterProbes& probes);
 		/// (#7) what minecraft's debug screen shows: client.dll writes HostDebug, server.dll HostDebugServer.
 		void write_host_debug(const proto::HostDebug& debug);
 		void write_host_debug_server(const proto::HostDebugServer& debug);

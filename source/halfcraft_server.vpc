@@ -61,6 +61,7 @@ $Project
 				$File	"$HALFCRAFTDIR\src\core\hc_atomic.h"
 				$File	"$HALFCRAFTDIR\src\core\hc_campaign.h"
 				$File	"$HALFCRAFTDIR\src\core\hc_collision.h"
+				$File	"$HALFCRAFTDIR\src\core\hc_collision_shapes.h"
 				$File	"$HALFCRAFTDIR\src\core\hc_grid.h"
 				$File	"$HALFCRAFTDIR\src\core\hc_link.h"
 				$File	"$HALFCRAFTDIR\src\core\hc_log.h"

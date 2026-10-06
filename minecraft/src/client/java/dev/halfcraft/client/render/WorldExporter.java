@@ -413,10 +413,13 @@ public final class WorldExporter {
 		return atlas.rect(material.sprite());
 	}
 
-	/** Outline for Half-Life to draw: the targeted block, or where a held block would go on Half-Life ground. */
+	/**
+	 * Outline for Half-Life to draw: the targeted block, or where a held block would go on Half-Life
+	 * ground. None while Minecraft's hud is hidden (F1), which hides Minecraft's own outline too.
+	 */
 	private static float[] selection(Minecraft minecraft, ClientLevel level) {
 		HitResult hit = minecraft.hitResult;
-		if (!(hit instanceof BlockHitResult blockHit) || hit.getType() != HitResult.Type.BLOCK || minecraft.gui.screen() != null) {
+		if (!(hit instanceof BlockHitResult blockHit) || hit.getType() != HitResult.Type.BLOCK || minecraft.gui.screen() != null || minecraft.gui.hud.isHidden()) {
 			return null;
 		}
 		BlockPos pos = blockHit.getBlockPos();

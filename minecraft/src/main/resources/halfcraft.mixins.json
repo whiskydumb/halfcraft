@@ -4,6 +4,7 @@
   "compatibilityLevel": "JAVA_25",
   "mixins": [
     "AbstractArrowMixin",
+    "AbstractBoatMixin",
     "BlockCollisionsMixin",
     "BlockStateBaseMixin",
     "DamageSourceInvoker",
@@ -11,6 +12,7 @@
     "EntityPickMixin",
     "EntitySwimMixin",
     "FallingBlockMixin",
+    "FishingHookMixin",
     "FlowingFluidMixin",
     "GroundPathNavigationMixin",
     "ItemMixin",

@@ -11,8 +11,11 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import net.minecraft.world.entity.projectile.arrow.Arrow;
 import net.minecraft.world.entity.projectile.arrow.SpectralArrow;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -24,16 +27,66 @@ import org.spongepowered.asm.mixin.injection.At;
 
 /**
  * Arrows and tridents hit Half-Life's exact surfaces. They then stick where they hit: the block state
- * there is air, the same as what they recorded on impact, so vanilla never makes them fall out.
+ * there is air, the same as what they recorded on impact, so vanilla never makes them fall out. At the
+ * edge of the space Half-Life has described they drop instead (see ProjectileMixin), and one stopped on
+ * its bottom falls on once Half-Life's ground under it streams in, after a reload too.
  */
 @Mixin(AbstractArrow.class)
 public abstract class AbstractArrowMixin {
+	// how far under an arrow held at the edge it looks for streamed ground (blocks): past the edge
+	@Unique
+	private static final double EDGE_LOOK_DOWN = 0.5;
+
+	// saved with the arrow: vanilla alone keeps one stuck at the edge there for good after a reload
+	@Unique
+	private static final String HELD_AT_EDGE_KEY = "halfcraft:held_at_edge";
+
+	@Unique
+	private boolean halfcraft$heldAtEdge;
+
+	@Shadow
+	protected abstract boolean isInGround();
+
+	@Shadow
+	protected abstract void setInGround(boolean inGround);
+
 	@WrapOperation(
 		method = "tick",
 		at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;clipIncludingBorder(Lnet/minecraft/world/level/ClipContext;)Lnet/minecraft/world/phys/BlockHitResult;")
 	)
 	private BlockHitResult halfcraft$hitHost(Level level, ClipContext context, Operation<BlockHitResult> original) {
-		return HostClip.refine(context.getFrom(), context.getTo(), original.call(level, context), HostClip.Use.PROJECTILE);
+		return HostClip.refineProjectile(level, context.getFrom(), context.getTo(), original.call(level, context));
+	}
+
+	@Inject(method = "onHitBlock", at = @At("HEAD"))
+	private void halfcraft$holdAtEdge(BlockHitResult hitResult, CallbackInfo ci) {
+		this.halfcraft$heldAtEdge = hitResult instanceof HostClip.EdgeHitResult edge && edge.below();
+	}
+
+	@Inject(method = "tick", at = @At("HEAD"))
+	private void halfcraft$fallOntoStreamedGround(CallbackInfo ci) {
+		if (!this.halfcraft$heldAtEdge) {
+			return;
+		}
+		AbstractArrow self = (AbstractArrow) (Object) this;
+		if (!this.isInGround() || self.isNoPhysics()) {
+			this.halfcraft$heldAtEdge = false;
+		} else if (!self.level().isClientSide() && HostClip.open(self.level(), self.getX(), self.getY() - EDGE_LOOK_DOWN, self.getZ())) {
+			this.halfcraft$heldAtEdge = false;
+			this.setInGround(false);
+		}
+	}
+
+	@Inject(method = "addAdditionalSaveData", at = @At("TAIL"))
+	private void halfcraft$saveHeldAtEdge(ValueOutput output, CallbackInfo ci) {
+		if (this.halfcraft$heldAtEdge) {
+			output.putBoolean(HELD_AT_EDGE_KEY, true);
+		}
+	}
+
+	@Inject(method = "readAdditionalSaveData", at = @At("TAIL"))
+	private void halfcraft$loadHeldAtEdge(ValueInput input, CallbackInfo ci) {
+		this.halfcraft$heldAtEdge = input.getBooleanOr(HELD_AT_EDGE_KEY, false);
 	}
 
 	@Unique

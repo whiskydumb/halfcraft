@@ -165,31 +165,21 @@ namespace halfcraft
 	{
 		CUtlVector<int> brushes;
 		enginetrace->GetBrushesInAABB(mins, maxs, &brushes, PLAYER_SOLID_BRUSHES);
-		CUtlVector<Vector4D> planes;
-		const float          units = static_cast<float>(UNITS_PER_BLOCK);
-		const float          offset = slot_offset(slot_);
+		CUtlVector<Vector4D>              planes;
+		std::vector<std::array<float, 4>> brush;
+		const float                       box_mins[3] = { mins.x, mins.y, mins.z }, box_maxs[3] = { maxs.x, maxs.y, maxs.z };
 		for (int i = 0; i < brushes.Count(); ++i) {
 			planes.RemoveAll();
 			int contents = 0;
 			if (!enginetrace->GetBrushInfo(brushes[i], &planes, &contents) || !(contents & PLAYER_SOLID_BRUSHES) || planes.Count() < 4) {
 				continue;
 			}
-			// source: inside where n.p <= dist. minecraft: n' = (nx, nz, -ny), inside where
-			// n'.p' - (nx * slot offset + (dist - nz * grid z) / units) <= 0.
-			ColPrimitives::Convex cvx;
-			Vector                bmins = mins, bmaxs = maxs;  // the query box unless the brush is tighter
+			brush.clear();
 			for (int p = 0; p < planes.Count(); ++p) {
-				const Vector4D& pl = planes[p];
-				cvx.planes.push_back({ pl.x, pl.z, -pl.y, -(pl.x * offset + (pl.w - pl.z * slot_.grid_z) / units) });
-				for (int axis = 0; axis < 3; ++axis) {
-					if (pl[axis] > 0.9999f) {
-						bmaxs[axis] = std::min(bmaxs[axis], pl.w);
-					} else if (pl[axis] < -0.9999f) {
-						bmins[axis] = std::max(bmins[axis], -pl.w);
-					}
-				}
+				brush.push_back({ planes[p].x, planes[p].y, planes[p].z, planes[p].w });
 			}
-			to_mc_box(bmins, bmaxs, cvx.lo, cvx.hi);
+			ColPrimitives::Convex cvx;
+			brush_to_convex(brush.data(), brush.size(), box_mins, box_maxs, slot_, cvx);
 			out.convexes.push_back(std::move(cvx));
 		}
 	}
@@ -345,7 +335,7 @@ namespace halfcraft
 	{
 		++frame_;
 		// as far as collision is streamed (see hc_collision.cpp), and a region more
-		constexpr float REACH_BLOCKS = 6 * CollisionStreamer::REGION_SIZE;
+		constexpr float REACH_BLOCKS = (CollisionStreamer::RADIUS + 1) * CollisionStreamer::REGION_SIZE;
 		const float     lo[3] = { static_cast<float>(player.x) - REACH_BLOCKS, static_cast<float>(player.y) - REACH_BLOCKS, static_cast<float>(player.z) - REACH_BLOCKS };
 		const float     hi[3] = { static_cast<float>(player.x) + REACH_BLOCKS, static_cast<float>(player.y) + REACH_BLOCKS, static_cast<float>(player.z) + REACH_BLOCKS };
 		Vector          mins, maxs;

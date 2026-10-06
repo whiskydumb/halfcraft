@@ -4,7 +4,9 @@ import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.QuadInstance;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
 import dev.halfcraft.HalfCraft;
+import dev.halfcraft.client.mixin.LeashFeatureRendererAccessor;
 import dev.halfcraft.client.mixin.RenderSetupAccessor;
 import dev.halfcraft.client.mixin.RenderTypeAccessor;
 import dev.halfcraft.client.mixin.TextureBindingAccessor;
@@ -12,6 +14,7 @@ import dev.halfcraft.client.mixin.TextureManagerAccessor;
 import dev.halfcraft.combat.HostActorEntity;
 import dev.halfcraft.link.Proto;
 import dev.halfcraft.link.HostLink;
+import dev.halfcraft.render.Primitives;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -55,6 +58,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.projectile.ItemSupplier;
@@ -75,8 +79,11 @@ import org.jspecify.annotations.Nullable;
  * <p>Two captures a frame: the player's body in third person (F5), relative to the feet Half-Life's
  * camera follows so it can't drift from the camera; and everything else (lit TNT, falling
  * blocks, minecarts, boats, ..., block entities (chests, beds, signs, banners, pistons while they
- * move, ...) and all particles) relative to a block near the camera. Arrows,
- * dropped items and thrown items have their own lighter path (WorldExporter). Render thread only.
+ * move, ...), leashes, fishing lines and bobbers, the rest renderers draw by hand (lightning, beacon
+ * beams, paintings, experience orbs, maps in frames), and all particles) relative to a block near the
+ * camera. Arrows, dropped items and thrown items have their own lighter path (WorldExporter). Lines
+ * become thin ribbons facing the camera, and geometry drawn with colour alone samples a white texel
+ * of the atlas. Render thread only.
  */
 final class AvatarExporter implements SubmitNodeCollector {
 	// Vertex flags: cutout, full-detail texture, lit by its own faces / without a normal / blended.
@@ -90,6 +97,11 @@ final class AvatarExporter implements SubmitNodeCollector {
 	private static final int SCENE_MAX_ENTITIES = 48;
 	private static final double BLOCK_ENTITY_RANGE = 48.0;
 	private static final int SCENE_MAX_BLOCK_ENTITIES = 256;
+	// A leash as LeashFeatureRenderer draws it: steps along it, and its width.
+	private static final int LEASH_STEPS = 24;
+	private static final float LEASH_WIDTH = 0.05F;
+	// A line's width (pixels) when its renderer gives none.
+	private static final float LINE_WIDTH = 2.0F;
 	private static boolean warnedBlockEntity;
 
 	// Textures Half-Life holds, shared by both captures.
@@ -110,6 +122,12 @@ final class AvatarExporter implements SubmitNodeCollector {
 	private HostAtlas atlas;
 	// Added to every position (particles and their groups come relative to the camera).
 	private float offX, offY, offZ;
+	// Geometry that isn't quads (lines, strips), collected before it becomes quads.
+	private final Vertices vertices = new Vertices();
+	// The camera in this capture's coordinates, and a pixel's width (blocks) one block away from it:
+	// lines are ribbons that keep their width in pixels.
+	private final float[] eye = new float[3];
+	private float pixelBlocks;
 
 	private AvatarExporter() {
 	}
@@ -152,6 +170,7 @@ final class AvatarExporter implements SubmitNodeCollector {
 			dispatcher.prepare(camera, minecraft.crosshairPickEntity);
 			EntityRenderState state = dispatcher.extractEntity(player, partialTick);
 			CameraRenderState cameraState = minecraft.gameRenderer.gameRenderState().levelRenderState.cameraRenderState;
+			this.lookFrom(minecraft, camera, camera.position().subtract(player.getPosition(partialTick)));
 			// At the origin: positions come out relative to the player's feet.
 			dispatcher.submit(state, cameraState, 0.0, 0.0, 0.0, new PoseStack(), this);
 		} catch (RuntimeException e) {
@@ -288,6 +307,7 @@ final class AvatarExporter implements SubmitNodeCollector {
 		Vec3 cam = camera.position();
 		double[] origin = { Math.floor(cam.x), Math.floor(cam.y), Math.floor(cam.z) };
 		this.begin();
+		this.lookFrom(minecraft, camera, cam.subtract(origin[0], origin[1], origin[2]));
 		var dispatcher = minecraft.getEntityRenderDispatcher();
 		dispatcher.prepare(camera, minecraft.crosshairPickEntity);
 		CameraRenderState cameraState = minecraft.gameRenderer.gameRenderState().levelRenderState.cameraRenderState;
@@ -382,6 +402,19 @@ final class AvatarExporter implements SubmitNodeCollector {
 		for (Batch b : this.batches.values()) {
 			b.clear();
 		}
+	}
+
+	/**
+	 * Where the camera is in this capture's coordinates ({@code eye}), and how big a pixel looks from it:
+	 * at the camera's field of view this frame (sprinting, drawing a bow), the one HostClient sends for
+	 * Half-Life's view.
+	 */
+	private void lookFrom(Minecraft minecraft, Camera camera, Vec3 eye) {
+		this.eye[0] = (float) eye.x;
+		this.eye[1] = (float) eye.y;
+		this.eye[2] = (float) eye.z;
+		double fov = Math.toRadians(camera.getFov());
+		this.pixelBlocks = (float) (2.0 * Math.tan(fov / 2.0) / Math.max(1, minecraft.getWindow().getHeight()));
 	}
 
 	/** Header: [origin (3 doubles), scene only] batchCount, vertexCount, then batches; body: triangles. */
@@ -590,24 +623,38 @@ final class AvatarExporter implements SubmitNodeCollector {
 
 	/** The batch for a render type's texture, sending the texture to Half-Life the first time. Null: can't show it. */
 	private @Nullable Batch batchFor(RenderType renderType) {
-		RenderTypeAccessor type = (RenderTypeAccessor) renderType;
-		String name = type.halfcraft$name();
-		if (name.contains("glint") || name.contains("outline") || name.contains("shadow")) {
+		return this.batchFor(renderType, SOLID);
+	}
+
+	/** {@link #batchFor(RenderType)} for a kind of surface ({@code flags}). */
+	private @Nullable Batch batchFor(RenderType renderType, int flags) {
+		if (ignored(renderType)) {
 			return null;
 		}
-		Object binding = ((RenderSetupAccessor) (Object) type.halfcraft$state()).halfcraft$textures().get("Sampler0");
+		Object binding = texture(renderType);
 		if (binding == null) {
 			return null;
 		}
 		Identifier texture = ((TextureBindingAccessor) binding).halfcraft$location();
 		if (texture.equals(TextureAtlas.LOCATION_BLOCKS)) {
-			return this.batch(0, UV_BLOCK_ATLAS, SOLID);
+			return this.batch(0, UV_BLOCK_ATLAS, flags);
 		}
 		if (texture.equals(TextureAtlas.LOCATION_ITEMS)) {
-			return this.batch(0, UV_ITEM_ATLAS, SOLID);
+			return this.batch(0, UV_ITEM_ATLAS, flags);
 		}
 		int id = textureId(texture);
-		return id < 0 ? null : this.batch(id, UV_RAW, SOLID);
+		return id < 0 ? null : this.batch(id, UV_RAW, flags);
+	}
+
+	/** Overlays Half-Life has no use for: enchantment glint, glowing outlines, shadows. */
+	private static boolean ignored(RenderType renderType) {
+		String name = ((RenderTypeAccessor) renderType).halfcraft$name();
+		return name.contains("glint") || name.contains("outline") || name.contains("shadow");
+	}
+
+	/** The render type's texture binding, or null when it draws with colour alone. */
+	private static @Nullable Object texture(RenderType renderType) {
+		return ((RenderSetupAccessor) (Object) ((RenderTypeAccessor) renderType).halfcraft$state()).halfcraft$textures().get("Sampler0");
 	}
 
 	private static int textureId(Identifier texture) {
@@ -844,8 +891,24 @@ final class AvatarExporter implements SubmitNodeCollector {
 	public void submitFlame(PoseStack poseStack, EntityRenderState renderState, Quaternionf rotation) {
 	}
 
+	/** A leash, as LeashFeatureRenderer draws it: a strip there and back, coloured, lit along its length. */
 	@Override
 	public void submitLeash(PoseStack poseStack, EntityRenderState.LeashState leashState) {
+		this.capture.flush();
+		this.vertices.clear();
+		Matrix4f pose = new Matrix4f(poseStack.last().pose());
+		float dx = (float) (leashState.end.x - leashState.start.x);
+		float dy = (float) (leashState.end.y - leashState.start.y);
+		float dz = (float) (leashState.end.z - leashState.start.z);
+		float across = Mth.invSqrt(dx * dx + dz * dz) * LEASH_WIDTH / 2.0F;
+		pose.translate((float) leashState.offset.x, (float) leashState.offset.y, (float) leashState.offset.z);
+		for (int step = 0; step <= LEASH_STEPS; step++) {
+			LeashFeatureRendererAccessor.halfcraft$addVertexPair(this.vertices, pose, dx, dy, dz, LEASH_WIDTH, dz * across, dx * across, step, false, leashState);
+		}
+		for (int step = LEASH_STEPS; step >= 0; step--) {
+			LeashFeatureRendererAccessor.halfcraft$addVertexPair(this.vertices, pose, dx, dy, dz, 0.0F, dz * across, dx * across, step, true, leashState);
+		}
+		this.addPrimitives(this.batch(0, UV_RAW, PARTICLE), Primitives.Kind.TRIANGLE_STRIP, true);
 	}
 
 	@Override
@@ -861,8 +924,192 @@ final class AvatarExporter implements SubmitNodeCollector {
 	public void submitShapeOutline(PoseStack poseStack, VoxelShape shape, RenderType renderType, int color, float width, boolean afterTerrain) {
 	}
 
+	/**
+	 * Geometry a renderer writes by hand: the fishing bobber (a textured quad) and its line, lightning,
+	 * beams, paintings, experience orbs, maps. Lines become ribbons facing the camera; colour-only
+	 * geometry samples the atlas's white. What Minecraft blends (a beacon beam's glow, lightning,
+	 * experience orbs) stays see-through.
+	 */
 	@Override
 	public void submitCustomGeometry(PoseStack poseStack, RenderType renderType, SubmitNodeCollector.CustomGeometryRenderer customGeometryRenderer) {
+		Primitives.Kind kind = kindOf(renderType.primitiveTopology());
+		if (kind == null || ignored(renderType)) {
+			return;
+		}
+		boolean colourOnly = texture(renderType) == null;
+		boolean blended = renderType.hasBlending();
+		Batch batch = colourOnly ? this.batch(0, UV_RAW, blended ? PARTICLE_BLENDED : PARTICLE) : this.batchFor(renderType, blended ? PARTICLE_BLENDED : SOLID);
+		if (batch == null) {
+			return;
+		}
+		this.capture.flush();
+		this.vertices.clear();
+		customGeometryRenderer.render(poseStack.last(), this.vertices);
+		this.addPrimitives(batch, kind, colourOnly);
+	}
+
+	private static Primitives.@Nullable Kind kindOf(PrimitiveTopology topology) {
+		return switch (topology) {
+			case QUADS -> Primitives.Kind.QUADS;
+			case TRIANGLES -> Primitives.Kind.TRIANGLES;
+			case TRIANGLE_STRIP -> Primitives.Kind.TRIANGLE_STRIP;
+			case TRIANGLE_FAN -> Primitives.Kind.TRIANGLE_FAN;
+			case LINES, DEBUG_LINES -> Primitives.Kind.LINES;
+			case DEBUG_LINE_STRIP -> Primitives.Kind.LINE_STRIP;
+			case POINTS -> null;
+		};
+	}
+
+	/** What {@link #vertices} holds, as quads into the batch; colour-only geometry gets the white texel. */
+	private void addPrimitives(Batch batch, Primitives.Kind kind, boolean colourOnly) {
+		Vertices v = this.vertices;
+		float[] white = colourOnly ? this.atlas.whiteUv() : null;
+		int[] quads = Primitives.quads(kind, v.count);
+		if (quads != null) {
+			for (int i : quads) {
+				v.addTo(batch, i, v.x(i), v.y(i), v.z(i), white);
+			}
+			return;
+		}
+		int[] lines = Primitives.segments(kind, v.count);
+		if (lines == null) {
+			return;
+		}
+		float[] a = new float[3], b = new float[3];
+		for (int l = 0; l + 1 < lines.length; l += 2) {
+			int i = lines[l], j = lines[l + 1];
+			v.position(i, a);
+			v.position(j, b);
+			float[] corners = Primitives.ribbon(a, b, this.eye, Math.max(v.width[i], v.width[j]) * this.pixelBlocks);
+			if (corners == null) {
+				continue;
+			}
+			v.addTo(batch, i, corners[0], corners[1], corners[2], white);
+			v.addTo(batch, i, corners[3], corners[4], corners[5], white);
+			v.addTo(batch, j, corners[6], corners[7], corners[8], white);
+			v.addTo(batch, j, corners[9], corners[10], corners[11], white);
+		}
+	}
+
+	/** A VertexConsumer that keeps what it's given (positions already posed), for geometry that isn't quads. */
+	private static final class Vertices implements VertexConsumer {
+		private float[] pos = new float[3 * 64];
+		private float[] uv = new float[2 * 64];
+		private float[] width = new float[64];
+		private int[] colour = new int[64];
+		private int[] light = new int[64];
+		private int[] overlay = new int[64];
+		private int count;
+		private float lineWidth = LINE_WIDTH;
+
+		void clear() {
+			this.count = 0;
+			this.lineWidth = LINE_WIDTH;
+		}
+
+		float x(int i) {
+			return this.pos[i * 3];
+		}
+
+		float y(int i) {
+			return this.pos[i * 3 + 1];
+		}
+
+		float z(int i) {
+			return this.pos[i * 3 + 2];
+		}
+
+		void position(int i, float[] out) {
+			System.arraycopy(this.pos, i * 3, out, 0, 3);
+		}
+
+		/** Vertex i's colour and light at (x, y, z) into the batch, with its own texture or, given {@code uv}, that texel. */
+		void addTo(Batch batch, int i, float x, float y, float z, float @Nullable [] uv) {
+			float u = uv != null ? uv[0] : this.uv[i * 2];
+			float v = uv != null ? uv[1] : this.uv[i * 2 + 1];
+			batch.add(x, y, z, u, v, this.colour[i], this.light[i], this.overlay[i]);
+		}
+
+		@Override
+		public VertexConsumer addVertex(float x, float y, float z) {
+			if (this.count == this.width.length) {
+				int capacity = this.count * 2;
+				this.pos = java.util.Arrays.copyOf(this.pos, capacity * 3);
+				this.uv = java.util.Arrays.copyOf(this.uv, capacity * 2);
+				this.width = java.util.Arrays.copyOf(this.width, capacity);
+				this.colour = java.util.Arrays.copyOf(this.colour, capacity);
+				this.light = java.util.Arrays.copyOf(this.light, capacity);
+				this.overlay = java.util.Arrays.copyOf(this.overlay, capacity);
+			}
+			int i = this.count++;
+			this.pos[i * 3] = x;
+			this.pos[i * 3 + 1] = y;
+			this.pos[i * 3 + 2] = z;
+			this.uv[i * 2] = 0.0F;
+			this.uv[i * 2 + 1] = 0.0F;
+			this.width[i] = this.lineWidth;
+			this.colour[i] = -1;
+			this.light[i] = 0xF000F0;
+			this.overlay[i] = OverlayTexture.NO_OVERLAY;
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setColor(int r, int g, int b, int a) {
+			return this.setColor((a << 24) | (r << 16) | (g << 8) | b);
+		}
+
+		@Override
+		public VertexConsumer setColor(int color) {
+			if (this.count > 0) {
+				this.colour[this.count - 1] = color;
+			}
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setUv(float u, float v) {
+			if (this.count > 0) {
+				this.uv[(this.count - 1) * 2] = u;
+				this.uv[(this.count - 1) * 2 + 1] = v;
+			}
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setUv1(int u, int v) {
+			if (this.count > 0) {
+				this.overlay[this.count - 1] = (u & 0xFFFF) | (v << 16);
+			}
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setUv2(int u, int v) {
+			if (this.count > 0) {
+				this.light[this.count - 1] = (u & 0xFFFF) | (v << 16);
+			}
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setUv3(float u, float v) {
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setNormal(float x, float y, float z) {
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setLineWidth(float width) {
+			this.lineWidth = width;
+			if (this.count > 0) {
+				this.width[this.count - 1] = width;
+			}
+			return this;
+		}
 	}
 
 	@Override

@@ -10,7 +10,10 @@ import net.minecraft.world.phys.BlockHitResult;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
-/** Thrown projectiles (snowballs, eggs, pearls, potions) and spear reach checks see Half-Life surfaces. */
+/**
+ * Thrown projectiles (snowballs, eggs, pearls, potions, fishing bobbers) and spear reach checks see
+ * Half-Life surfaces, and the edge of the space Half-Life has described (see ProjectileMixin).
+ */
 @Mixin(ProjectileUtil.class)
 public abstract class ProjectileUtilMixin {
 	@WrapOperation(
@@ -18,6 +21,6 @@ public abstract class ProjectileUtilMixin {
 		at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;clipIncludingBorder(Lnet/minecraft/world/level/ClipContext;)Lnet/minecraft/world/phys/BlockHitResult;")
 	)
 	private static BlockHitResult halfcraft$hitHost(Level level, ClipContext context, Operation<BlockHitResult> original) {
-		return HostClip.refine(context.getFrom(), context.getTo(), original.call(level, context), HostClip.Use.PROJECTILE);
+		return HostClip.refineProjectile(level, context.getFrom(), context.getTo(), original.call(level, context));
 	}
 }

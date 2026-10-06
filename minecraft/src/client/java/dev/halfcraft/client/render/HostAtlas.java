@@ -28,6 +28,8 @@ final class HostAtlas {
 	private static final String[] ARROW_TEXTURES = { "arrow", "arrow_tipped", "arrow_spectral" };
 	private static final int ARROW_X = CRACK_STAGES * CRACK_SIZE;
 	private static final int ARROW_W = 32;
+	// A white square after the arrows, for geometry Minecraft draws with colour alone (lines, leashes).
+	private static final int WHITE_X = ARROW_X + ARROW_TEXTURES.length * ARROW_W;
 
 	/**
 	 * An animated sprite (water, lava, fire, portals, ...) where it sits in the combined atlas, with
@@ -52,7 +54,7 @@ final class HostAtlas {
 		this.blockH = b.halfcraft$height();
 		this.itemW = i.halfcraft$width();
 		this.itemH = i.halfcraft$height();
-		this.width = Math.max(Math.max(this.blockW, this.itemW), ARROW_X + ARROW_TEXTURES.length * ARROW_W);
+		this.width = Math.max(Math.max(this.blockW, this.itemW), WHITE_X + CRACK_SIZE);
 		this.height = this.blockH + this.itemH + CRACK_SIZE;
 		this.pixels = ByteBuffer.allocateDirect(this.width * this.height * 4).order(ByteOrder.LITTLE_ENDIAN);
 		for (TextureAtlasSprite sprite : b.halfcraft$sprites().values()) {
@@ -63,6 +65,7 @@ final class HostAtlas {
 		}
 		this.copyCracks(resources);
 		this.copyArrows(resources);
+		this.fillWhite();
 		this.blockSprites = b.halfcraft$sprites();
 		this.itemSprites = i.halfcraft$sprites();
 	}
@@ -122,6 +125,20 @@ final class HostAtlas {
 				dev.halfcraft.HalfCraft.LOG.warn("HalfCraft: couldn't read {}", id, e);
 			}
 		}
+	}
+
+	private void fillWhite() {
+		int y0 = this.blockH + this.itemH;
+		for (int y = 0; y < CRACK_SIZE; y++) {
+			for (int x = 0; x < CRACK_SIZE; x++) {
+				this.pixels.putInt(((y0 + y) * this.width + WHITE_X + x) * 4, -1);
+			}
+		}
+	}
+
+	/** The middle of the white square {u, v}: a texel that leaves a vertex's colour as it is. */
+	float[] whiteUv() {
+		return new float[] { (WHITE_X + CRACK_SIZE / 2.0F) / this.width, (this.blockH + this.itemH + CRACK_SIZE / 2.0F) / this.height };
 	}
 
 	/**

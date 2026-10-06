@@ -11,6 +11,7 @@
     "HostDebugEntryListMixin",
     "HostDebugOverlayMixin",
     "InputConstantsMixin",
+    "LeashFeatureRendererAccessor",
     "LevelExtractorMixin",
     "LevelRendererMixin",
     "MinecraftMixin",

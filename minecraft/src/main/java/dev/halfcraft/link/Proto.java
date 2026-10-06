@@ -341,4 +341,18 @@ public final class Proto {
 	public static final int MOB_PET = 1 << 1;
 	public static final int MOB_UNDEAD = 1 << 2;
 	public static final int MOB_ATTACKER_PLAYER = 0xFFFFFFFF;
+
+	// Water probes (relative to OFF_WATER_PROBES): Minecraft's WaterProbeRequests, then client.dll's WaterProbes at WP_ANSWERS
+	public static final long OFF_WATER_PROBES = 0x29000;
+	public static final long WATER_PROBES_BYTES = 0x1000;
+	public static final int MAX_WATER_PROBES = 4;
+	public static final int WATER_PROBE_SIZE = 8;
+	public static final float WATER_PROBE_DEPTH = 6.0F; // blocks below a probe's y its search reaches
+	public static final long WPR_SEQ = 0x00, WPR_COUNT = 0x04, WPR_AT = 0x08; // 3 floats (x, y, z) per request
+	public static final long WP_ANSWERS = 0x100;
+	public static final long WP_SEQ = 0x00, WP_COUNT = 0x04, WP_PROBES = 0x10;
+	public static final long WATER_PROBE_BYTES = 0x110;
+	// WaterProbe (relative to the probe)
+	public static final long WP_ORIGIN_X = 0x00, WP_ORIGIN_Z = 0x04, WP_Y = 0x08, WP_SURFACE = 0x10;
+	// 0x2A000-0x30FFF: kept for the world group (C)
 }

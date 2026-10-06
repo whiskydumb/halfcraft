@@ -556,7 +556,53 @@ namespace halfcraft::proto
 	static_assert(kOffHostDebug + kHostDebugBytes <= kOffWeaponTable);
 	static_assert(kOffWeaponTable + kWeaponTableBytes <= kOffMobTable);
 	static_assert(kOffMobTable + kMobTableBytes <= kOffCollisionRing);
-	// 0x29000-0x30FFF: kept for the world group (C). HostState's 0x40-0x7F for the puppet group (A), 0x80-0xBF for C.
+	// HostState's 0x40-0x7F: kept for the puppet group (A), 0x80-0xBF for the world group (C).
+
+	// ---- water probes @0x29000 (seqlocks: Minecraft writes the requests, client.dll the answers) -----
+	// The host's water around Minecraft's boats and fishing bobbers, which the player's WaterGrid
+	// doesn't always reach: a boat left behind, a bobber cast far out or down into a canal. Minecraft
+	// lists where they are, ridden or not (WaterProbeRequests, the nearest to the player first, at most
+	// kMaxWaterProbes); client.dll probes a small grid of block columns
+	// around each, the way it probes the WaterGrid, and answers in WaterProbes at kWaterProbesAnswerOff.
+	// An answer's slot follows its request's, a frame or two behind; each is probed again when its
+	// thing nears the edge of its grid or moves up or down, else a few times a second. A probe looks
+	// for the surface from 3 blocks above its y down to kWaterProbeDepth below it: under that it
+	// knows nothing, so Minecraft takes no water from it there.
+	inline constexpr std::uint64_t kOffWaterProbes = 0x29000;
+	inline constexpr std::uint64_t kWaterProbesBytes = 0x1000;
+	inline constexpr std::uint64_t kWaterProbesAnswerOff = 0x100;  // from kOffWaterProbes
+	inline constexpr std::uint32_t kMaxWaterProbes = 4;
+	inline constexpr std::uint32_t kWaterProbeSize = 8;  // block columns along each side of a probe's grid
+	inline constexpr float         kWaterProbeDepth = 6.0f;  // blocks below a probe's y its search reaches
+
+	struct WaterProbeRequests
+	{
+		std::uint32_t seq;
+		std::uint32_t count;
+		float         at[kMaxWaterProbes][3];  // MC coords: a grid centred on (x, z), probed around y
+	};
+
+	struct WaterProbe
+	{
+		std::int32_t  originX, originZ;  // Minecraft block column of surface[0]
+		float         y;                 // the height it was probed around
+		std::uint32_t pad;
+		float         surface[kWaterProbeSize * kWaterProbeSize];  // [z * size + x]: MC y of the water surface; kNoWater: none
+	};
+
+	struct WaterProbes
+	{
+		std::uint32_t seq;
+		std::uint32_t count;
+		std::uint32_t pad[2];
+		WaterProbe    probes[kMaxWaterProbes];
+	};
+	static_assert(sizeof(WaterProbe) == 0x110);
+	static_assert(sizeof(WaterProbeRequests) <= kWaterProbesAnswerOff);
+	static_assert(kWaterProbesAnswerOff + sizeof(WaterProbes) <= kWaterProbesBytes);
+	static_assert(kOffMobTable + kMobTableBytes <= kOffWaterProbes);
+	static_assert(kOffWaterProbes + kWaterProbesBytes <= kOffCollisionRing);
+	// 0x2A000-0x30FFF: kept for the world group (C).
 
 	// ---- render ring (MC -> host) ---------------------------------------------------------------
 	// Byte ring like the collision ring. Minecraft ships its own block meshes (built by Minecraft's
