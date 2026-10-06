@@ -24,7 +24,7 @@ class HostHurtsTest {
 
 	@Test
 	void shouldTurnBurnsIntoFireAndCrushesIntoArmouredDamage() {
-		assertEquals("minecraft:in_fire", HostHurts.recipe(Proto.HURT_FIRE, false).typeId());
+		assertEquals(HostHurts.BURN, HostHurts.recipe(Proto.HURT_FIRE, false).typeId());
 		assertEquals(HostHurts.CRUSH, HostHurts.recipe(Proto.HURT_CRUSH, false).typeId());
 		assertTrue(HostHurts.recipe(Proto.HURT_CRUSH, false).positioned());
 	}
@@ -63,6 +63,14 @@ class HostHurtsTest {
 		assertTrue(HostHurts.isOwnType(HostHurts.CRUSH));
 		assertFalse(HostHurts.isOwnType("minecraft:in_fire"));
 		assertFalse(HostHurts.isOwnType("minecraft:mob_attack"));
+	}
+
+	@Test
+	void shouldKnockBackFromHalfCraftsOwnHitsButNotFromBurns() {
+		assertTrue(HostHurts.knocksBack(HostHurts.BLAST));
+		assertTrue(HostHurts.knocksBack(HostHurts.CRUSH));
+		assertFalse(HostHurts.knocksBack(HostHurts.BURN));
+		assertFalse(HostHurts.knocksBack("minecraft:in_fire"));
 	}
 
 	@Test

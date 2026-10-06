@@ -31,12 +31,16 @@ namespace halfcraft
 	{
 		ConVar hc_damage_to_npc("hc_damage_to_npc", "3", FCVAR_ARCHIVE,
 			"halfcraft: half-life damage per point of minecraft damage (a diamond sword's 7 -> 21; a metrocop has 40 health)");
+		ConVar hc_debug_hurt("hc_debug_hurt", "0", FCVAR_NONE, "halfcraft: log every half-life hit on the player and whether minecraft takes it");
 		ConVar hc_explosion_damage("hc_explosion_damage", "30", FCVAR_ARCHIVE, "halfcraft: half-life blast damage per block of a minecraft explosion's radius");
 
 		constexpr float NPC_RANGE = 64.0f * static_cast<float>(UNITS_PER_BLOCK);      // arrows fly far
 		constexpr float PROP_RANGE = 24.0f * static_cast<float>(UNITS_PER_BLOCK);     // breakables only need reach and a bow shot
 		constexpr float KNOCKBACK_UNITS = 300.0f;  // source velocity per point of minecraft knockback
 		constexpr float MAX_KNOCKBACK = 1.5f;      // a knockback ii sword with a sprint hit
+		// more than any character has. /kill hits for Float.MAX_VALUE: as damage, and the force it makes,
+		// that turned physics props' velocities into NaN (a vphysics overload, then an ivp assert)
+		constexpr float MAX_HIT_DAMAGE = 1000.0f;
 		constexpr int   MAX_NEARBY = 512;
 
 		// what to call half-life's npcs over a minecraft stand-in (the rest lose their "npc_")
@@ -290,7 +294,10 @@ namespace halfcraft
 		if ((event.flags & proto::kHitProjectile) && event.weapon != proto::kWeaponArrow) {
 			type = DMG_BULLET;  // tridents, snowballs, ...
 		}
-		const float damage = event.a * std::max(0.0f, hc_damage_to_npc.GetFloat());
+		float damage = event.a * std::max(0.0f, hc_damage_to_npc.GetFloat());
+		if (!std::isfinite(damage) || damage > MAX_HIT_DAMAGE) {
+			damage = MAX_HIT_DAMAGE;
+		}
 
 		// a minecraft mob's hit comes from its stand-in, so the character fights that mob; one with no
 		// stand-in (an animal) blames nobody, and only the player's own hits are the player's
@@ -416,6 +423,10 @@ namespace halfcraft
 
 	bool server_player_damage(CBasePlayer* player, const CTakeDamageInfo& info)
 	{
+		if (hc_debug_hurt.GetBool()) {
+			log_info("hit on the player: %.1f (damage type 0x%x) from %s; minecraft owns health: %d", info.GetDamage(), info.GetDamageType(),
+				info.GetAttacker() ? info.GetAttacker()->GetClassname() : "nobody", minecraft_owns_health() ? 1 : 0);
+		}
 		if (minecraft_blast_running()) {
 			return true;  // minecraft's own explosion, reaching the player through a vehicle: minecraft hurt them already
 		}

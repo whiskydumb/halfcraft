@@ -248,7 +248,7 @@ public final class HostCombat {
 	 */
 	public static void knockBack(LivingEntity target, DamageSource source, float damage) {
 		Vec3 at = source.getSourcePosition();
-		if (at != null && HostHurts.isOwnType(source.typeHolder().getRegisteredName())) {
+		if (at != null && HostHurts.knocksBack(source.typeHolder().getRegisteredName())) {
 			target.knockback(DEFAULT_KNOCKBACK, at.x - target.getX(), at.z - target.getZ(), source, damage);
 		}
 	}

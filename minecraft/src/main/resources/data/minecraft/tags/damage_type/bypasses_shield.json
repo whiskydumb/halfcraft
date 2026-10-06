@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
+    "halfcraft:host_burn",
     "halfcraft:host_crush"
   ]
 }

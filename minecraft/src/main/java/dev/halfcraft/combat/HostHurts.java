@@ -8,7 +8,9 @@ import dev.halfcraft.link.Proto;
  *
  * <p>The damage type decides what protects the player. Blasts are explosions to Minecraft: armour and
  * blast protection reduce them, and a raised shield facing the blast blocks them. Fire is reduced by
- * armour and fire protection, crushes by armour (a shield can't hold off a falling prop). HalfCraft's
+ * armour and fire protection, and every tick of Half-Life's burning counts: Minecraft's own fire skips
+ * hits that come within its hurt cooldown, which let one in three through. Crushes are reduced by
+ * armour (a shield can't hold off a falling prop). HalfCraft's
  * own types scale with Minecraft's difficulty only when a Half-Life character dealt them, like the
  * stand-ins' hits, so a barrel or a map's blast hurts the same on every difficulty. Melee and bullets
  * from a character with a stand-in come from that stand-in, so the shield faces it and pets defend the
@@ -39,6 +41,7 @@ public final class HostHurts {
 	public static final String MELEE = "halfcraft:host_melee";
 	public static final String BULLET = "halfcraft:host_bullet";
 	public static final String CRUSH = "halfcraft:host_crush";
+	public static final String BURN = "halfcraft:host_burn";
 
 	/**
 	 * @param kind a Proto.HURT_* value
@@ -50,7 +53,7 @@ public final class HostHurts {
 			case Proto.HURT_PROJECTILE -> hasStandIn ? new Recipe("minecraft:mob_projectile", true, true, false) : new Recipe(BULLET, false, false, true);
 			case Proto.HURT_MAGIC -> hasStandIn ? new Recipe("minecraft:indirect_magic", true, true, false) : new Recipe("minecraft:magic", false, false, false);
 			case Proto.HURT_BLAST -> new Recipe(BLAST, false, hasStandIn, true);
-			case Proto.HURT_FIRE -> new Recipe("minecraft:in_fire", false, hasStandIn, true);
+			case Proto.HURT_FIRE -> new Recipe(BURN, false, hasStandIn, true);
 			case Proto.HURT_CRUSH -> new Recipe(CRUSH, false, hasStandIn, true);
 			default -> new Recipe("minecraft:generic", false, false, false);
 		};
@@ -59,6 +62,11 @@ public final class HostHurts {
 	/** Whether this damage type is one of HalfCraft's own (see the class comment about knockback). */
 	public static boolean isOwnType(String typeId) {
 		return typeId.startsWith("halfcraft:");
+	}
+
+	/** Whether a hit of this type pushes the target away from where it came from: HalfCraft's own types but burns. */
+	public static boolean knocksBack(String typeId) {
+		return isOwnType(typeId) && !BURN.equals(typeId);
 	}
 
 	/** A coordinate of {@code IN_HURT_FROM}: Half-Life sends floats as their bits. */

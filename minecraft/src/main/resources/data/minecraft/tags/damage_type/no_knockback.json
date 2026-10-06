@@ -3,6 +3,7 @@
   "values": [
     "halfcraft:host_blast",
     "halfcraft:host_bullet",
+    "halfcraft:host_burn",
     "halfcraft:host_crush",
     "halfcraft:host_melee"
   ]
