@@ -111,7 +111,7 @@ bool CGameMovement::HalfCraftMove( void )
 		return false;
 
 	// minecraft's pose decides the hull: crouched while sneaking, crawling or swimming
-	const bool bLow = ( cmd->hc_flags & halfcraft::HC_CMD_LOW_POSE ) != 0;
+	bool bLow = ( cmd->hc_flags & halfcraft::HC_CMD_LOW_POSE ) != 0;
 
 	// a command minecraft made before source teleported the player would drag them straight back: no
 	// single command moves this far. minecraft's own jumps (its teleports, a fast dive between two
@@ -119,7 +119,14 @@ bool CGameMovement::HalfCraftMove( void )
 	const float flStep = ( cmd->hc_origin - mv->GetAbsOrigin() ).Length();
 	if ( cmd->hc_flags & halfcraft::HC_CMD_JUMP )
 	{
-		const bool bFits = HalfCraftFits( this, cmd->hc_origin, bLow );
+		bool bFits = HalfCraftFits( this, cmd->hc_origin, bLow );
+		// under a ceiling only the ducked hull fits under (chorus fruit, a pearl under a low roof) the player
+		// lands ducked, and minecraft's crouches there too: half-life's ceilings keep it down (HostDuck)
+		if ( !bFits && !bLow && HalfCraftFits( this, cmd->hc_origin, true ) )
+		{
+			bFits = true;
+			bLow = true;
+		}
 #ifdef GAME_DLL
 		HalfCraftNoteJump( flStep, cmd->hc_origin, bFits );
 #endif

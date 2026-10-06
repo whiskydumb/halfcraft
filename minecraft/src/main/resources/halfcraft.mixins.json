@@ -10,6 +10,7 @@
     "BlockStateBaseMixin",
     "DamageSourceInvoker",
     "EntityFluidInteractionMixin",
+    "EntityHoldMixin",
     "EntityPickMixin",
     "EntitySwimMixin",
     "FallingBlockMixin",

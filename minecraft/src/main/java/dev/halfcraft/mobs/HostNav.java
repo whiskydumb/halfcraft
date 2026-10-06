@@ -65,7 +65,7 @@ public final class HostNav {
 	};
 
 	private static final Map<String, Long> LAST_NOTES = new ConcurrentHashMap<>();
-	// server thread only: mobs held this tick, and how many the last log line was about
+	// server thread only: mobs and things held this tick, and how many the last log line was about
 	private static int held;
 	private static int heldLogged;
 
@@ -218,38 +218,39 @@ public final class HostNav {
 	}
 
 	/**
-	 * Holds a mob still (no AI, no gravity) while Half-Life hasn't described the ground around it:
-	 * after every Half-Life level load the collision starts over, and the server keeps ticking mobs
-	 * while it streams back in. One on Minecraft's blocks, or in the air just above them (jumping), is
-	 * left alone.
+	 * Holds a mob, an item, a boat (anything but players and projectiles) still, with no AI and no
+	 * gravity, while Half-Life hasn't described the ground around it: after every Half-Life level load
+	 * the collision starts over, and the server keeps ticking while it streams back in, so what stood on
+	 * Half-Life's floors fell through them. One on Minecraft's blocks, or in the air just above them
+	 * (jumping), is left alone.
 	 */
-	public static boolean holdUntilGroundKnown(Mob mob) {
-		Level level = mob.level();
-		if (level.isClientSide() || mob.isPassenger() || mob.isNoGravity() || !inMirror(level)) {
+	public static boolean holdUntilGroundKnown(Entity entity) {
+		Level level = entity.level();
+		if (level.isClientSide() || entity.isPassenger() || entity.isNoGravity() || !inMirror(level)) {
 			return false;
 		}
-		int x = Mth.floor(mob.getX()), y = Mth.floor(mob.getY()), z = Mth.floor(mob.getZ());
+		int x = Mth.floor(entity.getX()), y = Mth.floor(entity.getY()), z = Mth.floor(entity.getZ());
 		if (HostCollision.isKnown(x, y, z) && HostCollision.isKnown(x, y - 1, z)) {
 			return false;
 		}
-		if (overMinecraftBlocks(level, mob)) {
+		if (overMinecraftBlocks(level, entity)) {
 			return false;
 		}
-		mob.setDeltaMovement(Vec3.ZERO);
-		mob.resetFallDistance();
+		entity.setDeltaMovement(Vec3.ZERO);
+		entity.resetFallDistance();
 		held++;
 		return true;
 	}
 
-	// a Minecraft block holds the mob up, or lies within a jump or a short drop below it in the air
-	private static boolean overMinecraftBlocks(Level level, Mob mob) {
-		if (!level.getBlockState(mob.getOnPos()).isAir()) {
+	// a Minecraft block holds it up, or lies within a jump or a short drop below it in the air
+	private static boolean overMinecraftBlocks(Level level, Entity entity) {
+		if (!level.getBlockState(entity.getOnPos()).isAir()) {
 			return true;
 		}
-		if (mob.onGround()) {
+		if (entity.onGround()) {
 			return false;  // on Half-Life's ground, which a level load took away until it streams back
 		}
-		BlockPos.MutableBlockPos pos = mob.blockPosition().mutable();
+		BlockPos.MutableBlockPos pos = entity.blockPosition().mutable();
 		for (int i = 0; i <= MINECRAFT_SUPPORT_DEPTH; i++, pos.move(Direction.DOWN)) {
 			if (!level.getBlockState(pos).isAir()) {
 				return true;
@@ -266,7 +267,7 @@ public final class HostNav {
 		}
 	}
 
-	/** End of a server tick: says when mobs start or stop waiting for Half-Life's ground. */
+	/** End of a server tick: says when mobs and things start or stop waiting for Half-Life's ground. */
 	static void endTick() {
 		int count = held;
 		held = 0;
@@ -274,9 +275,9 @@ public final class HostNav {
 			return;
 		}
 		if (count > 0) {
-			HalfCraft.LOG.info("HalfCraft: {} mobs hold still until Half-Life's ground around them streams in", count);
+			HalfCraft.LOG.info("HalfCraft: {} mobs and things hold still until Half-Life's ground around them streams in", count);
 		} else {
-			HalfCraft.LOG.info("HalfCraft: Half-Life's ground is back: mobs move again");
+			HalfCraft.LOG.info("HalfCraft: Half-Life's ground is back: mobs and things move again");
 		}
 		heldLogged = count;
 	}
