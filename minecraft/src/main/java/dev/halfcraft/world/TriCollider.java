@@ -21,6 +21,7 @@ public final class TriCollider {
 	private static final double SUBSTEP = 0.1;         // horizontal sub-steps so walls can't be tunnelled
 	private static final double AIR_STEP = 0.3;        // walkable surfaces this far above the feet catch you mid-air
 	private static final double EPS = 1e-4;
+	private static final double CLEAR_SLACK = 0.01;     // walls the collider holds the player against touch its body
 
 	private static final double[][] FLOOR_SAMPLES = buildSamples();
 
@@ -272,5 +273,29 @@ public final class TriCollider {
 	public static double groundAt(List<HostTri> tris, double x, double y, double z, double maxAbove) {
 		double f = floor(tris, x, y, z, false, maxAbove);
 		return f == Double.NEGATIVE_INFINITY ? Double.NaN : f;
+	}
+
+	/**
+	 * Whether the player's cylinder around (x, z), between heights {@code lo} and {@code hi}, is clear of
+	 * every triangle (stair helpers aside): ceilings over it, floors under it, walls in it. A wall the
+	 * collider holds the player against touches the cylinder, so that doesn't count.
+	 */
+	public static boolean clear(List<HostTri> tris, double x, double lo, double hi, double z, double radius) {
+		double reach = radius - CLEAR_SLACK;
+		double[] poly = new double[3 * 6];
+		for (HostTri t : tris) {
+			if (t.stairHelper || t.maxY < lo || t.minY > hi || t.maxX < x - reach || t.minX > x + reach || t.maxZ < z - reach || t.minZ > z + reach) {
+				continue;
+			}
+			int n = clipToSlab(t, lo, hi, poly);
+			if (n == 0) {
+				continue;
+			}
+			double[] closest = closestXZ(poly, n, x, z);
+			if (Math.hypot(closest[0] - x, closest[1] - z) < reach) {
+				return false;
+			}
+		}
+		return true;
 	}
 }

@@ -1,6 +1,7 @@
 package dev.halfcraft.world;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -201,5 +202,71 @@ class TriColliderTest {
 		flat(t, -5, -5, 5, 5, 2.0);
 		double[] m = TriCollider.resolve(t, 0, 0, 0, R, H, STEP, true, 0, 0.42, 0);
 		assertEquals(0.2, m[1], 1e-6);
+	}
+
+	/** A vent from x = 1 on: floor at 0, ceiling at {@code top}, and the wall over its mouth. */
+	private static List<HostTri> vent(double top) {
+		List<HostTri> t = new ArrayList<>();
+		flat(t, -5, -5, 6, 5, 0);
+		flat(t, 1, -5, 6, 5, top);
+		wallX(t, 1, -5, 5, top, 3);
+		return t;
+	}
+
+	/** Walks along +X with the given body height; returns the x it gets to. */
+	private static double walkIn(List<HostTri> tris, double height) {
+		double x = 0, y = 0;
+		for (int i = 0; i < 40; i++) {
+			double[] m = TriCollider.resolve(tris, x, y, 0, R, height, STEP, true, 0.1, GRAVITY_TICK, 0);
+			x += m[0];
+			y += m[1];
+		}
+		return x;
+	}
+
+	@Test
+	void sneakingHeightDoesNotFitAVent() {
+		assertEquals(1 - R, walkIn(vent(1.0), 1.5), 0.02);
+	}
+
+	@Test
+	void duckedHeightWalksIntoAVent() {
+		assertTrue(walkIn(vent(1.0), 0.9) > 3);
+	}
+
+	@Test
+	void duckedHeightFitsAVentExactlyItsHeight() {
+		assertTrue(walkIn(vent(0.9), 0.9) > 3);
+	}
+
+	@Test
+	void clearUnderAHighEnoughCeiling() {
+		List<HostTri> t = vent(1.0);
+		assertTrue(TriCollider.clear(t, 3, 0.6, 0.88, 0, R));
+		assertFalse(TriCollider.clear(t, 3, 0.6, 1.78, 0, R));
+	}
+
+	@Test
+	void clearBesideAWallTheColliderHoldsItAgainst() {
+		List<HostTri> t = new ArrayList<>();
+		wallX(t, 1, -5, 5, 0, 3);
+		assertTrue(TriCollider.clear(t, 1 - R, 0.6, 1.78, 0, R));
+		assertFalse(TriCollider.clear(t, 0.8, 0.6, 1.78, 0, R));
+	}
+
+	@Test
+	void clearLooksForFloorsUnderTheFeet() {
+		List<HostTri> t = new ArrayList<>();
+		flat(t, -5, -5, 5, 5, -0.5);
+		assertFalse(TriCollider.clear(t, 0, -0.9, 0, 0, R));
+		assertTrue(TriCollider.clear(t, 0, -0.4, 0, 0, R));
+	}
+
+	@Test
+	void clearIgnoresStairHelpers() {
+		List<HostTri> t = new ArrayList<>();
+		t.add(new HostTri(new float[] { -5, 1, -5, 5, 1, -5, 5, 1, 5 }, 0, true));
+		t.add(new HostTri(new float[] { -5, 1, -5, 5, 1, 5, -5, 1, 5 }, 0, true));
+		assertTrue(TriCollider.clear(t, 0, 0.6, 1.78, 0, R));
 	}
 }

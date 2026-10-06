@@ -5,6 +5,7 @@
   "mixins": [
     "AbstractArrowMixin",
     "AbstractBoatMixin",
+    "AvatarDuckMixin",
     "BlockCollisionsMixin",
     "BlockStateBaseMixin",
     "DamageSourceInvoker",
@@ -26,6 +27,7 @@
     "PathNavigationRegionAccessor",
     "PathfindingContextMixin",
     "PetTeleportMixin",
+    "PlayerDuckMixin",
     "PlayerEdgeMixin",
     "PlayerSupportMixin",
     "PressurePlateMixin",

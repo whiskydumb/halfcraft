@@ -37,6 +37,8 @@ CONTROLS
 Minecraft's, as you set them in Minecraft (WASD, mouse, E for the inventory, 1-9, F5 for the
 camera, ...), plus Half-Life's own:
 
+  Shift      Minecraft's sneak is Half-Life's crouch: vents and crawlspaces; crouch in the
+             air to pull your legs up (Half-Life's crouch jump)
   G          use: doors, buttons, chargers, ladders, picking up props
              (or whatever key Half-Life's keyboard options bind to Use)
   mouse      while carrying a prop: left throws it, right drops it

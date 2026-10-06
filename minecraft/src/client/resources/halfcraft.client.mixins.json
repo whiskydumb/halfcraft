@@ -3,6 +3,7 @@
   "package": "dev.halfcraft.client.mixin",
   "compatibilityLevel": "JAVA_25",
   "client": [
+    "CameraEyeAccessor",
     "CameraZoomMixin",
     "ClientLevelAccessor",
     "EntityCollideMixin",
@@ -15,6 +16,7 @@
     "LevelExtractorMixin",
     "LevelRendererMixin",
     "MinecraftMixin",
+    "PlayerDuckJumpMixin",
     "PlayerPositionMixin",
     "PlayerTravelMixin",
     "RenderSetupAccessor",

@@ -424,7 +424,7 @@ namespace halfcraft
 			cmd->hc_flags |= HC_CMD_ON_GROUND;
 		}
 		if (s.mc.eyeHeight > 0.0f && s.mc.eyeHeight < 1.5f) {
-			cmd->hc_flags |= HC_CMD_LOW_POSE;  // sneaking (1.27), swimming or crawling (0.4)
+			cmd->hc_flags |= HC_CMD_LOW_POSE;  // crouching (0.7: source's duck, HostDuck), swimming or crawling (0.4)
 		}
 		if (s.forward_held && !s.mc_screen_open) {
 			cmd->hc_flags |= HC_CMD_FORWARD;
