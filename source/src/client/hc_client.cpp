@@ -97,12 +97,14 @@ namespace halfcraft
 		// the ones where minecraft keeps its hands: source only moves the player
 		constexpr char TAKEOVER_LADDER[] = "ladder or noclip";
 		constexpr char TAKEOVER_RIDING[] = "riding a lift or train";
+		// source's alone, but minecraft's F5 camera still goes round it
+		constexpr char TAKEOVER_VEHICLE[] = "in a vehicle";
 
 		/// why source keeps the player to itself right now (nullptr: it doesn't).
 		const char* source_takeover(C_BasePlayer* player, bool riding)
 		{
 			if (player->GetVehicle()) {
-				return "in a vehicle";
+				return TAKEOVER_VEHICLE;
 			}
 			if (player->GetObserverMode() != OBS_MODE_NONE) {
 				return TAKEOVER_OBSERVING;
@@ -342,6 +344,7 @@ namespace halfcraft
 			s.minecraft_hud = s.have_mc && s.mc_in_world && !s.loading && alive && takeover != TAKEOVER_OBSERVING && takeover != TAKEOVER_CAMERA;
 
 			s.minecraft_hands = s.have_mc && s.mc_in_world && !s.source_menu_open && alive && (takeover == TAKEOVER_LADDER || takeover == TAKEOVER_RIDING);
+			s.minecraft_camera = s.minecraft_hands || (s.have_mc && s.mc_in_world && !s.source_menu_open && alive && takeover == TAKEOVER_VEHICLE);
 			// a screen minecraft's hands open there (a chest, a crafting table) has the keys and the mouse until it closes
 			const bool owns_input = s.have_mc && s.mc_in_world && !s.source_menu_open && alive && (!takeover || (s.minecraft_hands && s.mc_screen_open));
 			if (owns_input != s.minecraft_owns_input) {
@@ -433,9 +436,48 @@ namespace halfcraft
 		s.have_last_set = true;
 	}
 
+	namespace
+	{
+		/// minecraft's F5 camera: behind the player, or in front looking back at them, pulled in
+		/// wherever minecraft's own zoom collision stopped it (its blocks and half-life's collision).
+		/// it pulls in at once and eases back out, so a ray grazing the ground can't shake it.
+		/// @param eye - the first-person eye, moved back to the camera
+		/// @param pitch, yaw - the look, turned round for the camera in front
+		void detach_camera(ClientSession& s, float* eye, float& pitch, float& yaw)
+		{
+			const bool detached = s.mc.cameraMode != 0 && s.mc.cameraDistance > 0.0f;
+			if (s.mc.cameraMode == 2) {
+				yaw += 180.0f;
+				pitch = -pitch;
+			}
+			if (!detached || s.camera_zoom_mode != s.mc.cameraMode || s.mc.cameraDistance < s.camera_zoom) {
+				s.camera_zoom = detached ? s.mc.cameraDistance : 0.0f;
+			} else {
+				s.camera_zoom += (s.mc.cameraDistance - s.camera_zoom) * (1.0f - std::exp(-std::max(gpGlobals->frametime, 0.0f) / CAMERA_EASE_SECONDS));
+			}
+			s.camera_zoom_mode = s.mc.cameraMode;
+			if (detached) {
+				Vector forward;
+				AngleVectors(QAngle(pitch, yaw, 0.0f), &forward);
+				for (int k = 0; k < 3; ++k) {
+					eye[k] -= forward[k] * s.camera_zoom * static_cast<float>(UNITS_PER_BLOCK);
+				}
+			}
+		}
+	}
+
 	void client_override_view(CViewSetup* setup)
 	{
 		auto& s = client_session();
+		if (!s.puppeting && s.minecraft_camera && s.pose_valid) {
+			// a ladder, a ride or a vehicle: source's own view (a vehicle's seat), with minecraft's F5 round it
+			float eye[3] = { setup->origin.x, setup->origin.y, setup->origin.z };
+			float pitch = setup->angles.x, yaw = setup->angles.y;
+			detach_camera(s, eye, pitch, yaw);
+			setup->origin.Init(eye[0], eye[1], eye[2]);
+			setup->angles.Init(pitch, yaw, setup->angles.z);
+			return;
+		}
 		if (!s.puppeting || !s.pose_valid) {
 			return;
 		}
@@ -460,28 +502,10 @@ namespace halfcraft
 		eye[1] += right[1] * side_blocks * units;
 		eye[2] += lift_blocks * units;
 
-		// minecraft's F5 camera: behind the player, or in front looking back at them, pulled in
-		// wherever minecraft's own zoom collision stopped it (its blocks and half-life's collision).
-		// it pulls in at once and eases back out, so a ray grazing the ground can't shake it.
-		const bool  detached = s.mc.cameraMode != 0 && s.mc.cameraDistance > 0.0f;
-		const bool  mirrored = s.mc.cameraMode == 2;
-		const float view_yaw = mirrored ? yaw + 180.0f : yaw;
-		const float look_pitch = mirrored ? -s.pitch : s.pitch;
-		if (!detached || s.camera_zoom_mode != s.mc.cameraMode || s.mc.cameraDistance < s.camera_zoom) {
-			s.camera_zoom = detached ? s.mc.cameraDistance : 0.0f;
-		} else {
-			s.camera_zoom += (s.mc.cameraDistance - s.camera_zoom) * (1.0f - std::exp(-std::max(gpGlobals->frametime, 0.0f) / CAMERA_EASE_SECONDS));
-		}
-		s.camera_zoom_mode = s.mc.cameraMode;
-		if (detached) {
-			// along the look without the bob: minecraft tilts the view for the bob around the camera
-			// itself, not by swinging the camera around the head
-			Vector forward;
-			AngleVectors(QAngle(look_pitch, view_yaw, 0.0f), &forward);
-			for (int k = 0; k < 3; ++k) {
-				eye[k] -= forward[k] * s.camera_zoom * units;
-			}
-		}
+		// minecraft's F5 camera, along the look without the bob: minecraft tilts the view for the bob
+		// around the camera itself, not by swinging the camera around the head
+		float look_pitch = s.pitch, view_yaw = yaw;
+		detach_camera(s, eye, look_pitch, view_yaw);
 
 		setup->origin.Init(eye[0], eye[1], eye[2]);
 		setup->angles.Init(look_pitch + bob_pitch, view_yaw, bob_roll);
