@@ -34,6 +34,7 @@ $Project
 			$File	"$HALFCRAFTDIR\src\server\hc_blast.cpp"
 			$File	"$HALFCRAFTDIR\src\server\hc_block_solids.h"
 			$File	"$HALFCRAFTDIR\src\server\hc_block_solids.cpp"
+			$File	"$HALFCRAFTDIR\src\server\hc_blackout.cpp"
 			$File	"$HALFCRAFTDIR\src\server\hc_campaign.cpp"
 			$File	"$HALFCRAFTDIR\src\server\hc_lost_coast.cpp"
 			$File	"$HALFCRAFTDIR\src\server\hc_checkpoints.h"

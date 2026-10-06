@@ -31,9 +31,11 @@ content is mounted over Half-Life 2's, and New Game lists all chapters, numbered
 1-14, Episode One's 15-19, Episode Two's 20-26), all unlocked from the start. Each campaign keeps its
 own skill values (`source/src/server/hc_campaign.cpp`). Lost Coast, which Half-Life 2 installs into
 its folder, is chapter 27. Its content is mounted last, so its copies of shared files don't cover the
-campaigns'. On its map, `source/src/server/hc_lost_coast.cpp` loads its own `scenes.image` and lets
-the player out of its intro, whose animation Episode Two's `blackout.mdl` lacks. The game folders are
-put together by `tools/engines.ps1` from hl2dm-sp's campaign folders.
+campaigns'. On its map, `source/src/server/hc_lost_coast.cpp` loads its own `scenes.image`. Episode
+Two's `blackout.mdl`, the first-person knockout rig, has none of the animations Half-Life 2, Episode One
+and Lost Coast play on it (Half-Life 2's d1_trainstation_04 and Lost Coast's intro wait for its get-up),
+so off Episode Two's maps `source/src/server/hc_blackout.cpp` puts Episode One's, which has them all,
+first. The game folders are put together by `tools/engines.ps1` from hl2dm-sp's campaign folders.
 
 ## Layout
 
@@ -63,7 +65,7 @@ Makefile         the tasks, wrapping tools/
 | Maps | each map gets its own 1024-block slot along x (`map_slot`), so builds stay on their map. Every level load (a map change, a transition, a save, also of the same map) starts a new collision epoch, so Minecraft drops what it had and gets the doors and lifts where they are now, and its player goes where Source's is |
 | Saves | Half-Life's saves roll Minecraft back too: each save carries a checkpoint id (a logical entity saved with the level); saving keeps Minecraft's changed blocks and its player (inventory, armour, health, hunger, experience, effects) under it, loading a save puts them back and clears dropped items, arrows and lit TNT. Any save, in any order; level transitions leave Minecraft alone |
 | Player | Minecraft's position rides in the user command (`CUserCmd::hc_origin`), so server and client prediction agree. Source takes the player (and the keyboard) for what Minecraft can't do: ladders (G looking at one, or walking into one with W, mounts it the way Half-Life does), lifts and trains while they move, vehicles, scripted cameras; meanwhile Minecraft's player goes wherever Source's is (no fall damage from a ride), and Minecraft picks up where Source leaves the player. Minecraft's own teleports (ender pearls, chorus fruit, which lands on Half-Life's floors, `/tp`) take Source's player along wherever it fits, and refused ones put Minecraft's back. Source's pushes (trigger_push, conveyors, point_push) move Minecraft's player too, and the ground's material reaches the map's surface triggers (the coast's antlion sand). Crouching is Half-Life's duck: 0.9 blocks tall with the eyes at 0.7 (Source's ducked hull), so vents and crawlspaces fit, Half-Life's ceilings keep the player crouched, and crouching in the air pulls the legs up (the duck jump) |
-| Camera | Minecraft's camera: its eye, FOV and walk bob; F5 puts the view behind the player (or in front, looking back) at Minecraft's own zoom distance, which already stops at Half-Life's walls, and draws the player's body (Minecraft's own model, skin, armour and held items) at the interpolated feet |
+| Camera | Minecraft's camera: its eye, FOV and walk bob; F5 puts the view behind the player (or in front, looking back) at Minecraft's own zoom distance, which already stops at Half-Life's walls, and draws the player's body (Minecraft's own model, skin, armour and held items) at the interpolated feet. On ladders, rides and in vehicles F5 still reaches Minecraft and moves Source's own view (the airboat's seat) back the same way |
 | Health | Minecraft owns the player's health while its player is in its world (on ladders and rides too): every Half-Life hit goes to it, and its health and absorption are mirrored onto Half-Life's player, so health kits, wall chargers, suit batteries and medics work as usual; what they add goes back to Minecraft (health heals, suit armour becomes absorption, x1/5 like damage) |
 | Collision | world brushes (engine planes, player clips included), displacements, static props and solid entities, streamed in 8x8x8-block regions; moving doors and lifts are re-sent while they move |
 | Blocks | each 16x16x16 section Minecraft meshes becomes a Source renderable (atlas as a point-sampled procedural texture, lit by the map's lightmaps plus block light), and an invisible `halfcraft_blocks` entity whose traces and static physics stop NPCs, bullets and props |

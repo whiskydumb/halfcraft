@@ -9,8 +9,9 @@
 // - episode two's blackout.mdl, the first-person rig of its wake-up intros, has none of half-life 2's
 //   sequences. lost coast's intro (e3_start) plays "exit1" on it and lets the player go only when that
 //   animation finishes (OnAnimationDone enables trigger_knockout_teleport): with episode two's model the
-//   player stayed frozen in the intro camera. here the trigger comes on when the animation would have
-//   ended.
+//   player stayed frozen in the intro camera. hc_blackout.cpp puts episode one's model, which has it,
+//   first; should episode two's still be the one loaded, the trigger comes on here when the animation
+//   would have ended.
 
 #include "cbase.h"
 #include "eventqueue.h"
