@@ -6,6 +6,8 @@ import dev.halfcraft.HalfCraft;
 import dev.halfcraft.link.Proto;
 import dev.halfcraft.link.HostLink;
 import dev.halfcraft.world.HostClip;
+import dev.halfcraft.world.HostCollision;
+import it.unimi.dsi.fastutil.longs.Long2FloatOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import java.nio.ByteBuffer;
@@ -198,6 +200,9 @@ public final class WorldExporter {
 		MESH.cardinal = level.cardinalLighting();
 		if (!empty) {
 			BlockPos origin = SectionPos.of(sx, sy, sz).origin();
+			MESH.originX = origin.getX();
+			MESH.originY = origin.getY();
+			MESH.originZ = origin.getZ();
 			BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 			for (int y = 0; y < 16; y++) {
 				for (int z = 0; z < 16; z++) {
@@ -224,7 +229,7 @@ public final class WorldExporter {
 							// The Half-Life floor in the cell: the fluid is drawn in the space above it. Not
 							// groundTop: a wall or stair anywhere in the cell put that at the top, which
 							// flattened the fluid into a sheet there (its faces fighting, the flow texture lost).
-							MESH.fluidGround = dev.halfcraft.world.HostCollision.floorTop(pos, fluid.getOwnHeight());
+							MESH.fluidGround = HostCollision.floorTop(pos, fluid.getOwnHeight());
 							MESH.fluidBaseX = x;
 							MESH.fluidBaseY = y;
 							MESH.fluidBaseZ = z;
@@ -453,6 +458,7 @@ public final class WorldExporter {
 			this.buf.clear();
 			this.vertices = 0;
 			this.fqCount = 0;
+			this.floors.clear();
 		}
 
 		int vertexCount() {
@@ -527,11 +533,15 @@ public final class WorldExporter {
 		}
 
 		// ---- fluids (FluidRenderer.Output + VertexConsumer) ----
-		// Half-Life ground's height in the fluid's cell (0..1) and the cell's section-relative y: a
-		// Minecraft fluid level counts from the cell's floor, so on Half-Life ground partway up the cell
-		// the fluid is squeezed into the space above it (thin edges stay visible on the ground).
+		// Half-Life ground's height under the middle of the fluid's cell (0..1), the cell's
+		// section-relative position and the section's origin. A Minecraft fluid level counts from the
+		// cell's floor, so on Half-Life ground partway up the cell the fluid is squeezed into the space
+		// above it (thin edges stay visible on the ground), corner by corner (see squash).
 		float fluidGround;
 		int fluidBaseX, fluidBaseY, fluidBaseZ;
+		int originX, originY, originZ;
+		// Half-Life floor under a fluid corner, by its 1/16-block position and cell row
+		private final Long2FloatOpenHashMap floors = new Long2FloatOpenHashMap();
 
 		@Override
 		public VertexConsumer getBuilder(ChunkSectionLayer layer) {
@@ -565,18 +575,37 @@ public final class WorldExporter {
 			int flags = flags(this.fluidTranslucent, face);
 			for (int k : new int[] { 0, 1, 2, 0, 2, 3 }) {
 				int b = k * 8;
-				this.vertex(this.fq[b], this.squash(this.fq[b + 1]), this.fq[b + 2], this.fq[b + 3], this.fq[b + 4],
+				this.vertex(this.fq[b], this.squash(this.fq[b], this.fq[b + 1], this.fq[b + 2]), this.fq[b + 2], this.fq[b + 3], this.fq[b + 4],
 					unshade(Float.floatToRawIntBits(this.fq[b + 5]), shade), Float.floatToRawIntBits(this.fq[b + 6]), flags);
 			}
 		}
 
-		/** A Minecraft fluid level counts from its cell's floor; on Half-Life ground partway up the cell it's squeezed into the space above. */
-		private float squash(float y) {
-			if (this.fluidGround <= 0.0F) {
+		/**
+		 * A Minecraft fluid level counts from its cell's floor; on Half-Life ground partway up the cell
+		 * it's squeezed into the space above, by the ground under each corner: cells next to each other
+		 * share their corners, so over a slope their surfaces still meet (by the ground under the
+		 * middle of each cell, they came out as separate tiles with gaps between them).
+		 */
+		private float squash(float x, float y, float z) {
+			float ground = this.floorAt(x, z);
+			if (ground <= 0.0F) {
 				return y;
 			}
 			float t = Math.clamp(y - this.fluidBaseY, 0.0F, 1.0F);
-			return this.fluidBaseY + this.fluidGround + t * (1.0F - this.fluidGround);
+			return this.fluidBaseY + ground + t * (1.0F - ground);
+		}
+
+		/** The Half-Life floor (0..1) in the fluid's cell row under the section-relative (x, z). */
+		private float floorAt(float x, float z) {
+			int cellY = this.originY + this.fluidBaseY;
+			long fx = Math.round((this.originX + x) * 16.0), fz = Math.round((this.originZ + z) * 16.0);
+			long key = (fx & 0x3FFFFFL) | (fz & 0x3FFFFFL) << 22 | ((long) cellY & 0xFFFFFL) << 44;
+			if (this.floors.containsKey(key)) {
+				return this.floors.get(key);
+			}
+			float floor = HostCollision.floorAt(fx / 16.0, cellY, fz / 16.0);
+			this.floors.put(key, floor);
+			return floor;
 		}
 
 		/** Which face of its cell the assembled fluid quad is, from its cell-relative corners. */

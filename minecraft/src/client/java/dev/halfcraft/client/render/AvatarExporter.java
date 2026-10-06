@@ -122,6 +122,10 @@ final class AvatarExporter implements SubmitNodeCollector {
 	private HostAtlas atlas;
 	// Added to every position (particles and their groups come relative to the camera).
 	private float offX, offY, offZ;
+	// Particles closer than this to the eye in first person aren't sent: the player's own potion
+	// swirls spawn inside its box, around Half-Life's camera, and one there filled the view.
+	private static final float NEAR_EYE = 0.5F;
+	private boolean dropNearEye;
 	// Geometry that isn't quads (lines, strips), collected before it becomes quads.
 	private final Vertices vertices = new Vertices();
 	// The camera in this capture's coordinates, and a pixel's width (blocks) one block away from it:
@@ -335,6 +339,7 @@ final class AvatarExporter implements SubmitNodeCollector {
 		this.offX = (float) (cam.x - origin[0]);
 		this.offY = (float) (cam.y - origin[1]);
 		this.offZ = (float) (cam.z - origin[2]);
+		this.dropNearEye = !camera.isDetached();
 		try {
 			for (var group : minecraft.gameRenderer.gameRenderState().levelRenderState.particlesRenderState.particles) {
 				group.submit(this, cameraState);
@@ -343,6 +348,7 @@ final class AvatarExporter implements SubmitNodeCollector {
 			HalfCraft.LOG.warn("HalfCraft: couldn't capture particles for Half-Life", ex);
 		}
 		this.capture.flush();
+		this.dropNearEye = false;
 		this.offX = this.offY = this.offZ = 0.0F;
 		this.send(Proto.REN_SCENE, origin);
 	}
@@ -521,6 +527,31 @@ final class AvatarExporter implements SubmitNodeCollector {
 			this.data[o + 6] = ((light >> 4) & 0xF) | (((light >> 20) & 0xF) << 8);
 			this.data[o + 7] = this.flags;
 			this.count++;
+		}
+
+		/** Drops the quads from vertex {@code from} on whose middle lies within {@code radius} of the camera. */
+		void dropNearCamera(int from, float radius) {
+			int kept = from;
+			for (int q = from; q + 4 <= this.count; q += 4) {
+				float x = 0.0F, y = 0.0F, z = 0.0F;
+				for (int k = 0; k < 4; k++) {
+					int o = (q + k) * 8;
+					x += Float.intBitsToFloat(this.data[o]);
+					y += Float.intBitsToFloat(this.data[o + 1]);
+					z += Float.intBitsToFloat(this.data[o + 2]);
+				}
+				x = x / 4.0F - AvatarExporter.this.offX;
+				y = y / 4.0F - AvatarExporter.this.offY;
+				z = z / 4.0F - AvatarExporter.this.offZ;
+				if (x * x + y * y + z * z < radius * radius) {
+					continue;
+				}
+				if (kept != q) {
+					System.arraycopy(this.data, q * 8, this.data, kept * 8, 4 * 8);
+				}
+				kept += 4;
+			}
+			this.count = kept;
 		}
 
 		void writeTriangles(ByteBuffer out) {
@@ -864,8 +895,12 @@ final class AvatarExporter implements SubmitNodeCollector {
 				batch = this.batch(id, UV_RAW, flags);
 			}
 			this.capture.begin(batch);
+			int from = batch.count;
 			particles.buildLayer(layer, this.capture);
 			this.capture.flush();
+			if (this.dropNearEye) {
+				batch.dropNearCamera(from, NEAR_EYE);
+			}
 		}
 	}
 

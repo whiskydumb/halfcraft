@@ -166,12 +166,24 @@ public final class HostCollision {
 		if (!hasGeometry(pos)) {
 			return 0.0F;
 		}
-		double cx = pos.getX() + 0.5, cz = pos.getZ() + 0.5, y0 = pos.getY();
-		double top = y0 + Math.max(0.05, surface);
+		return floorUnder(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, Math.max(0.05, surface));
+	}
+
+	/**
+	 * Height (0..1) of the Half-Life floor under (x, z) in the row of cells at {@code cellY}: the highest
+	 * walkable triangle there, or 0. A fluid's corners rest on it, so neighbouring cells, which share
+	 * their corners, draw one surface over sloping ground.
+	 */
+	public static float floorAt(double x, int cellY, double z) {
+		return floorUnder(x, cellY, z, 1.0);
+	}
+
+	private static float floorUnder(double x, int y0, double z, double above) {
+		double top = y0 + above;
 		java.util.List<HostTri> tris = new java.util.ArrayList<>();
-		trianglesNear(new net.minecraft.world.phys.AABB(cx - 0.01, y0, cz - 0.01, cx + 0.01, top, cz + 0.01), tris);
+		trianglesNear(new net.minecraft.world.phys.AABB(x - 0.01, y0, z - 0.01, x + 0.01, top, z + 0.01), tris);
 		tris.removeIf(t -> !t.walkable);
-		HostRay.Hit hit = HostRay.cast(tris, cx, top, cz, cx, y0, cz);
+		HostRay.Hit hit = HostRay.cast(tris, x, top, z, x, y0, z);
 		return hit == null ? 0.0F : (float) Math.clamp(hit.y() - y0, 0.0, MAX_FLUID_FLOOR);
 	}
 
