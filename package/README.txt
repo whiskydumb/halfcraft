@@ -3,8 +3,8 @@ HalfCraft {VERSION}
 
 Half-Life 2, played with Minecraft. Real Minecraft runs hidden and does your physics, inventory,
 blocks and combat; Half-Life 2 runs its world, NPCs and story around you. Build on its maps, fight
-the Combine with a diamond sword, light City 17 with torches. Episode One and Episode Two are in
-too: their chapters follow Half-Life 2's in New Game.
+the Combine with a diamond sword, light City 17 with torches. Episode One, Episode Two and Lost
+Coast are in too: their chapters follow Half-Life 2's in New Game.
 
 
 YOU NEED

@@ -29,8 +29,11 @@ Half-Life 2, Episode One and Episode Two are one game, the way Valve's `hl2_comp
 starts Half-Life 2 as now) is: the episodic client and server run all three campaigns, the episodes'
 content is mounted over Half-Life 2's, and New Game lists all chapters, numbered on (Half-Life 2's
 1-14, Episode One's 15-19, Episode Two's 20-26), all unlocked from the start. Each campaign keeps its
-own skill values (`source/src/server/hc_campaign.cpp`). The game folders are put together by
-`tools/engines.ps1` from hl2dm-sp's three campaign folders.
+own skill values (`source/src/server/hc_campaign.cpp`). Lost Coast, which Half-Life 2 installs into
+its folder, is chapter 27. Its content is mounted last, so its copies of shared files don't cover the
+campaigns'. On its map, `source/src/server/hc_lost_coast.cpp` loads its own `scenes.image` and lets
+the player out of its intro, whose animation Episode Two's `blackout.mdl` lacks. The game folders are
+put together by `tools/engines.ps1` from hl2dm-sp's campaign folders.
 
 ## Layout
 

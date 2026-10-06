@@ -9,7 +9,7 @@ namespace halfcraft
 {
 	namespace
 	{
-		// half-life 2, episode one and episode two in play order. a map keeps its slot (and so its
+		// half-life 2, episode one, episode two and lost coast in play order. a map keeps its slot (and so its
 		// builds) even if this list grows: only ever append.
 		constexpr const char* CAMPAIGN_MAPS[] = {
 			"d1_trainstation_01", "d1_trainstation_02", "d1_trainstation_03", "d1_trainstation_04", "d1_trainstation_05",
@@ -27,7 +27,7 @@ namespace halfcraft
 			"ep1_c17_06", "ep2_outland_01", "ep2_outland_01a", "ep2_outland_02", "ep2_outland_03", "ep2_outland_04",
 			"ep2_outland_05", "ep2_outland_06", "ep2_outland_06a", "ep2_outland_07", "ep2_outland_08", "ep2_outland_09",
 			"ep2_outland_10", "ep2_outland_10a", "ep2_outland_11", "ep2_outland_11a", "ep2_outland_11b", "ep2_outland_12",
-			"ep2_outland_12a",
+			"ep2_outland_12a", "d2_lostcoast",
 		};
 		constexpr int FIRST_OTHER_SLOT = 256;
 		constexpr int OTHER_SLOTS = 1024;

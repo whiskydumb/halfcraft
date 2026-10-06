@@ -7,10 +7,11 @@
 #       build_hl2.ps1's dev ones in build\, package.ps1's for a release, so both look the same
 #   Find-EngineExe -Engine hl2                          the engine's exe in whichever steam library has it
 #
-# a game folder holds half-life 2, episode one and episode two as one game, as valve's hl2_complete does.
-# its layers, later ones win: hl2dm-sp's files of the three campaigns (commentary, hud scripts, fonts, ...;
-# the later campaign's over the earlier's), the chapters of all three numbered on (their cfg, picture and
-# title) with the three campaigns' strings merged, then source\mod\common, then source\mod\<engine>
+# a game folder holds half-life 2, episode one, episode two and lost coast as one game, as valve's
+# hl2_complete does for the first three.
+# its layers, later ones win: hl2dm-sp's files of the campaigns (commentary, hud scripts, fonts, ...;
+# the later campaign's over the earlier's), the chapters of all of them numbered on (their cfg, picture and
+# title) with the campaigns' strings merged, then source\mod\common, then source\mod\<engine>
 # (gameinfo.txt), then the engine's dlls and the world shaders. files a running game writes (save\,
 # cfg\config.cfg, screenshots\) are left alone.
 
@@ -40,11 +41,14 @@ $script:GameFolderHl2dmOnly = @(
 # the campaigns in play order: hl2dm-sp's mod folder for each, the folder of its chapter pictures in
 # valve's hl2_complete_misc.vpk (each campaign's own vgui\chapters would overwrite the others'), its
 # search path id (core/hc_campaign.h), which prefixes its own value of a string the campaigns differ in,
-# and the name an episode's skill_episodic.cfg gets (server.dll's hc_campaign.cpp runs it on its maps)
+# the name an episode's skill_episodic.cfg gets (server.dll's hc_campaign.cpp runs it on its maps), and
+# which of its other files a campaign brings (lost coast's hud, particle and skill files are half-life 2's
+# from before the episodes: only its commentary comes)
 $script:GameFolderCampaigns = @(
 	@{ Mod = "mod_hl2"; Pictures = "hl2"; PathId = "hc_hl2" },
 	@{ Mod = "mod_ep1"; Pictures = "episodic"; PathId = "hc_ep1"; Skill = "skill_ep1.cfg" },
-	@{ Mod = "mod_ep2"; Pictures = "ep2"; PathId = "hc_ep2"; Skill = "skill_ep2.cfg" }
+	@{ Mod = "mod_ep2"; Pictures = "ep2"; PathId = "hc_ep2"; Skill = "skill_ep2.cfg" },
+	@{ Mod = "mod_lostcoast"; Pictures = "lostcoast"; PathId = "hc_lc"; Files = '^maps\\' }
 )
 
 # hl2dm-sp's files a game folder makes its own: the chapters and their titles (numbered on across the
@@ -72,7 +76,7 @@ function Read-LangTokens([string]$path) {
 	$tokens
 }
 
-# the chapters of the three campaigns as one list (cfg, picture, title), and their strings merged into
+# the chapters of the campaigns as one list (cfg, picture, title), and their strings merged into
 # resource\<game folder>_english.txt: the engine reads a mod's strings from that file and the new game
 # dialog's titles from "<game folder>_ChapterN_Title". where the campaigns' strings differ (episode two's
 # game over lines), the earlier campaign's value is the string and a later one's is "<its path id>_<key>"
@@ -166,6 +170,7 @@ function Write-GameFolder([string]$Engine, [string]$Destination, [string]$Folder
 		foreach ($file in (git -C $sdk ls-files $prefix)) {
 			$relative = $file.Substring($prefix.Length) -replace '/', '\'
 			if ($relative -match $script:GameFolderGenerated -or ($Engine -ne "hl2dm" -and $script:GameFolderHl2dmOnly -contains $relative)) { continue }
+			if ($campaign.Files -and $relative -notmatch $campaign.Files) { continue }
 			if ($relative -eq "cfg\skill_episodic.cfg") { $relative = "cfg\$($campaign.Skill)" }
 			$target = Join-Path $Destination $relative
 			New-Item -ItemType Directory (Split-Path $target) -Force | Out-Null
