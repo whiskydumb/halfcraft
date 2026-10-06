@@ -64,6 +64,14 @@ namespace halfcraft
 	/// @param shadow - its ClientShadowHandle_t
 	void client_shadow_depth_begin(unsigned short shadow);
 
+	/// CClientShadowMgr::BuildFlashlight: whether a projected texture lights characters too. minecraft's
+	/// block lights light only the world: with a dozen of their faces on one npc the engine's shadow
+	/// lists broke (an npc hurt or a light changing next to one crashed in RemoveAllShadowsFromModel).
+	/// elights light characters instead.
+	/// @param shadow - its ClientShadowHandle_t
+	/// @return false to light the world only
+	bool client_flashlight_lights_models(unsigned short shadow);
+
 	/// CShadowDepthView::Draw: whether that shadow depth texture gets half-life's scene.
 	/// @return false for one that holds nothing but client_shadow_depth_view's cap
 	bool client_shadow_depth_scene();

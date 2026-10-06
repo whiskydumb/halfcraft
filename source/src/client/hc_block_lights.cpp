@@ -39,7 +39,7 @@ namespace halfcraft
 	{
 		constexpr int   CELL_BLOCKS = 3;          // nearby emitters merge into one light per cell (a lava lake would be hundreds)
 		constexpr int   MAX_POINT_LIGHTS = SHADOWED_LIGHTS;  // twelve projected textures each, with shadow maps (hc_hooks.h)
-		constexpr int   MAX_LIGHTS = 24;          // point lights + character-only lights (elights) for the rest
+		constexpr int   MAX_LIGHTS = 24;          // the nearest minecraft lights: the point lights among them, and an elight each for characters
 		constexpr float RANGE_BLOCKS = 48.0f;     // emitters further than this from the player stay dark
 		constexpr float MAX_RADIUS_BLOCKS = 14.0f;
 		constexpr float RADIUS_PER_LEVEL = 0.8f;  // blocks of reach per minecraft light level
@@ -49,7 +49,7 @@ namespace halfcraft
 		constexpr int   LIGHT_KEY = 0x48430000;     // elight keys: past any entity index
 		constexpr float POINT_INTENSITY = 1.3f;     // a level 15 point light's core, before hc_torch_light (source's flashlight is 1)
 		constexpr float COLOUR_DEPTH = 2.2f;        // minecraft's light colours raised to this: flame-coloured light, not a washed-out white
-		constexpr float ELIGHT_INTENSITY = 0.6f;    // the same for characters lit by the lights further away
+		constexpr float ELIGHT_INTENSITY = 0.6f;    // the same for characters: every light reaches them as an elight
 
 		// a point light's faces are projected textures (source's flashlight) looking down the cube's axes.
 		// each sees a little past 90 degrees, and its cookie fades out across the seam so that two
@@ -75,7 +75,7 @@ namespace halfcraft
 		ConVar hc_torch_light_pvs("hc_torch_light_pvs", "1", 0, "halfcraft: only lights in the camera's potentially visible set get shadowed point lights");
 		constexpr float PVS_EXTENT = 24.0f;  // units around a light's origin that have to be in the camera's pvs
 		ConVar hc_torch_light_count("hc_torch_light_count", "4", FCVAR_ARCHIVE,
-			"halfcraft: how many of the nearest minecraft lights light half-life's world and characters per pixel, with shadows (up to 4; each renders up to twelve shadow maps a frame)");
+			"halfcraft: how many of the nearest minecraft lights light half-life's world per pixel, with shadows (up to 4; each renders up to twelve shadow maps a frame)");
 
 		struct LightSource
 		{
@@ -213,6 +213,10 @@ namespace halfcraft
 		/// the faces whose shadow depth textures hold nothing but the cap (client_shadow_depth_scene), by
 		/// ClientShadowHandle_t.
 		std::bitset<1 << 16> g_open_faces;
+		/// every face of the point lights, by ClientShadowHandle_t: they light the world only
+		/// (client_flashlight_lights_models).
+		std::bitset<1 << 16> g_block_faces;
+		bool                 g_creating_face = false;  // CreateFlashlight projects the new face before it returns its handle
 		bool                 g_depth_scene = true;  // the shadow depth texture being drawn gets the scene
 
 		/// a light that shines every way, made of source's projected textures: six faces whose light
@@ -262,6 +266,7 @@ namespace halfcraft
 			{
 				if (handle != CLIENTSHADOW_INVALID_HANDLE) {
 					g_open_faces.reset(handle);
+					g_block_faces.reset(handle);
 					g_pClientShadowMgr->DestroyFlashlight(handle);
 					handle = CLIENTSHADOW_INVALID_HANDLE;
 				}
@@ -301,8 +306,11 @@ namespace halfcraft
 				state.m_flShadowAtten = 0.0f;  // nothing of the light in its shadows
 				state.m_flShadowMapResolution = shadow_map_resolution();
 				if (handle == CLIENTSHADOW_INVALID_HANDLE) {
+					g_creating_face = true;
 					handle = g_pClientShadowMgr->CreateFlashlight(state);
+					g_creating_face = false;
 					g_open_faces.set(handle, open);
+					g_block_faces.set(handle);
 					g_pClientShadowMgr->UpdateProjectedTexture(handle, true);
 				} else {
 					g_pClientShadowMgr->UpdateFlashlightState(handle, state);
@@ -626,9 +634,8 @@ namespace halfcraft
 					placed_[slot] = c.cell;
 					points_[slot].update(c.origin, c.radius, color * (POINT_INTENSITY * strength), hc_torch_light_wrap.GetFloat(), moved);
 					++slot;
-					continue;
 				}
-				// the rest light only characters
+				// characters get every light as an elight: the point lights' faces light only the world
 				dlight_t* light = effects->CL_AllocElight(LIGHT_KEY + static_cast<int>(i));
 				if (!light) {
 					continue;
@@ -735,6 +742,11 @@ namespace halfcraft
 	bool client_shadow_depth_scene()
 	{
 		return g_depth_scene;
+	}
+
+	bool client_flashlight_lights_models(unsigned short shadow)
+	{
+		return !g_creating_face && !g_block_faces.test(shadow);
 	}
 }
 

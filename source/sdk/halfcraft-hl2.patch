@@ -236,7 +236,7 @@ index 5d10db6c..b160fe5f 100644
  	// Should we start typing a message?
  	if ( pszCurrentBinding &&
 diff --git a/sp/src/game/client/clientshadowmgr.cpp b/sp/src/game/client/clientshadowmgr.cpp
-index c37e7650..6f40b39d 100644
+index c37e7650..1a89529b 100644
 --- a/sp/src/game/client/clientshadowmgr.cpp
 +++ b/sp/src/game/client/clientshadowmgr.cpp
 @@ -83,6 +83,8 @@
@@ -258,7 +258,17 @@ index c37e7650..6f40b39d 100644
  
  	bool bLowEnd = ( g_pMaterialSystemHardwareConfig->GetDXSupportLevel() < 80 );
  
-@@ -3971,6 +3974,7 @@ void CClientShadowMgr::ComputeShadowDepthTextures( const CViewSetup &viewSetup )
+@@ -2623,7 +2626,8 @@ void CClientShadowMgr::BuildFlashlight( ClientShadowHandle_t handle )
+ 
+ 	VPROF_BUDGET( "CClientShadowMgr::BuildFlashlight", VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING );
+ 
+-	bool bLightModels = r_flashlightmodels.GetBool();
++	// halfcraft: minecraft's block lights light the world only (elights light characters)
++	bool bLightModels = r_flashlightmodels.GetBool() && halfcraft::client_flashlight_lights_models( handle );
+ 	bool bLightSpecificEntity = shadow.m_hTargetEntity.Get() != NULL;
+ 	bool bLightWorld = ( shadow.m_Flags & SHADOW_FLAGS_LIGHT_WORLD ) != 0;
+ 	int nCount = 0;
+@@ -3971,6 +3975,7 @@ void CClientShadowMgr::ComputeShadowDepthTextures( const CViewSetup &viewSetup )
  		pRenderContext->SetShadowDepthBiasFactors( flashlightState.m_flShadowSlopeScaleDepthBias, flashlightState.m_flShadowDepthBias );
  
  		// Render to the shadow depth texture with appropriate view
