@@ -17,8 +17,8 @@ public final class HostSpeed {
 
 	/** The factor for Minecraft's player's walking: 1 unless Half-Life slows (or speeds) its own. */
 	public static float factor() {
-		HostLink.HostState sky = HostClient.sky();
-		float factor = HostClient.linked() && sky.inGame() && !sky.loading() ? sky.speedFactor : 1.0F;
+		HostLink.HostState host = HostClient.host();
+		float factor = HostClient.linked() && host.inGame() && !host.loading() ? host.speedFactor : 1.0F;
 		// an older Half-Life leaves the field at 0, and a bad value is no reason to stop the player
 		if (!(factor > 0.0F) || factor > 4.0F || Math.abs(factor - 1.0F) < NONE_EPS) {
 			factor = 1.0F;

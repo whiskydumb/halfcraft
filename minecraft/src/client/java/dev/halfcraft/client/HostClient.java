@@ -25,7 +25,7 @@ public final class HostClient {
 	private static final boolean START_HIDDEN = Boolean.getBoolean("halfcraft.startHidden");
 	private static boolean startedHidden;
 
-	private static final HostLink.HostState sky = new HostLink.HostState();
+	private static final HostLink.HostState host = new HostLink.HostState();
 	private static final HostLink.McState mc = new HostLink.McState();
 	private static volatile boolean linked;
 	private static boolean tookOver;
@@ -64,8 +64,8 @@ public final class HostClient {
 		return tookOver;
 	}
 
-	public static HostLink.HostState sky() {
-		return sky;
+	public static HostLink.HostState host() {
+		return host;
 	}
 
 	/** Start of Minecraft.runTick: pull state and input from Half-Life before anything else runs. */
@@ -81,7 +81,7 @@ public final class HostClient {
 		}
 		boolean nowLinked = HostLink.active();
 		if (nowLinked) {
-			HostLink.readSkyState(sky); // on a torn read we simply keep last frame's state
+			HostLink.readHostState(host); // on a torn read we simply keep last frame's state
 			dev.halfcraft.world.HostWater.refresh();
 		} else {
 			dev.halfcraft.world.HostWater.clear();
@@ -109,7 +109,7 @@ public final class HostClient {
 		applyViewportSize(minecraft);
 		MirrorWorld.openWhenReady(minecraft);
 
-		if (sky.menuOpen() || sky.loading()) {
+		if (host.menuOpen() || host.loading()) {
 			InputBridge.releaseAll();
 		}
 		InputBridge.drain(minecraft);
@@ -126,23 +126,23 @@ public final class HostClient {
 			lastPlayer = player;
 			teleportPending = true;
 		}
-		if (sky.teleportSeq != lastTeleportSeq) {
-			lastTeleportSeq = sky.teleportSeq;
+		if (host.teleportSeq != lastTeleportSeq) {
+			lastTeleportSeq = host.teleportSeq;
 			teleportPending = true;
 		}
-		if (teleportPending && sky.inGame() && !sky.loading()) {
-			requestTeleport(minecraft, sky.x, sky.y, sky.z, sky.yaw, sky.pitch);
-			teleportAck = sky.teleportSeq;
+		if (teleportPending && host.inGame() && !host.loading()) {
+			requestTeleport(minecraft, host.x, host.y, host.z, host.yaw, host.pitch);
+			teleportAck = host.teleportSeq;
 			teleportPending = false;
-			holdPos = new Vec3(sky.x, sky.y, sky.z);
+			holdPos = new Vec3(host.x, host.y, host.z);
 		}
 
 		// Look direction is driven by Half-Life (zero-latency camera); MC uses it for everything else.
 		if (minecraft.gui.screen() == null) {
-			player.setYRot(sky.yaw);
-			player.setXRot(sky.pitch);
-			player.yRotO = sky.yaw;
-			player.xRotO = sky.pitch;
+			player.setYRot(host.yaw);
+			player.setXRot(host.pitch);
+			player.yRotO = host.yaw;
+			player.xRotO = host.pitch;
 		}
 	}
 
@@ -261,7 +261,7 @@ public final class HostClient {
 		if (!linked || player == null) {
 			return;
 		}
-		if (!sky.inGame() || sky.loading()) {
+		if (!host.inGame() || host.loading()) {
 			// Half-Life is on its main menu or a loading screen: park the player where they are.
 			if (holdPos == null) {
 				holdPos = player.position();
@@ -280,7 +280,7 @@ public final class HostClient {
 			&& HostCollision.isKnown(bx, by - HostCollision.REGION_SIZE, bz);
 		// Release once there is actual ground below (or after a timeout, e.g. when mid-air on purpose).
 		boolean ready = known && (HostCollision.hasSolidBelow(bx, by, bz, 12) || System.currentTimeMillis() - holdSince > 6000);
-		if (ready && sky.inGame() && !sky.loading()) {
+		if (ready && host.inGame() && !host.loading()) {
 			// Half-Life's feet can sit a fraction of a voxel inside our ground layer. Minecraft's
 			// collision never pushes you out of a shape, so you'd drop through: lift out first.
 			Vec3 safe = liftOutOfGeometry(player, holdPos);
@@ -431,19 +431,19 @@ public final class HostClient {
 		if (!linked) {
 			return;
 		}
-		if (hostStalled && (HostLink.skyStateSeq() >>> 1) == lastPacedSeq) {
+		if (hostStalled && (HostLink.hostStateSeq() >>> 1) == lastPacedSeq) {
 			return; // Half-Life is paused (menu / alt-tab): don't block every frame waiting for it
 		}
 		hostStalled = false;
 		long deadline = System.nanoTime() + 25_000_000L;
 		// HostState.seq advances by 2 per Half-Life frame (odd while writing).
-		while ((HostLink.skyStateSeq() >>> 1) == lastPacedSeq && System.nanoTime() < deadline) {
+		while ((HostLink.hostStateSeq() >>> 1) == lastPacedSeq && System.nanoTime() < deadline) {
 			Thread.onSpinWait();
 			if (deadline - System.nanoTime() > 2_000_000L) {
 				Thread.yield();
 			}
 		}
-		int seqNow = HostLink.skyStateSeq() >>> 1;
+		int seqNow = HostLink.hostStateSeq() >>> 1;
 		hostStalled = seqNow == lastPacedSeq;
 		lastPacedSeq = seqNow;
 	}
@@ -478,8 +478,8 @@ public final class HostClient {
 	}
 
 	private static void applyViewportSize(Minecraft minecraft) {
-		int w = Math.min(sky.viewportW, Proto.MAX_OVERLAY_W);
-		int h = Math.min(sky.viewportH, Proto.MAX_OVERLAY_H);
+		int w = Math.min(host.viewportW, Proto.MAX_OVERLAY_W);
+		int h = Math.min(host.viewportH, Proto.MAX_OVERLAY_H);
 		if (w <= 0 || h <= 0 || (w == appliedViewportW && h == appliedViewportH)) {
 			return;
 		}

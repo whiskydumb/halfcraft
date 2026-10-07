@@ -25,8 +25,8 @@ public abstract class CameraZoomMixin {
 		at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;clip(Lnet/minecraft/world/level/ClipContext;)Lnet/minecraft/world/phys/BlockHitResult;")
 	)
 	private BlockHitResult halfcraft$zoomAgainstHost(Level level, ClipContext context, Operation<BlockHitResult> original) {
-		HostLink.HostState sky = HostClient.sky();
-		if (HostClient.linked() && sky.takeover() && sky.seated()) {
+		HostLink.HostState host = HostClient.host();
+		if (HostClient.linked() && host.takeover() && host.seated()) {
 			return original.call(level, context);
 		}
 		return HostClip.refine(context.getFrom(), context.getTo(), original.call(level, context), HostClip.Use.PROJECTILE);

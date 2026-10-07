@@ -34,10 +34,10 @@ public abstract class BlockCollisionsMixin {
 		if (context instanceof EntityCollisionContext entityContext && HostCollision.usesSmoothCollider(entityContext.getEntity())) {
 			return blockShape; // this entity collides with Half-Life's exact triangles instead (HostCollider)
 		}
-		VoxelShape sky = HostCollision.shapeAt(pos);
-		if (sky == null) {
+		VoxelShape host = HostCollision.shapeAt(pos);
+		if (host == null) {
 			return blockShape;
 		}
-		return blockShape.isEmpty() ? sky : Shapes.or(blockShape, sky);
+		return blockShape.isEmpty() ? host : Shapes.or(blockShape, host);
 	}
 }

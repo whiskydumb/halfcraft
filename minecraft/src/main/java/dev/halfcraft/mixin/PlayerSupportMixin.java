@@ -31,7 +31,7 @@ public abstract class PlayerSupportMixin {
 	private static final double BELOW = 1.0E-5;
 	// server thread only
 	@Unique
-	private static final HostLink.HostState SKY = new HostLink.HostState();
+	private static final HostLink.HostState HOST_STATE = new HostLink.HostState();
 
 	@Shadow
 	public ServerPlayer player;
@@ -62,6 +62,6 @@ public abstract class PlayerSupportMixin {
 
 	@Unique
 	private static boolean halfcraft$heldByHost() {
-		return HostLink.active() && HostLink.readSkyState(SKY) && SKY.takeover();
+		return HostLink.active() && HostLink.readHostState(HOST_STATE) && HOST_STATE.takeover();
 	}
 }

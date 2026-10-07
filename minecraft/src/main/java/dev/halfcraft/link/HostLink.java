@@ -272,7 +272,7 @@ public final class HostLink {
 		return null;
 	}
 
-	public static boolean readSkyState(HostState out) {
+	public static boolean readHostState(HostState out) {
 		MemorySegment s = shm;
 		if (s == null) {
 			return false;
@@ -313,7 +313,7 @@ public final class HostLink {
 	}
 
 	/** Raw HostState sequence number; changes once per Half-Life frame. */
-	public static int skyStateSeq() {
+	public static int hostStateSeq() {
 		MemorySegment s = shm;
 		return s == null ? 0 : (int) INT.getAcquire(s, OFF_HOST_STATE + HS_SEQ);
 	}

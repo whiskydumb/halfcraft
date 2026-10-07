@@ -176,9 +176,9 @@ final class AvatarExporter implements SubmitNodeCollector {
 			var dispatcher = minecraft.getEntityRenderDispatcher();
 			dispatcher.prepare(camera, minecraft.crosshairPickEntity);
 			EntityRenderState state = dispatcher.extractEntity(player, partialTick);
-			HostLink.HostState sky = HostClient.sky();
-			if (HostClient.linked() && sky.takeover() && sky.seated()) {
-				sit(state, sky.seatYaw);
+			HostLink.HostState host = HostClient.host();
+			if (HostClient.linked() && host.takeover() && host.seated()) {
+				sit(state, host.seatYaw);
 			}
 			CameraRenderState cameraState = minecraft.gameRenderer.gameRenderState().levelRenderState.cameraRenderState;
 			this.lookFrom(minecraft, camera, camera.position().subtract(player.getPosition(partialTick)));

@@ -49,7 +49,7 @@ public final class HostScreenshots {
 		if (!HostClient.linked()) {
 			return false;
 		}
-		HostLink.HostState host = HostClient.sky();
+		HostLink.HostState host = HostClient.host();
 		if (!host.inGame() || host.loading()) {
 			HalfCraft.LOG.info("HalfCraft: screenshot key while Half-Life has no map up");
 			failed(minecraft, Component.translatable("halfcraft.screenshot.no_frame"));

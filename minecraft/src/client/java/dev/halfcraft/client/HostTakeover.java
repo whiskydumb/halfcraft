@@ -30,8 +30,8 @@ public final class HostTakeover {
 
 	/** Before the local player's travel: true when Half-Life has the player and it was put there instead. */
 	public static boolean follow(LocalPlayer player) {
-		HostLink.HostState sky = HostClient.sky();
-		boolean now = HostClient.linked() && sky.takeover() && sky.inGame() && !sky.loading() && !player.isDeadOrDying() && !player.isPassenger();
+		HostLink.HostState host = HostClient.host();
+		boolean now = HostClient.linked() && host.takeover() && host.inGame() && !host.loading() && !player.isDeadOrDying() && !player.isPassenger();
 		if (now != following) {
 			following = now;
 			if (now) {
@@ -47,7 +47,7 @@ public final class HostTakeover {
 		HostPush.INSTANCE.takeReleased();
 		HostPush.INSTANCE.takeImpulse();
 		player.setDeltaMovement(Vec3.ZERO);
-		player.setPos(sky.x, sky.y, sky.z);
+		player.setPos(host.x, host.y, host.z);
 		player.setOnGround(true);
 		player.resetFallDistance();
 		return true;
