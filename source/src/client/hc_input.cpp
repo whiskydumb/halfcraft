@@ -163,9 +163,14 @@ namespace halfcraft
 		/// on a ladder or a ride source moves the player, and minecraft keeps its hands: the mouse
 		/// buttons, the wheel and the hotbar keys. a half-life weapon in its hand, or a prop carried with
 		/// use, leaves the buttons to source's own bindings (they fire it, throw or drop the prop). F5,
-		/// minecraft's camera, goes round source's view there and in vehicles.
+		/// minecraft's camera, goes round source's view there and in vehicles. F2, minecraft's
+		/// screenshot (half-life's frame with minecraft's hud, hc_screenshot.cpp), goes whoever moves
+		/// the player.
 		bool minecraft_keeps(ButtonCode_t code, bool pressed, const ClientSession& s)
 		{
+			if (code == KEY_F2) {
+				return s.have_mc && s.mc_in_world;
+			}
 			if (const int button = sdl_button(code)) {
 				const int bit = 1 << button;
 				if (!pressed) {
