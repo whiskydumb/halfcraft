@@ -133,7 +133,7 @@ public final class HostWeapons {
 
 	private static String name(int id) {
 		HostWeapon weapon = HostWeapon.byId(id);
-		return weapon != null ? weapon.displayName() : "weapon " + id;
+		return weapon != null ? weapon.path() : "weapon " + id;
 	}
 
 	/** Takes the stand-ins out of an inventory (Rollback keeps Half-Life's weapons out of its checkpoints): slot to item. */

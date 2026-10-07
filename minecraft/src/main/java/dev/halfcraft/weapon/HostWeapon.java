@@ -8,26 +8,24 @@ import org.jspecify.annotations.Nullable;
  * item that stands in for it in the hotbar.
  */
 public enum HostWeapon {
-	CROWBAR(Proto.HOST_WEAPON_CROWBAR, "crowbar", "Crowbar"),
-	GRAVITY_GUN(Proto.HOST_WEAPON_PHYSCANNON, "gravity_gun", "Gravity Gun"),
-	PISTOL(Proto.HOST_WEAPON_PISTOL, "pistol", "9mm Pistol"),
-	REVOLVER(Proto.HOST_WEAPON_357, "revolver", ".357 Magnum"),
-	SMG(Proto.HOST_WEAPON_SMG1, "smg", "SMG"),
-	PULSE_RIFLE(Proto.HOST_WEAPON_AR2, "pulse_rifle", "Pulse Rifle"),
-	SHOTGUN(Proto.HOST_WEAPON_SHOTGUN, "shotgun", "Shotgun"),
-	CROSSBOW(Proto.HOST_WEAPON_CROSSBOW, "crossbow", "Crossbow"),
-	GRENADE(Proto.HOST_WEAPON_FRAG, "grenade", "Grenade"),
-	RPG(Proto.HOST_WEAPON_RPG, "rpg", "RPG"),
-	BUGBAIT(Proto.HOST_WEAPON_BUGBAIT, "bugbait", "Bugbait");
+	CROWBAR(Proto.HOST_WEAPON_CROWBAR, "crowbar"),
+	GRAVITY_GUN(Proto.HOST_WEAPON_PHYSCANNON, "gravity_gun"),
+	PISTOL(Proto.HOST_WEAPON_PISTOL, "pistol"),
+	REVOLVER(Proto.HOST_WEAPON_357, "revolver"),
+	SMG(Proto.HOST_WEAPON_SMG1, "smg"),
+	PULSE_RIFLE(Proto.HOST_WEAPON_AR2, "pulse_rifle"),
+	SHOTGUN(Proto.HOST_WEAPON_SHOTGUN, "shotgun"),
+	CROSSBOW(Proto.HOST_WEAPON_CROSSBOW, "crossbow"),
+	GRENADE(Proto.HOST_WEAPON_FRAG, "grenade"),
+	RPG(Proto.HOST_WEAPON_RPG, "rpg"),
+	BUGBAIT(Proto.HOST_WEAPON_BUGBAIT, "bugbait");
 
 	private final int id;
 	private final String path;
-	private final String displayName;
 
-	HostWeapon(int id, String path, String displayName) {
+	HostWeapon(int id, String path) {
 		this.id = id;
 		this.path = path;
-		this.displayName = displayName;
 	}
 
 	/** The protocol's WeaponId. */
@@ -35,14 +33,12 @@ public enum HostWeapon {
 		return this.id;
 	}
 
-	/** The stand-in item's path in the halfcraft namespace (its model and texture are named after it). */
+	/**
+	 * The stand-in item's path in the halfcraft namespace: its model, its texture and its name in the
+	 * language files (item.halfcraft.crowbar) are named after it.
+	 */
 	public String path() {
 		return this.path;
-	}
-
-	/** What Half-Life calls it. */
-	public String displayName() {
-		return this.displayName;
 	}
 
 	public static @Nullable HostWeapon byId(int id) {

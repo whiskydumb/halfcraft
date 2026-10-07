@@ -39,7 +39,8 @@ public final class WeaponItem extends Item {
 	@Override
 	public Component getName(ItemStack stack) {
 		WeaponTable.Weapon live = this.live();
-		return Component.literal(live != null && live.supercharged() ? "Supercharged " + this.weapon.displayName() : this.weapon.displayName());
+		Component name = super.getName(stack);
+		return live != null && live.supercharged() ? Component.translatable("item.halfcraft.supercharged", name) : name;
 	}
 
 	@Override
