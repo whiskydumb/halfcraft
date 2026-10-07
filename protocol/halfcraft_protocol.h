@@ -779,6 +779,7 @@ namespace halfcraft::proto
 	enum ColTriFlags : std::uint32_t
 	{
 		kTriStairHelper = 1u << 0,  // an invisible stair ramp: walkable, never a wall
+		kTriSky = 1u << 1,          // a brush of the map's sky (its skybox ceiling): what's under it is out in the open
 	};
 
 	struct ColTri
@@ -804,12 +805,17 @@ namespace halfcraft::proto
 	};
 	static_assert(sizeof(ColRegion) == 32);
 
+	enum ColBlockFlags : std::uint32_t
+	{
+		kColBlockSky = 1u << 0,  // all of it is the map's sky (kTriSky): no roof over what's under it
+	};
+
 	// One block's worth of host collision as an 8x8x8 occupancy mask.
 	// bits[y] bit (z * 8 + x) is sub-voxel (x, y, z), each 1/8 block, in MC axes.
 	struct ColBlock
 	{
 		std::int32_t  x, y, z;
-		std::uint32_t pad;
+		std::uint32_t flags;  // ColBlockFlags
 		std::uint64_t bits[8];
 	};
 	static_assert(sizeof(ColBlock) == 80);

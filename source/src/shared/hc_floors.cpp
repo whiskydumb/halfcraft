@@ -25,6 +25,7 @@
 #include "core/hc_grid.h"
 #include "core/hc_log.h"
 #include "core/hc_units.h"
+#include "shared/hc_bsp.h"
 #include "shared/hc_floors.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -51,64 +52,7 @@ namespace halfcraft
 			"info_node", "info_node_hint", "info_player_start", "info_player_deathmatch", "info_player_combine", "info_player_rebel",
 		};
 
-		// the file's header: dheader_t, whose lumps' last field half-life 2's tree still calls fourCC
-		struct Lump
-		{
-			int offset, length, version, uncompressed_size;  // compressed (consoles' maps) unless 0
-		};
-		struct Header
-		{
-			int  ident, version;
-			Lump lumps[HEADER_LUMPS];
-			int  revision;
-		};
-
-		// the file's layout, as the engine reads it
-		static_assert(sizeof(Header) == sizeof(dheader_t));
-		static_assert(sizeof(dplane_t) == 20 && sizeof(dvertex_t) == 12 && sizeof(dedge_t) == 4 && sizeof(texinfo_t) == 72);
-		static_assert(sizeof(dface_t) == 56 && sizeof(dmodel_t) == 48 && sizeof(ddispinfo_t) == 176 && sizeof(CDispVert) == 20);
-
-		/// a .bsp's lumps, read as they're asked for.
-		class BspFile
-		{
-		public:
-			explicit BspFile(const char* path) : file_(filesystem->Open(path, "rb", "GAME")) {}
-			~BspFile()
-			{
-				if (file_) {
-					filesystem->Close(file_);
-				}
-			}
-			BspFile(const BspFile&) = delete;
-			BspFile& operator=(const BspFile&) = delete;
-
-			bool open()
-			{
-				return file_ && filesystem->Read(&header_, sizeof(header_), file_) == sizeof(header_) && header_.ident == IDBSPHEADER &&
-					   header_.version >= MINBSPVERSION && header_.version <= BSPVERSION;
-			}
-
-			/// a lump as an array of T. false when it's compressed (consoles' maps) or cut short.
-			template <typename T>
-			bool lump(int index, std::vector<T>& out)
-			{
-				const Lump& l = header_.lumps[index];
-				out.clear();
-				if (l.uncompressed_size != 0 || l.length < 0 || l.length % sizeof(T) != 0) {
-					return false;
-				}
-				out.resize(l.length / sizeof(T));
-				if (out.empty()) {
-					return true;
-				}
-				filesystem->Seek(file_, l.offset, FILESYSTEM_SEEK_HEAD);
-				return filesystem->Read(out.data(), l.length, file_) == l.length;
-			}
-
-		private:
-			FileHandle_t file_;
-			Header       header_{};
-		};
+		using bsp::BspFile;
 
 		/// a world triangle a character can stand on.
 		struct Tri

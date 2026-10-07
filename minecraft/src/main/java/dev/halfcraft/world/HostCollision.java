@@ -31,6 +31,7 @@ public final class HostCollision {
 	private static final int FILL_UPPER = 1 << 11;
 	private static final int FILL_TOP_SHIFT = 12; // highest occupied of the 8 voxel layers (3 bits)
 	private static final int FILL_NAV_SHIFT = 16; // how mobs path through the cell (NavGrid.classify)
+	private static final int FILL_SKY = 1 << 24; // all of it is the map's sky: no roof over what's under it
 	// Per block: its 8 occupancy layers, for the box tests mobs' pathfinding makes between cells (NavGrid).
 	private static final ConcurrentHashMap<Long, long[]> LAYERS = new ConcurrentHashMap<>();
 	private static final ConcurrentHashMap<Long, HostTri[]> TRIS = new ConcurrentHashMap<>();
@@ -133,6 +134,12 @@ public final class HostCollision {
 	public static int navAt(int x, int y, int z) {
 		Integer fill = FILL.isEmpty() ? null : FILL.get(BlockPos.asLong(x, y, z));
 		return fill == null ? NavGrid.EMPTY : fill >>> FILL_NAV_SHIFT & ((1 << NavGrid.BITS) - 1);
+	}
+
+	/** All of this cell's geometry is the map's sky (its skybox ceiling): what's under it is out in the open. */
+	public static boolean isSkyAt(int x, int y, int z) {
+		Integer fill = FILL.isEmpty() ? null : FILL.get(BlockPos.asLong(x, y, z));
+		return fill != null && (fill & FILL_SKY) != 0;
 	}
 
 	/** This cell's 8 occupancy layers (bit z * 8 + x of layer y), or null without geometry. Never change them. */
@@ -325,12 +332,13 @@ public final class HostCollision {
 			int x = s.get(JAVA_INT, e);
 			int y = s.get(JAVA_INT, e + 4);
 			int z = s.get(JAVA_INT, e + 8);
+			boolean sky = (s.get(JAVA_INT, e + COL_BLOCK_FLAGS) & COL_BLOCK_SKY) != 0;
 			long[] layers = readLayers(s, e + 16);
 			VoxelShape shape = buildShape(layers);
 			if (shape != null) {
 				long key = BlockPos.asLong(x, y, z);
 				fresh.put(key, shape);
-				freshFill.put(key, fillInfo(layers));
+				freshFill.put(key, fillInfo(layers) | (sky ? FILL_SKY : 0));
 				freshLayers.put(key, layers);
 			}
 		}

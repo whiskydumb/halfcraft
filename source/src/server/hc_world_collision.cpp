@@ -7,13 +7,18 @@
 #include "vphysics_interface.h"
 #include "physics_shared.h"
 #include "gamerules.h"
+#include "bspfile.h"
+#include "filesystem.h"
 
 #include "tier0/valve_minmax_off.h"
 #include <algorithm>
 #include <cmath>
+#include <string>
 
+#include "core/hc_log.h"
 #include "server/hc_block_solids.h"
 #include "server/hc_world_collision.h"
+#include "shared/hc_bsp.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -27,6 +32,62 @@ namespace halfcraft
 		constexpr float MOVED_DEGREES = 0.5f;
 		// what source's player movement collides with (MASK_PLAYERSOLID without monsters: no brush is one)
 		constexpr int PLAYER_SOLID_BRUSHES = CONTENTS_SOLID | CONTENTS_MOVEABLE | CONTENTS_PLAYERCLIP | CONTENTS_WINDOW | CONTENTS_GRATE;
+		// a brush side whose normal points down at least this much is seen from under the brush
+		constexpr float FACING_DOWN = -0.7f;
+
+		/// the map's sky brushes, by brush index: the ones whose sides facing down are sky (toolsskybox),
+		/// so what's under them is out in the open. a roof with sky only on top stays a roof.
+		std::vector<bool> read_sky_brushes(const char* map_name)
+		{
+			const std::string     path = "maps/" + map_base_name(map_name) + ".bsp";
+			bsp::BspFile          file(path.c_str());
+			std::vector<dbrush_t> brushes;
+			std::vector<dbrushside_t> sides;
+			std::vector<dplane_t>  planes;
+			std::vector<texinfo_t> texinfos;
+			if (!file.open() || !file.lump(LUMP_BRUSHES, brushes) || !file.lump(LUMP_BRUSHSIDES, sides) || !file.lump(LUMP_PLANES, planes) ||
+				!file.lump(LUMP_TEXINFO, texinfos)) {
+				log_warning("sky: can't read %s: half-life's sky counts as a roof there", path.c_str());
+				return {};
+			}
+			std::vector<bool> sky(brushes.size(), false);
+			int               count = 0;
+			for (std::size_t b = 0; b < brushes.size(); ++b) {
+				const dbrush_t& brush = brushes[b];
+				bool            seen_from_under = false, all_sky = true;
+				for (int s = brush.firstside; s < brush.firstside + brush.numsides && all_sky; ++s) {
+					if (s < 0 || static_cast<std::size_t>(s) >= sides.size()) {
+						all_sky = false;
+						break;
+					}
+					const dbrushside_t& side = sides[s];
+					if (side.bevel || side.planenum >= planes.size() || planes[side.planenum].normal.z > FACING_DOWN) {
+						continue;
+					}
+					seen_from_under = true;
+					all_sky = side.texinfo >= 0 && static_cast<std::size_t>(side.texinfo) < texinfos.size() &&
+							  (texinfos[side.texinfo].flags & (SURF_SKY | SURF_SKY2D));
+				}
+				if (seen_from_under && all_sky) {
+					sky[b] = true;
+					++count;
+				}
+			}
+			// enginetrace numbers brushes as the file does; if it doesn't, the flags would land on other
+			// brushes: better none
+			CUtlVector<Vector4D> brush_planes;
+			for (std::size_t b = 0; b < brushes.size(); ++b) {
+				int contents = 0;
+				brush_planes.RemoveAll();
+				if (!enginetrace->GetBrushInfo(static_cast<int>(b), &brush_planes, &contents) || contents != brushes[b].contents) {
+					log_warning("sky: brush %zu of %s isn't the engine's (contents %d, the engine's %d): half-life's sky counts as a roof there",
+						b, path.c_str(), brushes[b].contents, contents);
+					return {};
+				}
+			}
+			log_info("sky: %d of %s's %zu brushes are its sky", count, path.c_str(), brushes.size());
+			return sky;
+		}
 
 		float slot_offset(MapSlot slot)
 		{
@@ -124,11 +185,12 @@ namespace halfcraft
 		}
 	}
 
-	void WorldCollision::reset(MapSlot slot)
+	void WorldCollision::reset(MapSlot slot, const char* map_name)
 	{
 		slot_ = slot;
 		hulls_.clear();
 		movers_.clear();
+		sky_brushes_ = map_name ? read_sky_brushes(map_name) : std::vector<bool>();
 	}
 
 	void WorldCollision::to_source_box(const float lo[3], const float hi[3], Vector& mins, Vector& maxs) const
@@ -180,6 +242,9 @@ namespace halfcraft
 			}
 			ColPrimitives::Convex cvx;
 			brush_to_convex(brush.data(), brush.size(), box_mins, box_maxs, slot_, cvx);
+			if (brushes[i] >= 0 && static_cast<std::size_t>(brushes[i]) < sky_brushes_.size() && sky_brushes_[brushes[i]]) {
+				cvx.flags |= PRIM_SKY;
+			}
 			out.convexes.push_back(std::move(cvx));
 		}
 	}

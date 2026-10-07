@@ -62,6 +62,11 @@ public final class HostNav {
 		public int nav(int x, int y, int z) {
 			return HostCollision.navAt(x, y, z);
 		}
+
+		@Override
+		public boolean sky(int x, int y, int z) {
+			return HostCollision.isSkyAt(x, y, z);
+		}
 	};
 
 	private static final Map<String, Long> LAST_NOTES = new ConcurrentHashMap<>();

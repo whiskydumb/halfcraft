@@ -9,7 +9,9 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class NavGridTest {
@@ -21,6 +23,7 @@ class NavGridTest {
 	/** Half-Life voxels for a test: cells hold layers, everything in [-16, 16) on each axis is known. */
 	private static final class Grid implements NavGrid.Cells {
 		private final Map<Long, long[]> cells = new HashMap<>();
+		private final Set<Long> skies = new HashSet<>();
 
 		@Override
 		public long[] layers(int x, int y, int z) {
@@ -30,6 +33,17 @@ class NavGridTest {
 		@Override
 		public boolean known(int x, int y, int z) {
 			return x >= -16 && x < 16 && y >= -16 && y < 16 && z >= -16 && z < 16;
+		}
+
+		@Override
+		public boolean sky(int x, int y, int z) {
+			return this.skies.contains(key(x, y, z));
+		}
+
+		/** A full cell of the map's sky brushes. */
+		Grid skybox(int x, int y, int z) {
+			this.skies.add(key(x, y, z));
+			return this.floor(x, y, z, 7);
 		}
 
 		/** Fills the voxels x0..x1, y0..y1, z0..z1 (inclusive, 0-7) of cell (x, y, z). */
@@ -163,6 +177,14 @@ class NavGridTest {
 		assertTrue(NavGrid.roofed(grid, 0, 1, 0));
 		assertFalse(NavGrid.roofed(grid, 1, 1, 0));
 		assertFalse(NavGrid.roofed(grid, 0, 5, 0), "the roof is below");
+	}
+
+	@Test
+	void roofedSeesTheSkyThroughTheSkyboxCeiling() {
+		Grid grid = new Grid().skybox(0, 6, 0).floor(1, 3, 0, 0).skybox(1, 6, 0);
+		assertFalse(NavGrid.roofed(grid, 0, 1, 0), "the skybox ceiling is open sky");
+		assertTrue(NavGrid.roofed(grid, 1, 1, 0), "a roof under the skybox ceiling is still a roof");
+		assertFalse(NavGrid.roofed(grid, 1, 4, 0), "over the roof, under the sky");
 	}
 
 	@Test

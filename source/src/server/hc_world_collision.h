@@ -3,7 +3,8 @@
 // server.dll: what half-life 2's player collides with, as minecraft geometry. include after the sdk
 // headers and tier0/valve_minmax_off.h.
 //
-//   world brushes      enginetrace brush planes        -> convexes (exact, player clips included)
+//   world brushes      enginetrace brush planes        -> convexes (exact, player clips included; the
+//                                                         sky's flagged PRIM_SKY, from the map's .bsp)
 //   displacements      enginetrace displacement collide -> triangles
 //   static props       their .phy hulls                -> convexes
 //   solid entities     doors, lifts, props, crates     -> convexes, re-sent while they move
@@ -24,7 +25,8 @@ namespace halfcraft
 	{
 	public:
 		/// a new map: where it sits in the minecraft world, and nothing cached from the last one.
-		void reset(MapSlot slot);
+		/// @param map_name - its name ("d1_canals_01"), to read its sky brushes from; nullptr: none
+		void reset(MapSlot slot, const char* map_name);
 
 		void gather(const float lo[3], const float hi[3], ColPrimitives& out) override;
 
@@ -59,6 +61,7 @@ namespace halfcraft
 		};
 
 		MapSlot                                             slot_;
+		std::vector<bool>                                   sky_brushes_;  // by brush index
 		std::unordered_map<const model_t*, std::vector<Hull>> hulls_;
 		std::unordered_map<int, Mover>                      movers_;  // by entity serial-qualified index
 		int                                                 frame_ = 0;

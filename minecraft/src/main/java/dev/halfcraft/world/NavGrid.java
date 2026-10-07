@@ -85,6 +85,11 @@ public final class NavGrid {
 			long[] layers = this.layers(x, y, z);
 			return layers == null ? EMPTY : classify(layers);
 		}
+
+		/** All of the cell's geometry is the map's sky (its skybox ceiling), not a roof. */
+		default boolean sky(int x, int y, int z) {
+			return false;
+		}
 	}
 
 	/**
@@ -197,10 +202,14 @@ public final class NavGrid {
 
 	/**
 	 * Half-Life geometry shades this cell from the sky: something in the middle of it or of a cell above
-	 * it, as far up as Half-Life has described.
+	 * it, as far up as Half-Life has described. The map's sky itself (its skybox ceiling, solid as it is)
+	 * is no roof: what reaches it first is out in the open.
 	 */
 	public static boolean roofed(Cells cells, int x, int y, int z) {
 		for (int cy = y; cy < y + MAX_ROOF_SCAN && cells.known(x, cy, z); cy++) {
+			if (cells.sky(x, cy, z)) {
+				return false;
+			}
 			if (kind(cells.nav(x, cy, z)) != EMPTY) {
 				return true;
 			}

@@ -78,7 +78,7 @@ namespace halfcraft
 			void LevelInitPostEntity() override
 			{
 				slot_ = { map_slot(STRING(gpGlobals->mapname)), map_grid_z(STRING(gpGlobals->mapname)) };
-				world_.reset(slot_);
+				world_.reset(slot_, STRING(gpGlobals->mapname));
 				solids_.reset(slot_);
 				combat_.reset(slot_);
 				vitals_.reset();
@@ -91,7 +91,7 @@ namespace halfcraft
 
 			void LevelShutdownPreEntity() override
 			{
-				world_.reset({});
+				world_.reset({}, nullptr);
 				mobs_.reset();
 			}
 

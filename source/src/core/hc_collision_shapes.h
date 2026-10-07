@@ -18,6 +18,8 @@ namespace halfcraft
 {
 	inline constexpr int COLLISION_REGION_SIZE = 8;  // blocks per region edge (HostCollision.REGION_SIZE)
 	inline constexpr int REGION_VOXELS = COLLISION_REGION_SIZE * 8;  // voxels per region edge (64)
+	/// a primitive's flags (proto::ColTriFlags: its triangles keep them): one of the map's sky brushes
+	inline constexpr std::uint32_t PRIM_SKY = 1u << 1;
 
 	/// solid geometry in minecraft space.
 	struct ColPrimitives
@@ -222,11 +224,16 @@ namespace halfcraft
 	/// brush there used to fill the voxel above its top too (mobs and items stood 5 units over the floor),
 	/// and a flat displacement there filled nothing at all, so they fell through it (d1_canals_01's gravel
 	/// by the tracks, z = 256 with the grid at 16).
-	inline void voxelize_region(const ColPrimitives& prims, int rx, int ry, int rz, RegionVoxels& solid)
+	///
+	/// @param sky - when given, the voxels of the map's sky brushes (PRIM_SKY) among them
+	inline void voxelize_region(const ColPrimitives& prims, int rx, int ry, int rz, RegionVoxels& solid, RegionVoxels* sky = nullptr)
 	{
 		using namespace voxel_detail;
 		constexpr int G = REGION_VOXELS;
 		solid.assign(G * G, 0);
+		if (sky) {
+			sky->assign(G * G, 0);
+		}
 		RegionVoxels steep(G * G, 0);
 		auto         set = [&](RegionVoxels& grid, int x, int y, int z) { grid[y * G + z] |= 1ull << x; };
 
@@ -330,6 +337,9 @@ namespace halfcraft
 						}
 						if (inside) {
 							set(solid, x, y, z);
+							if (sky && (cvx.flags & PRIM_SKY)) {
+								set(*sky, x, y, z);
+							}
 						}
 					}
 				}

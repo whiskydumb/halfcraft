@@ -269,11 +269,13 @@ namespace halfcraft
 		send(payload, proto::kColTris);
 	}
 
+	static_assert(PRIM_SKY == proto::kTriSky);
+
 	void CollisionStreamer::voxelize(const Job& job)
 	{
 		constexpr int G = GRID;
-		RegionVoxels  solid;
-		voxelize_region(job.prims, job.rx, job.ry, job.rz, solid);
+		RegionVoxels  solid, sky;
+		voxelize_region(job.prims, job.rx, job.ry, job.rz, solid, &sky);
 
 		// pack the non-empty blocks.
 		std::vector<proto::ColBlock> blocks;
@@ -283,16 +285,21 @@ namespace halfcraft
 				for (int bx = 0; bx < REGION_SIZE; ++bx) {
 					proto::ColBlock blk{};
 					bool            any = false;
+					bool            all_sky = true;  // every voxel of it is the sky's
 					for (int sy = 0; sy < 8; ++sy) {
-						std::uint64_t layer = 0;
+						std::uint64_t layer = 0, sky_layer = 0;
 						for (int sz = 0; sz < 8; ++sz) {
-							const auto row = (solid[(by * 8 + sy) * G + (bz * 8 + sz)] >> (bx * 8)) & 0xFF;
+							const int  row_index = (by * 8 + sy) * G + (bz * 8 + sz);
+							const auto row = (solid[row_index] >> (bx * 8)) & 0xFF;
 							layer |= row << (sz * 8);
+							sky_layer |= ((sky[row_index] >> (bx * 8)) & 0xFF) << (sz * 8);
 						}
 						blk.bits[sy] = layer;
 						any |= layer != 0;
+						all_sky &= (layer & ~sky_layer) == 0;
 					}
 					if (any) {
+						blk.flags = all_sky ? proto::kColBlockSky : 0u;
 						blk.x = job.rx * REGION_SIZE + bx;
 						blk.y = job.ry * REGION_SIZE + by;
 						blk.z = job.rz * REGION_SIZE + bz;

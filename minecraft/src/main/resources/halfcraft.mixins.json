@@ -6,6 +6,7 @@
     "AbstractArrowMixin",
     "AbstractBoatMixin",
     "AvatarDuckMixin",
+    "BeaconRoofMixin",
     "BlockCollisionsMixin",
     "BlockStateBaseMixin",
     "BoatDispenseItemBehaviorMixin",

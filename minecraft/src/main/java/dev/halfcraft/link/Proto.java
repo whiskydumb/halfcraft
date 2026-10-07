@@ -256,8 +256,11 @@ public final class Proto {
 	public static final int COL_TRIS = 3;
 	public static final int COL_TRI_BYTES = 40;
 	public static final int TRI_STAIR_HELPER = 1;
+	public static final int TRI_SKY = 1 << 1;
 	public static final int COL_REGION_HEADER_BYTES = 32;
 	public static final int COL_BLOCK_BYTES = 80;
+	public static final long COL_BLOCK_FLAGS = 12;
+	public static final int COL_BLOCK_SKY = 1;
 
 	// Host debug (relative to OFF_HOST_DEBUG): (#7) client.dll's HostDebug, then server.dll's HostDebugServer at HD_SERVER
 	public static final long HD_SEQ = 0x00;
