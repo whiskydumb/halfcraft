@@ -295,21 +295,22 @@ namespace halfcraft
 			}
 
 			// source moved the player itself (a teleport trigger, a level transition, loading a save).
-			const float jump_refused = jump_refused_units();
 			if (s.loading) {
 				s.teleport_pending = true;
 				s.have_last_set = false;
 			} else if (s.puppeting && jump_landing_elsewhere()) {
-				// source takes minecraft's jump next to where minecraft put its player: once source's is
-				// there, minecraft's goes there too
-				if (jump_landed_elsewhere(origin)) {
-					log_info("source landed minecraft's jump next to where minecraft put its player; resyncing minecraft");
+				// source took minecraft's jump next to where minecraft put its player, or refused it and kept
+				// the player: once source's is there, minecraft's goes there too
+				bool refused = false;
+				if (jump_landed_elsewhere(origin, refused)) {
+					log_info(refused ? "source refused minecraft's jump: no room for the player there; resyncing minecraft"
+									 : "source landed minecraft's jump next to where minecraft put its player; resyncing minecraft");
 					s.teleport_pending = true;
 					s.have_last_set = false;
 				}
-			} else if (s.puppeting && s.have_last_set && distance(origin, s.last_set) > (jump_refused > 0.0f ? jump_refused : TELEPORT_THRESHOLD)) {
-				log_info(jump_refused > 0.0f ? "source refused minecraft's jump (%.0f units off); resyncing minecraft" : "source moved the player (%.0f units); resyncing minecraft",
-					distance(origin, s.last_set));
+			} else if (s.puppeting && s.have_last_set && !jump_in_flight() && distance(origin, s.last_set) > TELEPORT_THRESHOLD) {
+				// during one of minecraft's jumps source says itself where the player went (above)
+				log_info("source moved the player (%.0f units); resyncing minecraft", distance(origin, s.last_set));
 				s.teleport_pending = true;
 				s.have_last_set = false;
 			}

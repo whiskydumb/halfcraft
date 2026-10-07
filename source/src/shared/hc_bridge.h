@@ -15,8 +15,8 @@
 //            burns npcs that stand in them
 //   arrows - minecraft's arrows that stuck in an npc (an event the server reads); the client draws
 //            them on the npc's bones
-//   landings - one of minecraft's jumps source took next to where minecraft put its player (the
-//            player movement, hc_movement.cpp); the client sends minecraft's player there too
+//   landings - one of minecraft's jumps source took next to where minecraft put its player, or
+//            refused (the player movement, hc_movement.cpp); the client sends minecraft's player there
 
 #include <cstdint>
 
@@ -86,10 +86,12 @@ namespace halfcraft
 	inline constexpr char HC_REQUEST_SCREENSHOT_EXPORT[] = "HalfCraft_RequestScreenshot";
 
 	/// server.dll -> client.dll: source took one of minecraft's jumps next to where minecraft put its
-	/// player, which didn't fit there (a pearl against a ledge or a ceiling). single player has no
-	/// client prediction to see it: the client resyncs minecraft's player once source's is there.
-	/// @param feet - where source put the player, source units
-	using JumpLandedFn = void (*)(const float feet[3]);
+	/// player, which didn't fit there (a pearl against a ledge or a ceiling), or refused it. single
+	/// player has no client prediction to see it: the client resyncs minecraft's player once source's
+	/// is there.
+	/// @param feet - where source put the player, or kept it, source units
+	/// @param refused - nonzero: source refused the jump
+	using JumpLandedFn = void (*)(const float feet[3], int refused);
 
 	inline constexpr char HC_JUMP_LANDED_EXPORT[] = "HalfCraft_JumpLanded";
 }

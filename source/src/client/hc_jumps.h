@@ -10,7 +10,9 @@
 //              carries it too
 // a jump that doesn't fit where minecraft put its player (a pearl against a ceiling, a ledge or a
 // wall) lands under, onto or out of it nearby, and minecraft's player is resynced there; one source
-// refuses (no room near either) resyncs minecraft to source's player.
+// refuses (no room near either) resyncs minecraft to source's player. source's movement says which
+// (client_jump_landed_elsewhere): the client draws its player well behind the commands (without
+// prediction, a tenth of a second of interpolation), so where it shows the player says nothing then.
 
 namespace halfcraft
 {
@@ -24,16 +26,17 @@ namespace halfcraft
 	/// (the teleport that hands the player back to it is source's).
 	void jump_forget(const ClientSession& session);
 
-	/// how far source's player may be from the last puppet command's feet before that's a refusal of
-	/// one of minecraft's jumps (0: that command wasn't one).
-	float jump_refused_units();
+	/// the last puppet command was one of minecraft's jumps: source says where it puts the player
+	/// (jump_landed_elsewhere), so source's player being away from minecraft's is no refusal meanwhile.
+	bool jump_in_flight();
 
-	/// source takes minecraft's latest jump next to where minecraft put its player (client_jump_landed_elsewhere):
-	/// meanwhile source's player is on its way there, and that's no refusal.
+	/// source takes minecraft's latest jump next to where minecraft put its player, or refused it
+	/// (client_jump_landed_elsewhere): meanwhile source's player is on its way there.
 	bool jump_landing_elsewhere();
 
-	/// source's player stands where source took minecraft's latest jump instead (jump_landing_elsewhere):
-	/// minecraft's goes there too. true once per such landing.
+	/// source's player stands where source took minecraft's latest jump instead, or where it kept the
+	/// player refusing it (jump_landing_elsewhere): minecraft's goes there too. true once per such landing.
 	/// @param origin - source's player (source units)
-	bool jump_landed_elsewhere(const float origin[3]);
+	/// @param refused - set: source refused the jump
+	bool jump_landed_elsewhere(const float origin[3], bool& refused);
 }

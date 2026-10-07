@@ -195,20 +195,25 @@ static void HalfCraftNoteJump( float flStep, const Vector &vecTo, bool bFits )
 	else
 		halfcraft::log_info( "minecraft's jump of %.0f units refused: the player doesn't fit at (%.0f %.0f %.0f)", flStep, vecTo.x, vecTo.y, vecTo.z );
 }
+#endif
 
-// the client resyncs minecraft's player to a jump landed elsewhere: in single player it doesn't predict
-// the player's movement, so it hears of it here
-static void HalfCraftTellLanded( const Vector &vecFeet )
+// the client resyncs minecraft's player to a jump landed elsewhere or refused: it can't tell from where
+// it draws the player (in single player it doesn't predict the player's movement, and draws it a
+// tenth of a second behind), so it hears of it here
+static void HalfCraftTellLanded( const Vector &vecFeet, bool bRefused )
 {
+#ifdef CLIENT_DLL
+	halfcraft::client_jump_landed_elsewhere( vecFeet, bRefused );
+#else
 	static const halfcraft::JumpLandedFn s_pfnLanded =
 		reinterpret_cast<halfcraft::JumpLandedFn>( halfcraft::find_export( "client.dll", halfcraft::HC_JUMP_LANDED_EXPORT ) );
 	if ( s_pfnLanded )
 	{
 		const float flFeet[3] = { vecFeet.x, vecFeet.y, vecFeet.z };
-		s_pfnLanded( flFeet );
+		s_pfnLanded( flFeet, bRefused ? 1 : 0 );
 	}
-}
 #endif
+}
 
 bool CGameMovement::HalfCraftMove( void )
 {
@@ -255,17 +260,16 @@ bool CGameMovement::HalfCraftMove( void )
 		{
 			bFits = true;
 			vecOrigin = vecLanding;
-#ifdef CLIENT_DLL
-			halfcraft::client_jump_landed_elsewhere( vecLanding );
-#else
-			HalfCraftTellLanded( vecLanding );
-#endif
+			HalfCraftTellLanded( vecLanding, false );
 		}
 #ifdef GAME_DLL
 		HalfCraftNoteJump( flStep, vecOrigin, bFits );
 #endif
 		if ( !bFits )
+		{
+			HalfCraftTellLanded( mv->GetAbsOrigin(), true );  // the player stays where it is
 			return false;
+		}
 	}
 	else if ( flStep > HALFCRAFT_MAX_STEP )
 	{

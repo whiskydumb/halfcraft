@@ -28,12 +28,6 @@ namespace halfcraft
 		// the feet have landed once they are this close to minecraft's latest tick, on top of that
 		// tick's own motion
 		constexpr float LANDED_UNITS = 4.0f;
-		// source's player this far off a jump's feet didn't take it, on top of the longest recent step: at
-		// a frame rate above the tick rate source draws its player between the last two predicted commands,
-		// so for a moment after a jump it still shows the player part of the way back
-		constexpr float REFUSED_UNITS = 4.0f;
-		// how long a step counts as recent: a few ticks of source's interpolation
-		constexpr double RECENT_STEP_SECONDS = 0.2;
 		// a step this long between two commands is one source's guard (160) may refuse
 		constexpr float FAST_STEP_UNITS = 120.0f;
 		// a frame covers up to about two of minecraft's ticks at a low frame rate
@@ -46,13 +40,12 @@ namespace halfcraft
 		bool          g_landed = false;
 		bool          g_have_from = false;
 		float         g_from[3] = {};  // the last puppet command's feet
-		float         g_step = 0.0f;   // the longest step between two commands in the last RECENT_STEP_SECONDS
-		double        g_step_at = -1.0;
 		bool          g_sent = false;
 		double        g_fast_logged = -1.0;
-		// where source landed a jump that didn't fit where minecraft put its player, and until when
-		// minecraft's player is still to go there (-1: none)
+		// where source landed a jump that didn't fit where minecraft put its player (or kept the player,
+		// refusing it), and until when minecraft's player is still to go there (-1: none)
 		float         g_elsewhere[3] = {};
+		bool          g_elsewhere_refused = false;
 		double        g_elsewhere_until = -1.0;
 		// the landing minecraft's player went to last: prediction runs the commands before it again
 		// for a while, and they'd land there again
@@ -86,10 +79,6 @@ namespace halfcraft
 			g_counted = true;
 		}
 		const float step = g_have_from ? distance(feet, g_from) : 0.0f;
-		if (step >= g_step || now - g_step_at > RECENT_STEP_SECONDS) {
-			g_step = step;
-			g_step_at = now;
-		}
 		std::copy(feet, feet + 3, g_from);
 		g_have_from = true;
 
@@ -127,14 +116,12 @@ namespace halfcraft
 		g_teleports = s.mc.teleportCount;
 		g_flag_until = -1.0;
 		g_have_from = false;
-		g_step = 0.0f;
-		g_step_at = -1.0;
 		g_sent = false;
 	}
 
-	float jump_refused_units()
+	bool jump_in_flight()
 	{
-		return g_sent ? REFUSED_UNITS + g_step : 0.0f;
+		return g_sent;
 	}
 
 	bool jump_landing_elsewhere()
@@ -145,18 +132,19 @@ namespace halfcraft
 		return g_elsewhere_until >= 0.0;
 	}
 
-	bool jump_landed_elsewhere(const float origin[3])
+	bool jump_landed_elsewhere(const float origin[3], bool& refused)
 	{
 		if (!jump_landing_elsewhere() || distance(origin, g_elsewhere) > LANDED_UNITS) {
-			return false;  // source's player isn't there yet (it's drawn between two commands)
+			return false;  // source's player isn't there yet (it's drawn behind its commands)
 		}
+		refused = g_elsewhere_refused;
 		g_elsewhere_until = -1.0;
 		std::copy(g_elsewhere, g_elsewhere + 3, g_went);
 		g_went_until = Plat_FloatTime() + LANDING_SECONDS;
 		return true;
 	}
 
-	void client_jump_landed_elsewhere(const Vector& feet)
+	void client_jump_landed_elsewhere(const Vector& feet, bool refused)
 	{
 		// prediction runs a command again and again: the latest landing counts
 		const float  at[3] = { feet.x, feet.y, feet.z };
@@ -165,12 +153,14 @@ namespace halfcraft
 			return;
 		}
 		std::copy(at, at + 3, g_elsewhere);
+		g_elsewhere_refused = refused;
 		g_elsewhere_until = now + LANDING_SECONDS;
 	}
 }
 
-// server.dll: it landed one of minecraft's jumps next to where minecraft put its player (hc_bridge.h)
-extern "C" __declspec(dllexport) void HalfCraft_JumpLanded(const float feet[3])
+// server.dll: it landed one of minecraft's jumps next to where minecraft put its player, or refused it
+// (hc_bridge.h)
+extern "C" __declspec(dllexport) void HalfCraft_JumpLanded(const float feet[3], int refused)
 {
-	halfcraft::client_jump_landed_elsewhere(Vector(feet[0], feet[1], feet[2]));
+	halfcraft::client_jump_landed_elsewhere(Vector(feet[0], feet[1], feet[2]), refused != 0);
 }
