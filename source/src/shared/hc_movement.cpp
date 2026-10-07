@@ -14,6 +14,7 @@
 #include "shared/hc_hooks.h"
 #ifdef GAME_DLL
 #include "core/hc_module.h"
+#include "server/hc_block_solids.h"
 #include "shared/hc_bridge.h"
 #endif
 
@@ -61,6 +62,18 @@ static bool HalfCraftRiding( CBasePlayer *pPlayer )
 	return pGround && pGround->GetMoveType() == MOVETYPE_PUSH &&
 		   ( pGround->GetAbsVelocity().LengthSqr() > 1.0f || pGround->GetLocalAngularVelocity().LengthSqr() > 1.0f );
 #else
+	return false;
+#endif
+}
+
+// minecraft's own blocks under the player (server.dll's solids for them, hc_block_solids.h): minecraft
+// plays its own footsteps there. the client has no such entity, so its traces never find one
+static bool HalfCraftMinecraftGround( CBaseEntity *pGround )
+{
+#ifdef GAME_DLL
+	return pGround && FClassnameIs( pGround, halfcraft::BLOCKS_CLASSNAME );
+#else
+	(void)pGround;
 	return false;
 #endif
 }
@@ -305,6 +318,12 @@ bool CGameMovement::HalfCraftMove( void )
 	const bool bGround = ( cmd->hc_flags & halfcraft::HC_CMD_ON_GROUND ) && pm.m_pEnt && !pm.startsolid && pm.plane.normal.z >= 0.7f;
 	SetGroundEntity( bGround ? &pm : NULL );
 	CheckWater();
+
+	// half-life's footsteps for its ground under minecraft's player (its material, set by SetGroundEntity):
+	// source's own movement plays them (CGameMovement::PlayerMove), which the puppet skips. on minecraft's
+	// blocks minecraft plays its own
+	if ( bGround && !HalfCraftMinecraftGround( pm.m_pEnt ) )
+		player->UpdateStepSound( player->m_pSurfaceData, mv->GetAbsOrigin(), mv->m_vecVelocity );
 
 #ifdef GAME_DLL
 	// the ground's material goes to the env_player_surface_triggers maps hang scripted events on (the

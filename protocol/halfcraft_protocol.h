@@ -99,7 +99,7 @@ namespace halfcraft::proto
 		std::uint32_t viewportW, viewportH;
 		float         gameHour;
 		float         seatYaw;           // the way the vehicle's seat faces (MC degrees), with kHostSeated
-		std::uint32_t reserved;
+		float         speedFactor;       // how fast source lets its player move (player_speedmod): 1 normal, 0.5 half speed
 	};
 	static_assert(sizeof(HostState) == 0x48);
 

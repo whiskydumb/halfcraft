@@ -419,6 +419,7 @@ namespace halfcraft
 			host.viewportW = static_cast<std::uint32_t>(s.viewport_w);
 			host.viewportH = static_cast<std::uint32_t>(s.viewport_h);
 			host.gameHour = IDLE_GAME_HOUR;
+			host.speedFactor = player ? player->GetLaggedMovementValue() : 1.0f;  // player_speedmod
 			s.link.write_host_state(host);
 		}
 	}

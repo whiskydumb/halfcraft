@@ -168,6 +168,7 @@ public final class Proto {
 	public static final long HS_VIEWPORT_H = 0x38;
 	public static final long HS_GAME_HOUR = 0x3C;
 	public static final long HS_SEAT_YAW = 0x40;
+	public static final long HS_SPEED_FACTOR = 0x44;
 
 	public static final int HOST_IN_GAME = 1;
 	public static final int HOST_MENU_OPEN = 1 << 1;

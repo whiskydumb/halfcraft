@@ -208,6 +208,7 @@ public final class HostLink {
 		public int viewportW, viewportH;
 		public float gameHour;
 		public float seatYaw;
+		public float speedFactor;
 
 		public boolean inGame() {
 			return (this.flags & HOST_IN_GAME) != 0;
@@ -300,6 +301,7 @@ public final class HostLink {
 			out.viewportH = s.get(JAVA_INT, b + HS_VIEWPORT_H);
 			out.gameHour = s.get(JAVA_FLOAT, b + HS_GAME_HOUR);
 			out.seatYaw = s.get(JAVA_FLOAT, b + HS_SEAT_YAW);
+			out.speedFactor = s.get(JAVA_FLOAT, b + HS_SPEED_FACTOR);
 			VarHandle.loadLoadFence();
 			int seq2 = (int) INT.getAcquire(s, b + HS_SEQ);
 			if (seq1 == seq2) {

@@ -18,6 +18,7 @@
     "MinecraftMixin",
     "PlayerDuckJumpMixin",
     "PlayerPositionMixin",
+    "PlayerSpeedModMixin",
     "PlayerTravelMixin",
     "RenderSetupAccessor",
     "RenderTypeAccessor",
