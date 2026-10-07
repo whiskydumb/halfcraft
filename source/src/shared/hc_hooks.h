@@ -91,6 +91,12 @@ namespace halfcraft
 	/// ClientModeShared::PostRenderVGui: the frame is finished (the world, the hud and minecraft's
 	/// overlay); only source's menus and console still go over it.
 	void client_post_render_vgui();
+
+	/// CGameMovement::HalfCraftMove, in prediction, and server.dll's (HC_JUMP_LANDED_EXPORT): source
+	/// took one of minecraft's jumps next to where minecraft put its player, which didn't fit (a pearl
+	/// against a ceiling, a ledge or a wall). minecraft's player goes there too (hc_jumps.cpp).
+	/// @param feet - where source put the player
+	void client_jump_landed_elsewhere(const Vector& feet);
 #endif
 
 #ifdef GAME_DLL

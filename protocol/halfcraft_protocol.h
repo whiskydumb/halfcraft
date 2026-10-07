@@ -66,6 +66,7 @@ namespace halfcraft::proto
 		kHostInGame = 1u << 0,    // a map is loaded and the player exists
 		kHostMenuOpen = 1u << 1,  // a host menu (or console) owns input; MC should drop held keys
 		kHostLoading = 1u << 2,   // loading screen / level transition in progress
+		kHostSeated = 1u << 3,    // in a vehicle's seat (with kHostTakeover): Minecraft's body sits, facing seatYaw
 		// source moves the player itself (a ladder, a lift or train, a vehicle, a scripted scene): Minecraft's
 		// player stays at posX/Y/Z every tick, without falling or fall damage, until the hand-back's teleport
 		kHostTakeover = 1u << 7,
@@ -97,8 +98,10 @@ namespace halfcraft::proto
 		std::uint32_t teleportSeq;       // MC teleports its player to pos when this changes
 		std::uint32_t viewportW, viewportH;
 		float         gameHour;
+		float         seatYaw;           // the way the vehicle's seat faces (MC degrees), with kHostSeated
+		std::uint32_t reserved;
 	};
-	static_assert(sizeof(HostState) == 0x40);
+	static_assert(sizeof(HostState) == 0x48);
 
 	// ---- MC -> host state @0x200 (seqlock) --------------------------------------------------
 	enum McFlags : std::uint32_t
@@ -111,6 +114,7 @@ namespace halfcraft::proto
 		kMcDead = 1u << 5,
 		kMcSwimming = 1u << 6,
 		kMcFlying = 1u << 7,
+		kMcSleeping = 1u << 8,  // in a bed: yaw/pitch are the look Minecraft holds there, eyeX/Y/Z its camera
 		// bits 12-13: kept for the puppet group (A), 14-15 for the world group (C)
 	};
 
@@ -119,7 +123,7 @@ namespace halfcraft::proto
 		std::uint32_t seq;
 		std::uint32_t flags;          // McFlags
 		double        x, y, z;        // interpolated feet position (MC coords)
-		float         yaw, pitch;     // MC rotation (degrees)
+		float         yaw, pitch;     // MC rotation (degrees); asleep in first person its camera's, along the bed
 		float         eyeHeight;      // blocks above feet
 		float         sensitivity;    // MC mouse sensitivity option (0..1)
 		std::uint32_t teleportAck;    // last HostState::teleportSeq applied
@@ -571,7 +575,7 @@ namespace halfcraft::proto
 	inline constexpr std::uint64_t kOffWaterProbes = 0x29000;
 	inline constexpr std::uint64_t kWaterProbesBytes = 0x1000;
 	inline constexpr std::uint64_t kWaterProbesAnswerOff = 0x100;  // from kOffWaterProbes
-	inline constexpr std::uint32_t kMaxWaterProbes = 4;
+	inline constexpr std::uint32_t kMaxWaterProbes = 12;  // a boat waits for the probe chosen for it (HostWater)
 	inline constexpr std::uint32_t kWaterProbeSize = 8;  // block columns along each side of a probe's grid
 	inline constexpr float         kWaterProbeDepth = 6.0f;  // blocks below a probe's y its search reaches
 

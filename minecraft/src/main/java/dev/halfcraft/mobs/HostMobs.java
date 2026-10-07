@@ -7,6 +7,7 @@ import dev.halfcraft.HalfCraft;
 import dev.halfcraft.combat.HostActorEntity;
 import dev.halfcraft.combat.HostCombat;
 import dev.halfcraft.link.HostLink;
+import dev.halfcraft.world.HostWater;
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.VarHandle;
 import java.util.ArrayList;
@@ -70,6 +71,7 @@ public final class HostMobs {
 
 	private static void serverTick(MinecraftServer server) {
 		HostNav.endTick();
+		HostWater.endTick();
 		List<ServerPlayer> players = server.getPlayerList().getPlayers();
 		if (!HostLink.active() || players.isEmpty()) {
 			NEARBY.clear();

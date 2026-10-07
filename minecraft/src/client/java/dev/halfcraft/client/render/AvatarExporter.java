@@ -6,6 +6,7 @@ import com.mojang.blaze3d.vertex.QuadInstance;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
 import dev.halfcraft.HalfCraft;
+import dev.halfcraft.client.HostClient;
 import dev.halfcraft.client.mixin.LeashFeatureRendererAccessor;
 import dev.halfcraft.client.mixin.RenderSetupAccessor;
 import dev.halfcraft.client.mixin.RenderTypeAccessor;
@@ -102,6 +103,8 @@ final class AvatarExporter implements SubmitNodeCollector {
 	private static final float LEASH_WIDTH = 0.05F;
 	// A line's width (pixels) when its renderer gives none.
 	private static final float LINE_WIDTH = 2.0F;
+	// How far a seated player's head turns from the seat (Boat.clampRotation).
+	private static final float SEATED_HEAD_TURN = 105.0F;
 	private static boolean warnedBlockEntity;
 
 	// Textures Half-Life holds, shared by both captures.
@@ -173,6 +176,10 @@ final class AvatarExporter implements SubmitNodeCollector {
 			var dispatcher = minecraft.getEntityRenderDispatcher();
 			dispatcher.prepare(camera, minecraft.crosshairPickEntity);
 			EntityRenderState state = dispatcher.extractEntity(player, partialTick);
+			HostLink.HostState sky = HostClient.sky();
+			if (HostClient.linked() && sky.takeover() && sky.seated()) {
+				sit(state, sky.seatYaw);
+			}
 			CameraRenderState cameraState = minecraft.gameRenderer.gameRenderState().levelRenderState.cameraRenderState;
 			this.lookFrom(minecraft, camera, camera.position().subtract(player.getPosition(partialTick)));
 			// At the origin: positions come out relative to the player's feet.
@@ -182,6 +189,26 @@ final class AvatarExporter implements SubmitNodeCollector {
 			return;
 		}
 		this.send(Proto.REN_AVATAR, null);
+	}
+
+	/**
+	 * In a Half-Life vehicle Minecraft's player rides nothing of Minecraft's: it gets the pose it has
+	 * in a boat instead, legs forward and still, the body facing the way the seat does and the head
+	 * turning from there as far as a boat lets it.
+	 */
+	private static void sit(EntityRenderState state, float seatYaw) {
+		if (state instanceof LivingEntityRenderState living) {
+			float head = living.bodyRot + living.yRot;
+			living.bodyRot = seatYaw;
+			living.yRot = Mth.clamp(Mth.wrapDegrees(head - seatYaw), -SEATED_HEAD_TURN, SEATED_HEAD_TURN);
+			living.walkAnimationPos = living.walkAnimationSpeed = 0.0F;
+			living.pose = Pose.STANDING;
+		}
+		if (state instanceof HumanoidRenderState humanoid) {
+			humanoid.isPassenger = true;
+			humanoid.isCrouching = humanoid.isFallFlying = humanoid.isVisuallySwimming = false;
+			humanoid.swimAmount = 0.0F;
+		}
 	}
 
 	/**

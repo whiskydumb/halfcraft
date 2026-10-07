@@ -52,6 +52,11 @@ public final class HostDuck {
 		return clear(x, y - AIR_SHIFT, y, z, radius);
 	}
 
+	/** Whether Half-Life leaves room for a standing player at (x, y, z) to pull its legs up in the air. */
+	public static boolean tuckRoom(double x, double y, double z, double radius) {
+		return clear(x, y + AIR_SHIFT, y + AIR_SHIFT + HEIGHT - HEAD_GAP, z, radius);
+	}
+
 	private static boolean clear(double x, double lo, double hi, double z, double radius) {
 		if (hi <= lo) {
 			return true;

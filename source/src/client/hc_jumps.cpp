@@ -50,6 +50,14 @@ namespace halfcraft
 		double        g_step_at = -1.0;
 		bool          g_sent = false;
 		double        g_fast_logged = -1.0;
+		// where source landed a jump that didn't fit where minecraft put its player, and until when
+		// minecraft's player is still to go there (-1: none)
+		float         g_elsewhere[3] = {};
+		double        g_elsewhere_until = -1.0;
+		// the landing minecraft's player went to last: prediction runs the commands before it again
+		// for a while, and they'd land there again
+		float         g_went[3] = {};
+		double        g_went_until = -1.0;
 
 		float distance(const float a[3], const float b[3])
 		{
@@ -128,4 +136,41 @@ namespace halfcraft
 	{
 		return g_sent ? REFUSED_UNITS + g_step : 0.0f;
 	}
+
+	bool jump_landing_elsewhere()
+	{
+		if (g_elsewhere_until >= 0.0 && Plat_FloatTime() > g_elsewhere_until) {
+			g_elsewhere_until = -1.0;
+		}
+		return g_elsewhere_until >= 0.0;
+	}
+
+	bool jump_landed_elsewhere(const float origin[3])
+	{
+		if (!jump_landing_elsewhere() || distance(origin, g_elsewhere) > LANDED_UNITS) {
+			return false;  // source's player isn't there yet (it's drawn between two commands)
+		}
+		g_elsewhere_until = -1.0;
+		std::copy(g_elsewhere, g_elsewhere + 3, g_went);
+		g_went_until = Plat_FloatTime() + LANDING_SECONDS;
+		return true;
+	}
+
+	void client_jump_landed_elsewhere(const Vector& feet)
+	{
+		// prediction runs a command again and again: the latest landing counts
+		const float  at[3] = { feet.x, feet.y, feet.z };
+		const double now = Plat_FloatTime();
+		if (now < g_went_until && distance(at, g_went) <= LANDED_UNITS) {
+			return;
+		}
+		std::copy(at, at + 3, g_elsewhere);
+		g_elsewhere_until = now + LANDING_SECONDS;
+	}
+}
+
+// server.dll: it landed one of minecraft's jumps next to where minecraft put its player (hc_bridge.h)
+extern "C" __declspec(dllexport) void HalfCraft_JumpLanded(const float feet[3])
+{
+	halfcraft::client_jump_landed_elsewhere(Vector(feet[0], feet[1], feet[2]));
 }

@@ -5,15 +5,21 @@ import dev.halfcraft.link.HostLink;
 import dev.halfcraft.link.Proto;
 import dev.halfcraft.link.WaterProbes;
 import dev.halfcraft.mobs.HostNav;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -35,6 +41,12 @@ public final class HostWater {
 	// entity id -> where it wants Half-Life's water probed (client and server ticks alike)
 	private static final ConcurrentHashMap<Integer, WaterColumns.Want> WANTS = new ConcurrentHashMap<>();
 	private static int probesAsked;
+	// the entities a probe is chosen for (render thread writes, server thread reads)
+	private static volatile Set<Integer> probed = Set.of();
+	// server thread: boats waiting for their water this tick, and when that was last logged
+	private static final long WAIT_LOG_MS = 5000;
+	private static int waiting;
+	private static long waitLoggedMs;
 
 	private HostWater() {
 	}
@@ -51,8 +63,15 @@ public final class HostWater {
 		}
 		long now = System.currentTimeMillis();
 		WANTS.values().removeIf(want -> now - want.askedMs() > WANT_MS);
-		List<double[]> asks = WaterColumns.choose(WANTS.values(), g.originX() + g.size() / 2.0, g.originZ() + g.size() / 2.0, now, WANT_MS,
+		List<WaterColumns.Want> chosen = WaterColumns.choose(WANTS.values(), g.originX() + g.size() / 2.0, g.originZ() + g.size() / 2.0, now, WANT_MS,
 			Proto.MAX_WATER_PROBES);
+		List<double[]> asks = new ArrayList<>(chosen.size());
+		Set<Integer> ids = new HashSet<>();
+		for (WaterColumns.Want want : chosen) {
+			asks.add(new double[] { want.x(), want.y(), want.z() });
+			ids.add(want.id());
+		}
+		probed = ids;
 		WaterProbes.writeRequests(asks);
 		if (asks.size() != probesAsked) {
 			probesAsked = asks.size();
@@ -67,6 +86,7 @@ public final class HostWater {
 	public static void clear() {
 		grid = null;
 		probes = List.of();
+		probed = Set.of();
 		WANTS.clear();
 		probesAsked = 0;
 	}
@@ -81,11 +101,46 @@ public final class HostWater {
 		if (grid == null || !HostNav.inMirror(entity.level())) {
 			return;
 		}
-		WANTS.put(entity.getId(), new WaterColumns.Want(entity.getX(), entity.getY(), entity.getZ(), System.currentTimeMillis()));
+		WANTS.put(entity.getId(), new WaterColumns.Want(entity.getId(), entity.getX(), entity.getY(), entity.getZ(), System.currentTimeMillis()));
 	}
 
 	public static boolean active() {
 		return grid != null;
+	}
+
+	/**
+	 * A boat where no grid has looked for Half-Life's water yet waits for the probe it's getting, as
+	 * things wait for Half-Life's ground after a load (EntityHoldMixin): falling in before it, a boat
+	 * dropped onto far water would pass the surface it doesn't know of, land on the bottom and stay
+	 * under, since a boat only comes up when it falls into water. Only the boats a probe is chosen for
+	 * wait (a frame or two): the rest have none coming. Server side, where the boat's physics run
+	 * unless the player steers it.
+	 */
+	public static boolean holdUntilWaterKnown(Entity entity) {
+		WaterColumns.Grid g = grid;
+		if (g == null || !(entity instanceof AbstractBoat) || entity.level().isClientSide() || !probed.contains(entity.getId())
+			|| !HostNav.inMirror(entity.level())) {
+			return false;
+		}
+		int x = Mth.floor(entity.getX()), y = Mth.floor(entity.getY()), z = Mth.floor(entity.getZ());
+		List<WaterColumns.Grid> p = probes;
+		if (WaterColumns.known(g, p, x, y, z) && WaterColumns.known(g, p, x, y - 1, z)) {
+			return false;
+		}
+		entity.setDeltaMovement(Vec3.ZERO);
+		waiting++;
+		return true;
+	}
+
+	/** End of a server tick: says now and then that boats waited for their water (each waits a frame or two). */
+	public static void endTick() {
+		int count = waiting;
+		waiting = 0;
+		long now = System.currentTimeMillis();
+		if (count > 0 && now - waitLoggedMs >= WAIT_LOG_MS) {
+			waitLoggedMs = now;
+			HalfCraft.LOG.info("HalfCraft: {} boat(s) wait for Half-Life's water around them", count);
+		}
 	}
 
 	/** Minecraft y of Half-Life's water surface over the column of cell (x, y, z), or NaN where it has none. */

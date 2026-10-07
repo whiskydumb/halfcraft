@@ -39,6 +39,7 @@ namespace halfcraft
 		bool minecraft_owns_input = false;   // keys and mouse go to minecraft
 		bool minecraft_hands = false;        // on a ladder or a ride: source moves the player, minecraft keeps its hands (hc_input.cpp)
 		bool minecraft_camera = false;       // on a ladder, a ride or in a vehicle: minecraft's F5 camera goes round source's view
+		bool seated = false;                 // in a vehicle's seat: minecraft's body sits (HostState's seat)
 		bool minecraft_hud = false;          // minecraft's overlay (hud, hand, screens) is shown
 
 		// look (minecraft degrees), integrated from the raw mouse so the camera has no extra latency
@@ -69,6 +70,10 @@ namespace halfcraft
 		// minecraft's F5 camera as the view uses it: how far it sits from the eye (blocks), eased
 		float         camera_zoom = 0.0f;
 		std::uint32_t camera_zoom_mode = 0;
+		// while source moves the player and minecraft's camera goes round source's view: that view's
+		// eye this frame (source units), which minecraft's body goes under in third person
+		float takeover_eye[3] = {};
+		bool  have_takeover_eye = false;
 
 		// source's use while minecraft has the keyboard (G, or whatever source binds +use to), and
 		// minecraft's forward key (W: walking into a ladder mounts it)

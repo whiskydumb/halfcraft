@@ -26,8 +26,8 @@ public final class WaterColumns {
 	public record Grid(int originX, int originZ, int size, float[] surface, double bottom) {
 	}
 
-	/** Where a thing that wants its water probed is (Minecraft coords), and when it last asked (milliseconds). */
-	public record Want(double x, double y, double z, long askedMs) {
+	/** A thing (entity id) that wants its water probed, where it is (Minecraft coords), and when it last asked (milliseconds). */
+	public record Want(int id, double x, double y, double z, long askedMs) {
 	}
 
 	/** The surface over column (x, z) in this grid, or NaN outside it or where it found no water. */
@@ -62,10 +62,36 @@ public final class WaterColumns {
 	}
 
 	/**
-	 * Which things get a probe: the ones that asked within {@code maxAgeMs}, nearest to (cx, cz) first
-	 * (the middle of the player's grid), at most {@code max}. Each as {x, y, z}.
+	 * Whether a grid looked for water at the cell (x, y, z), so {@link #surface} there is an answer (water
+	 * or none) rather than "nobody looked": the player's grid over its columns at any height, a probe's
+	 * over its columns down to where its search stopped.
 	 */
-	public static List<double[]> choose(Collection<Want> wants, double cx, double cz, long nowMs, long maxAgeMs, int max) {
+	public static boolean known(@Nullable Grid player, List<Grid> probes, int x, int y, int z) {
+		if (covers(player, x, z)) {
+			return true;
+		}
+		for (Grid probe : probes) {
+			if (y + 1 > probe.bottom() && covers(probe, x, z)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean covers(@Nullable Grid grid, int x, int z) {
+		if (grid == null) {
+			return false;
+		}
+		int dx = x - grid.originX(), dz = z - grid.originZ();
+		return dx >= 0 && dz >= 0 && dx < grid.size() && dz < grid.size();
+	}
+
+	/**
+	 * Which things get a probe: the ones that asked within {@code maxAgeMs}, nearest to (cx, cz) first
+	 * (the middle of the player's grid), at most {@code max}. The order holds while they stay put, so
+	 * each keeps its probe's slot.
+	 */
+	public static List<Want> choose(Collection<Want> wants, double cx, double cz, long nowMs, long maxAgeMs, int max) {
 		List<Want> fresh = new ArrayList<>();
 		for (Want want : wants) {
 			if (nowMs - want.askedMs() <= maxAgeMs) {
@@ -73,11 +99,6 @@ public final class WaterColumns {
 			}
 		}
 		fresh.sort(Comparator.comparingDouble(w -> (w.x() - cx) * (w.x() - cx) + (w.z() - cz) * (w.z() - cz)));
-		List<double[]> out = new ArrayList<>();
-		for (int i = 0; i < fresh.size() && i < max; i++) {
-			Want want = fresh.get(i);
-			out.add(new double[] { want.x(), want.y(), want.z() });
-		}
-		return out;
+		return fresh.size() > max ? new ArrayList<>(fresh.subList(0, max)) : fresh;
 	}
 }

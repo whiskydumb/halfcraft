@@ -12,6 +12,9 @@ import net.minecraft.world.phys.Vec3;
 
 /** Feeds the local player's movement through {@link TriCollider} against nearby Half-Life triangles. */
 public final class HostCollider {
+	// a floor less than this over the feet is the one they stand on, not one they sank into
+	private static final double SUNK_FROM = 0.01;
+
 	private HostCollider() {
 	}
 
@@ -33,6 +36,16 @@ public final class HostCollider {
 		// The triangle pass (snapping down a slope, pushing out of a wall) can move the player into a
 		// Minecraft block placed on the terrain; collide that result with Minecraft blocks again.
 		return Entity.collideBoundingBox(player, new Vec3(r[0], r[1], r[2]), box, player.level(), List.of());
+	}
+
+	/**
+	 * Whether a body {@code height} tall over the feet at (x, y, z) is clear of Half-Life's geometry, a
+	 * floor right at the feet aside: the feet haven't sunk into anything.
+	 */
+	public static boolean bodyClear(double x, double y, double z, double radius, double height) {
+		List<HostTri> tris = new ArrayList<>();
+		HostCollision.trianglesNear(new AABB(x - radius, y, z - radius, x + radius, y + height, z + radius), tris);
+		return TriCollider.clear(tris, x, y + SUNK_FROM, y + height, z, radius);
 	}
 
 	/** Highest Half-Life surface at or below {@code maxAbove} over the feet at (x, y, z), or NaN. */

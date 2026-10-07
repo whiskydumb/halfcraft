@@ -207,6 +207,7 @@ public final class HostLink {
 		public int teleportSeq;
 		public int viewportW, viewportH;
 		public float gameHour;
+		public float seatYaw;
 
 		public boolean inGame() {
 			return (this.flags & HOST_IN_GAME) != 0;
@@ -223,6 +224,11 @@ public final class HostLink {
 		/** Half-Life moves its player itself (a ladder, a lift, a vehicle): Minecraft's player goes where it is. */
 		public boolean takeover() {
 			return (this.flags & HOST_TAKEOVER) != 0;
+		}
+
+		/** In a Half-Life vehicle's seat, which faces {@link #seatYaw}. */
+		public boolean seated() {
+			return (this.flags & HOST_SEATED) != 0;
 		}
 	}
 
@@ -293,6 +299,7 @@ public final class HostLink {
 			out.viewportW = s.get(JAVA_INT, b + HS_VIEWPORT_W);
 			out.viewportH = s.get(JAVA_INT, b + HS_VIEWPORT_H);
 			out.gameHour = s.get(JAVA_FLOAT, b + HS_GAME_HOUR);
+			out.seatYaw = s.get(JAVA_FLOAT, b + HS_SEAT_YAW);
 			VarHandle.loadLoadFence();
 			int seq2 = (int) INT.getAcquire(s, b + HS_SEQ);
 			if (seq1 == seq2) {

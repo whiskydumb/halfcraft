@@ -166,10 +166,12 @@ public final class Proto {
 	public static final long HS_VIEWPORT_W = 0x34;
 	public static final long HS_VIEWPORT_H = 0x38;
 	public static final long HS_GAME_HOUR = 0x3C;
+	public static final long HS_SEAT_YAW = 0x40;
 
 	public static final int HOST_IN_GAME = 1;
 	public static final int HOST_MENU_OPEN = 1 << 1;
 	public static final int HOST_LOADING = 1 << 2;
+	public static final int HOST_SEATED = 1 << 3;
 	public static final int HOST_TAKEOVER = 1 << 7;
 
 	// McState (relative to OFF_MC_STATE)
@@ -217,6 +219,7 @@ public final class Proto {
 	public static final int MC_DEAD = 1 << 5;
 	public static final int MC_SWIMMING = 1 << 6;
 	public static final int MC_FLYING = 1 << 7;
+	public static final int MC_SLEEPING = 1 << 8;
 
 	// Overlay
 	public static final long OC_STATE = 0x00;
@@ -345,7 +348,7 @@ public final class Proto {
 	// Water probes (relative to OFF_WATER_PROBES): Minecraft's WaterProbeRequests, then client.dll's WaterProbes at WP_ANSWERS
 	public static final long OFF_WATER_PROBES = 0x29000;
 	public static final long WATER_PROBES_BYTES = 0x1000;
-	public static final int MAX_WATER_PROBES = 4;
+	public static final int MAX_WATER_PROBES = 12;
 	public static final int WATER_PROBE_SIZE = 8;
 	public static final float WATER_PROBE_DEPTH = 6.0F; // blocks below a probe's y its search reaches
 	public static final long WPR_SEQ = 0x00, WPR_COUNT = 0x04, WPR_AT = 0x08; // 3 floats (x, y, z) per request

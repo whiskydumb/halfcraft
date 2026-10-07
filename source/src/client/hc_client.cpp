@@ -3,6 +3,7 @@
 
 #include "cbase.h"
 #include "c_baseplayer.h"
+#include "iclientvehicle.h"
 #include "iinput.h"
 #include "ienginevgui.h"
 #include "in_buttons.h"
@@ -38,6 +39,7 @@ namespace halfcraft
 		constexpr float IDLE_GAME_HOUR = 12.0f;        // half-life has no day: minecraft keeps noon
 		constexpr std::uint64_t RENDER_DRAIN_BYTES = 32ull << 20;  // per frame; the atlas alone is ~20 MB
 		constexpr float CAMERA_EASE_SECONDS = 0.2f;  // the F5 camera easing back out after something pushed it in
+		constexpr float CAMERA_HULL_UNITS = 4.0f;    // the F5 camera's half size against walls (minecraft's 0.1 block)
 
 		void console_sink(int severity, const char* line)
 		{
@@ -122,6 +124,28 @@ namespace halfcraft
 				return TAKEOVER_RIDING;
 			}
 			return nullptr;
+		}
+
+		/// the way the seat of the player's vehicle faces (source degrees): its feet attachment, where
+		/// source seats the player (CBaseServerVehicle::GetPassengerSeatPoint), or the vehicle itself.
+		bool seat_yaw(C_BasePlayer* player, float& yaw)
+		{
+			IClientVehicle* vehicle = player->GetVehicle();
+			C_BaseEntity*   entity = vehicle ? vehicle->GetVehicleEnt() : nullptr;
+			if (!entity) {
+				return false;
+			}
+			QAngle           angles = entity->GetAbsAngles();
+			C_BaseAnimating* animating = entity->GetBaseAnimating();
+			char             feet[32];
+			V_snprintf(feet, sizeof(feet), "vehicle_feet_passenger%d", std::max(vehicle->GetPassengerRole(player), 0));
+			const int attachment = animating ? animating->LookupAttachment(feet) : -1;
+			Vector    origin;
+			if (attachment > 0) {
+				animating->GetAttachment(attachment, origin, angles);
+			}
+			yaw = angles.y;
+			return true;
 		}
 
 		float distance(const float a[3], const float b[3])
@@ -275,6 +299,14 @@ namespace halfcraft
 			if (s.loading) {
 				s.teleport_pending = true;
 				s.have_last_set = false;
+			} else if (s.puppeting && jump_landing_elsewhere()) {
+				// source takes minecraft's jump next to where minecraft put its player: once source's is
+				// there, minecraft's goes there too
+				if (jump_landed_elsewhere(origin)) {
+					log_info("source landed minecraft's jump next to where minecraft put its player; resyncing minecraft");
+					s.teleport_pending = true;
+					s.have_last_set = false;
+				}
 			} else if (s.puppeting && s.have_last_set && distance(origin, s.last_set) > (jump_refused > 0.0f ? jump_refused : TELEPORT_THRESHOLD)) {
 				log_info(jump_refused > 0.0f ? "source refused minecraft's jump (%.0f units off); resyncing minecraft" : "source moved the player (%.0f units); resyncing minecraft",
 					distance(origin, s.last_set));
@@ -368,6 +400,12 @@ namespace halfcraft
 			if (takeover && takeover != TAKEOVER_OBSERVING && alive && !s.loading) {
 				host.flags |= proto::kHostTakeover;  // minecraft's player stays where source's is
 			}
+			float seat = 0.0f;
+			s.seated = takeover == TAKEOVER_VEHICLE && seat_yaw(player, seat);
+			if (s.seated) {
+				host.flags |= proto::kHostSeated;  // its body sits in the seat in third person
+				host.seatYaw = source_yaw_to_mc(seat);
+			}
 			const auto mc_pos = source_to_mc(origin, s.slot);
 			host.worldId = s.world_id;
 			host.collisionEpoch = s.epoch;
@@ -438,27 +476,47 @@ namespace halfcraft
 
 	namespace
 	{
+		/// how far back from the eye minecraft's camera gets in a vehicle (blocks). minecraft's zoom leaves
+		/// half-life's collision out there (CameraZoomMixin): the vehicle round the seat, which minecraft
+		/// sees as walls, would stop it at the head, as a minecraft boat doesn't. so it stops here, at
+		/// whatever of half-life's is in the way besides the vehicle.
+		float seated_camera_reach(C_BasePlayer* player, const float* eye, const Vector& forward, float blocks)
+		{
+			IClientVehicle*            vehicle = player->GetVehicle();
+			CTraceFilterSkipTwoEntities filter(player, vehicle ? vehicle->GetVehicleEnt() : nullptr, COLLISION_GROUP_NONE);
+			const Vector               from(eye[0], eye[1], eye[2]);
+			const Vector               hull(CAMERA_HULL_UNITS, CAMERA_HULL_UNITS, CAMERA_HULL_UNITS);
+			trace_t                    trace;
+			UTIL_TraceHull(from, from - forward * (blocks * static_cast<float>(UNITS_PER_BLOCK)), -hull, hull, MASK_SOLID & ~CONTENTS_MONSTER, &filter, &trace);
+			return blocks * trace.fraction;
+		}
+
 		/// minecraft's F5 camera: behind the player, or in front looking back at them, pulled in
 		/// wherever minecraft's own zoom collision stopped it (its blocks and half-life's collision).
 		/// it pulls in at once and eases back out, so a ray grazing the ground can't shake it.
 		/// @param eye - the first-person eye, moved back to the camera
 		/// @param pitch, yaw - the look, turned round for the camera in front
-		void detach_camera(ClientSession& s, float* eye, float& pitch, float& yaw)
+		/// @param seated - the player in a vehicle's seat (@ref seated_camera_reach), or nullptr
+		void detach_camera(ClientSession& s, float* eye, float& pitch, float& yaw, C_BasePlayer* seated = nullptr)
 		{
 			const bool detached = s.mc.cameraMode != 0 && s.mc.cameraDistance > 0.0f;
 			if (s.mc.cameraMode == 2) {
 				yaw += 180.0f;
 				pitch = -pitch;
 			}
-			if (!detached || s.camera_zoom_mode != s.mc.cameraMode || s.mc.cameraDistance < s.camera_zoom) {
-				s.camera_zoom = detached ? s.mc.cameraDistance : 0.0f;
+			Vector forward;
+			AngleVectors(QAngle(pitch, yaw, 0.0f), &forward);
+			float reach = detached ? s.mc.cameraDistance : 0.0f;
+			if (detached && seated) {
+				reach = seated_camera_reach(seated, eye, forward, reach);
+			}
+			if (!detached || s.camera_zoom_mode != s.mc.cameraMode || reach < s.camera_zoom) {
+				s.camera_zoom = reach;
 			} else {
-				s.camera_zoom += (s.mc.cameraDistance - s.camera_zoom) * (1.0f - std::exp(-std::max(gpGlobals->frametime, 0.0f) / CAMERA_EASE_SECONDS));
+				s.camera_zoom += (reach - s.camera_zoom) * (1.0f - std::exp(-std::max(gpGlobals->frametime, 0.0f) / CAMERA_EASE_SECONDS));
 			}
 			s.camera_zoom_mode = s.mc.cameraMode;
 			if (detached) {
-				Vector forward;
-				AngleVectors(QAngle(pitch, yaw, 0.0f), &forward);
 				for (int k = 0; k < 3; ++k) {
 					eye[k] -= forward[k] * s.camera_zoom * static_cast<float>(UNITS_PER_BLOCK);
 				}
@@ -469,11 +527,13 @@ namespace halfcraft
 	void client_override_view(CViewSetup* setup)
 	{
 		auto& s = client_session();
-		if (!s.puppeting && s.minecraft_camera && s.pose_valid) {
+		s.have_takeover_eye = !s.puppeting && s.minecraft_camera && s.pose_valid;
+		if (s.have_takeover_eye) {
 			// a ladder, a ride or a vehicle: source's own view (a vehicle's seat), with minecraft's F5 round it
 			float eye[3] = { setup->origin.x, setup->origin.y, setup->origin.z };
+			std::copy(eye, eye + 3, s.takeover_eye);
 			float pitch = setup->angles.x, yaw = setup->angles.y;
-			detach_camera(s, eye, pitch, yaw);
+			detach_camera(s, eye, pitch, yaw, s.seated ? C_BasePlayer::GetLocalPlayer() : nullptr);
 			setup->origin.Init(eye[0], eye[1], eye[2]);
 			setup->angles.Init(pitch, yaw, setup->angles.z);
 			return;
@@ -505,6 +565,13 @@ namespace halfcraft
 		// minecraft's F5 camera, along the look without the bob: minecraft tilts the view for the bob
 		// around the camera itself, not by swinging the camera around the head
 		float look_pitch = s.pitch, view_yaw = yaw;
+		if (s.mc.flags & proto::kMcSleeping) {
+			// in a bed minecraft holds the look (level, and in first person along the bed from just above
+			// the pillow), and the F5 camera goes round that look
+			mc_to_source(s.mc.eyeX, s.mc.eyeY, s.mc.eyeZ, s.slot, eye);
+			look_pitch = s.mc.pitch;
+			view_yaw = mc_yaw_to_source(s.mc.yaw);
+		}
 		detach_camera(s, eye, look_pitch, view_yaw);
 
 		setup->origin.Init(eye[0], eye[1], eye[2]);

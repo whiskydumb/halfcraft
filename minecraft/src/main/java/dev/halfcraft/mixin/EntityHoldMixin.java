@@ -1,6 +1,7 @@
 package dev.halfcraft.mixin;
 
 import dev.halfcraft.mobs.HostNav;
+import dev.halfcraft.world.HostWater;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MoverType;
@@ -14,7 +15,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Items, boats, falling blocks and the like hold still while Half-Life's ground under them streams in
- * (see HostNav.holdUntilGroundKnown), as mobs do (MobHoldMixin). Players move themselves, and
+ * (see HostNav.holdUntilGroundKnown), as mobs do (MobHoldMixin), and boats while Half-Life's water
+ * around them isn't known yet (HostWater.holdUntilWaterKnown). Players move themselves, and
  * projectiles drop at the streamed volume's edge (RegionEdge).
  */
 @Mixin(Entity.class)
@@ -22,7 +24,8 @@ public abstract class EntityHoldMixin {
 	@Inject(method = "move", at = @At("HEAD"), cancellable = true)
 	private void halfcraft$waitForHostGround(MoverType type, Vec3 movement, CallbackInfo ci) {
 		Entity self = (Entity) (Object) this;
-		if (!(self instanceof Player) && !(self instanceof Mob) && !(self instanceof Projectile) && HostNav.holdUntilGroundKnown(self)) {
+		if (!(self instanceof Player) && !(self instanceof Mob) && !(self instanceof Projectile)
+			&& (HostNav.holdUntilGroundKnown(self) || HostWater.holdUntilWaterKnown(self))) {
 			ci.cancel();
 		}
 	}

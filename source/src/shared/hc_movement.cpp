@@ -12,6 +12,10 @@
 
 #include "core/hc_log.h"
 #include "shared/hc_hooks.h"
+#ifdef GAME_DLL
+#include "core/hc_module.h"
+#include "shared/hc_bridge.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -78,6 +82,99 @@ static bool HalfCraftFits( CGameMovement *pMovement, const Vector &vecOrigin, bo
 	return false;
 }
 
+// a pearl takes minecraft's player to where it was a tick before it hit: in the air, but the box can
+// reach into what it hit, too far for a nudge. the player goes down under a ceiling until the head
+// clears it, up onto a ledge when its top is within minecraft's jump, or else back out of a face,
+// towards where they jumped from. the feet are in the air (the pearl flew there), so rays from them
+// find a ceiling above, a floor below and a wall behind before the box would go through any.
+static const float HALFCRAFT_LEDGE_REACH = 50.0f;     // minecraft's jump: 1.25 blocks
+static const float HALFCRAFT_LAND_STEP = 6.0f;
+static const float HALFCRAFT_UNDER_REACH = 24.0f;     // lower again for a sloping ceiling
+static const float HALFCRAFT_BACK_OUT_REACH = 36.0f;  // the box is 24 wide: this backs it off a face at up to 70 degrees
+
+static bool HalfCraftClear( CGameMovement *pMovement, const Vector &vecFrom, const Vector &vecTo, trace_t &pm )
+{
+	pMovement->TryTouchGround( vecFrom, vecTo, vec3_origin, vec3_origin, pMovement->PlayerSolidMask(), COLLISION_GROUP_PLAYER_MOVEMENT, pm );
+	return !pm.startsolid && pm.fraction == 1.0f;
+}
+
+// the box at the feet, without nudges
+static bool HalfCraftRoomAt( CGameMovement *pMovement, const Vector &vecFeet, bool bLow )
+{
+	const Vector vecMins( -HALFCRAFT_HALF_WIDTH, -HALFCRAFT_HALF_WIDTH, HALFCRAFT_LIFT );
+	const Vector vecMaxs( HALFCRAFT_HALF_WIDTH, HALFCRAFT_HALF_WIDTH, pMovement->GetPlayerMaxs( bLow ).z );
+	trace_t pm;
+	pMovement->TryTouchGround( vecFeet, vecFeet, vecMins, vecMaxs, pMovement->PlayerSolidMask(), COLLISION_GROUP_PLAYER_MOVEMENT, pm );
+	return !pm.startsolid;
+}
+
+static bool HalfCraftUnderCeiling( CGameMovement *pMovement, const Vector &vecTarget, float flRoom, bool bLow, Vector &vecLanding )
+{
+	const float flDrop = pMovement->GetPlayerMaxs( bLow ).z - flRoom + HALFCRAFT_LIFT;
+	for ( float flExtra = 0.0f; flExtra <= HALFCRAFT_UNDER_REACH; flExtra += HALFCRAFT_LAND_STEP )
+	{
+		const Vector vecAt = vecTarget - Vector( 0.0f, 0.0f, flDrop + flExtra );
+		trace_t pm;
+		if ( !HalfCraftClear( pMovement, vecTarget, vecAt, pm ) )
+			return false;  // the floor comes first
+		if ( HalfCraftRoomAt( pMovement, vecAt, bLow ) )
+		{
+			vecLanding = vecAt;
+			return true;
+		}
+	}
+	return false;
+}
+
+static bool HalfCraftOntoLedge( CGameMovement *pMovement, const Vector &vecTarget, float flRise, bool bLow, Vector &vecLanding )
+{
+	// the box dropped from as high as there's room onto what's under it there
+	const Vector vecMins( -HALFCRAFT_HALF_WIDTH, -HALFCRAFT_HALF_WIDTH, HALFCRAFT_LIFT );
+	const Vector vecMaxs( HALFCRAFT_HALF_WIDTH, HALFCRAFT_HALF_WIDTH, pMovement->GetPlayerMaxs( bLow ).z );
+	trace_t pm;
+	pMovement->TryTouchGround( vecTarget + Vector( 0.0f, 0.0f, flRise ), vecTarget, vecMins, vecMaxs, pMovement->PlayerSolidMask(), COLLISION_GROUP_PLAYER_MOVEMENT, pm );
+	if ( pm.startsolid || pm.fraction == 1.0f || pm.plane.normal.z < 0.7f )
+		return false;
+	vecLanding = pm.endpos + Vector( 0.0f, 0.0f, HALFCRAFT_LIFT );  // the feet on the ledge, not the lifted box
+	return true;
+}
+
+static bool HalfCraftBackOut( CGameMovement *pMovement, const Vector &vecTarget, const Vector &vecFrom, bool bLow, Vector &vecLanding )
+{
+	Vector vecBack( vecFrom.x - vecTarget.x, vecFrom.y - vecTarget.y, 0.0f );
+	if ( VectorNormalize( vecBack ) < 1.0f )
+		return false;
+	const Vector vecFeet = vecTarget + Vector( 0.0f, 0.0f, HALFCRAFT_LIFT );
+	for ( float flBack = HALFCRAFT_LAND_STEP; flBack <= HALFCRAFT_BACK_OUT_REACH; flBack += HALFCRAFT_LAND_STEP )
+	{
+		const Vector vecAt = vecTarget + vecBack * flBack;
+		trace_t pm;
+		if ( !HalfCraftClear( pMovement, vecFeet, vecAt + Vector( 0.0f, 0.0f, HALFCRAFT_LIFT ), pm ) )
+			return false;
+		if ( HalfCraftRoomAt( pMovement, vecAt, bLow ) )
+		{
+			vecLanding = vecAt;
+			return true;
+		}
+	}
+	return false;
+}
+
+// where minecraft's jump that doesn't fit lands instead, if anywhere near
+static bool HalfCraftLandNear( CGameMovement *pMovement, const Vector &vecTarget, const Vector &vecFrom, bool bLow, Vector &vecLanding )
+{
+	const float flHeight = pMovement->GetPlayerMaxs( bLow ).z;
+	trace_t pm;
+	HalfCraftClear( pMovement, vecTarget, vecTarget + Vector( 0.0f, 0.0f, HALFCRAFT_LEDGE_REACH + flHeight ), pm );
+	if ( pm.startsolid )
+		return false;  // the feet aren't in the air: nothing to go by
+	const float flRoom = pm.fraction * ( HALFCRAFT_LEDGE_REACH + flHeight );
+	if ( flRoom < flHeight )
+		return HalfCraftUnderCeiling( pMovement, vecTarget, flRoom, bLow, vecLanding );
+	return HalfCraftOntoLedge( pMovement, vecTarget, MIN( HALFCRAFT_LEDGE_REACH, flRoom - flHeight ), bLow, vecLanding ) ||
+		   HalfCraftBackOut( pMovement, vecTarget, vecFrom, bLow, vecLanding );
+}
+
 #ifdef GAME_DLL
 // a jump this long gets a line; shorter flagged moves are minecraft walking on right after one
 static const float HALFCRAFT_JUMP_LOG_UNITS = 40.0f;
@@ -98,6 +195,19 @@ static void HalfCraftNoteJump( float flStep, const Vector &vecTo, bool bFits )
 	else
 		halfcraft::log_info( "minecraft's jump of %.0f units refused: the player doesn't fit at (%.0f %.0f %.0f)", flStep, vecTo.x, vecTo.y, vecTo.z );
 }
+
+// the client resyncs minecraft's player to a jump landed elsewhere: in single player it doesn't predict
+// the player's movement, so it hears of it here
+static void HalfCraftTellLanded( const Vector &vecFeet )
+{
+	static const halfcraft::JumpLandedFn s_pfnLanded =
+		reinterpret_cast<halfcraft::JumpLandedFn>( halfcraft::find_export( "client.dll", halfcraft::HC_JUMP_LANDED_EXPORT ) );
+	if ( s_pfnLanded )
+	{
+		const float flFeet[3] = { vecFeet.x, vecFeet.y, vecFeet.z };
+		s_pfnLanded( flFeet );
+	}
+}
 #endif
 
 bool CGameMovement::HalfCraftMove( void )
@@ -117,18 +227,42 @@ bool CGameMovement::HalfCraftMove( void )
 	// single command moves this far. minecraft's own jumps (its teleports, a fast dive between two
 	// frames) say so, and land wherever the player fits; where it doesn't, the client resyncs minecraft
 	const float flStep = ( cmd->hc_origin - mv->GetAbsOrigin() ).Length();
+	Vector vecOrigin = cmd->hc_origin;
 	if ( cmd->hc_flags & halfcraft::HC_CMD_JUMP )
 	{
-		bool bFits = HalfCraftFits( this, cmd->hc_origin, bLow );
+		bool bFits = HalfCraftFits( this, vecOrigin, bLow );
 		// under a ceiling only the ducked hull fits under (chorus fruit, a pearl under a low roof) the player
 		// lands ducked, and minecraft's crouches there too: half-life's ceilings keep it down (HostDuck)
-		if ( !bFits && !bLow && HalfCraftFits( this, cmd->hc_origin, true ) )
+		if ( !bFits && !bLow && HalfCraftFits( this, vecOrigin, true ) )
 		{
 			bFits = true;
 			bLow = true;
 		}
+		// into a ceiling, a ledge or a wall: under, onto or out of it (ducked if only that fits), and
+		// minecraft's player follows (the client resyncs it, hc_jumps.cpp)
+		Vector vecLanding;
+		bool bElsewhere = false;
+		if ( !bFits && HalfCraftLandNear( this, vecOrigin, mv->GetAbsOrigin(), bLow, vecLanding ) )
+		{
+			bElsewhere = true;
+		}
+		else if ( !bFits && !bLow && HalfCraftLandNear( this, vecOrigin, mv->GetAbsOrigin(), true, vecLanding ) )
+		{
+			bElsewhere = true;
+			bLow = true;
+		}
+		if ( bElsewhere )
+		{
+			bFits = true;
+			vecOrigin = vecLanding;
+#ifdef CLIENT_DLL
+			halfcraft::client_jump_landed_elsewhere( vecLanding );
+#else
+			HalfCraftTellLanded( vecLanding );
+#endif
+		}
 #ifdef GAME_DLL
-		HalfCraftNoteJump( flStep, cmd->hc_origin, bFits );
+		HalfCraftNoteJump( flStep, vecOrigin, bFits );
 #endif
 		if ( !bFits )
 			return false;
@@ -149,7 +283,7 @@ bool CGameMovement::HalfCraftMove( void )
 			player->RemoveFlag( FL_DUCKING );
 	}
 
-	mv->SetAbsOrigin( cmd->hc_origin );
+	mv->SetAbsOrigin( vecOrigin );
 	mv->m_vecVelocity = cmd->hc_velocity;
 
 	// minecraft takes its own fall damage
@@ -161,8 +295,8 @@ bool CGameMovement::HalfCraftMove( void )
 	trace_t pm;
 	const Vector vecMins( -HALFCRAFT_HALF_WIDTH, -HALFCRAFT_HALF_WIDTH, 0.0f );
 	const Vector vecMaxs( HALFCRAFT_HALF_WIDTH, HALFCRAFT_HALF_WIDTH, HALFCRAFT_GROUND_PROBE );
-	const Vector vecUp = cmd->hc_origin + Vector( 0.0f, 0.0f, HALFCRAFT_LIFT );
-	const Vector vecDown = cmd->hc_origin - Vector( 0.0f, 0.0f, HALFCRAFT_GROUND_DROP );
+	const Vector vecUp = vecOrigin + Vector( 0.0f, 0.0f, HALFCRAFT_LIFT );
+	const Vector vecDown = vecOrigin - Vector( 0.0f, 0.0f, HALFCRAFT_GROUND_DROP );
 	TryTouchGround( vecUp, vecDown, vecMins, vecMaxs, PlayerSolidMask(), COLLISION_GROUP_PLAYER_MOVEMENT, pm );
 	const bool bGround = ( cmd->hc_flags & halfcraft::HC_CMD_ON_GROUND ) && pm.m_pEnt && !pm.startsolid && pm.plane.normal.z >= 0.7f;
 	SetGroundEntity( bGround ? &pm : NULL );

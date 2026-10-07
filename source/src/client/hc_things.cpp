@@ -604,11 +604,28 @@ namespace halfcraft
 			return instance;
 		}
 
-		/// minecraft's camera is detached (F5) and drives the view: the player's body shows.
+		/// minecraft's camera is detached (F5) and drives the view, or goes round source's while source
+		/// moves the player (a ladder, a ride, a vehicle): the player's body shows.
 		bool third_person()
 		{
 			const auto& s = client_session();
-			return s.puppeting && s.pose_valid && s.mc.cameraMode != 0 && s.mc.cameraDistance > 0.0f;
+			return (s.puppeting || s.have_takeover_eye) && s.pose_valid && s.mc.cameraMode != 0 && s.mc.cameraDistance > 0.0f;
+		}
+
+		/// where the player's body goes (minecraft's feet): under the eye the camera goes round. while
+		/// source moves the player that's source's view, not minecraft's player, which follows it a
+		/// tick behind (a moving vehicle would leave its body behind).
+		void avatar_feet(double feet[3])
+		{
+			const auto& s = client_session();
+			if (s.puppeting) {
+				std::copy(s.pose.feet, s.pose.feet + 3, feet);
+				return;
+			}
+			const McVec eye = source_to_mc(s.takeover_eye, s.slot);
+			feet[0] = eye.x;
+			feet[1] = eye.y - s.mc.eyeHeight;
+			feet[2] = eye.z;
 		}
 
 		void Things::on_texture(const std::uint8_t* payload, std::uint32_t bytes)
@@ -758,11 +775,12 @@ namespace halfcraft
 				scene_fresh_ = false;
 				build_mesh(scene_list_, scene_, scene_origin_, atlas, light, s.slot, eye);
 			}
-			// the player's body where the camera follows it (minecraft's interpolated feet), only while
-			// minecraft's camera is detached and drives the view
+			// the player's body where the camera follows it, only while minecraft's camera is detached
 			avatar_list_.clear();
 			if (third_person()) {
-				build_mesh(avatar_list_, avatar_, s.pose.feet, atlas, light, s.slot, eye);
+				double feet[3];
+				avatar_feet(feet);
+				build_mesh(avatar_list_, avatar_, feet, atlas, light, s.slot, eye);
 			}
 
 			Vector lo(FLT_MAX, FLT_MAX, FLT_MAX), hi(-FLT_MAX, -FLT_MAX, -FLT_MAX);

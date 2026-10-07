@@ -301,6 +301,11 @@ public final class HostClient {
 	}
 
 	private static Vec3 liftOutOfGeometry(LocalPlayer player, Vec3 pos) {
+		// Only feet that sank into it: a body that's clear stays (under a ceiling, the next surface up is
+		// the ceiling, and a lift would put the player in it; an ender pearl that hit one lands there).
+		if (HostCollider.bodyClear(pos.x, pos.y, pos.z, player.getBbWidth() / 2.0, player.getBbHeight())) {
+			return pos;
+		}
 		// Stand on the exact Half-Life ground if it is slightly above the feet (up to 2.5 blocks).
 		double ground = HostCollider.groundAt(pos.x, pos.y, pos.z, 2.5);
 		return !Double.isNaN(ground) && ground > pos.y ? new Vec3(pos.x, ground, pos.z) : pos;
@@ -364,6 +369,14 @@ public final class HostClient {
 			mc.z = feet.z;
 			mc.yaw = player.getYRot();
 			mc.pitch = player.getXRot();
+			if (player.isSleeping()) {
+				// Minecraft holds the look in a bed: level, and in first person along the bed from the pillow
+				flags |= Proto.MC_SLEEPING;
+				if (!camera.isDetached()) {
+					mc.yaw = camera.yRot();
+					mc.pitch = camera.xRot();
+				}
+			}
 			// The eye, not the camera: in third person Minecraft's camera sits behind or in front.
 			Vec3 eye = camera.isDetached() ? player.getEyePosition(partial) : camera.position();
 			mc.eyeHeight = (float) (eye.y - feet.y);

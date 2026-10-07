@@ -2,6 +2,7 @@ package dev.halfcraft.world;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
@@ -76,14 +77,25 @@ class WaterColumnsTest {
 	@Test
 	void shouldChooseTheNearestFreshWantsUpToTheLimit() {
 		List<WaterColumns.Want> wants = List.of(
-			new WaterColumns.Want(30.0, 1.0, 0.0, 1000),
-			new WaterColumns.Want(5.0, 2.0, 0.0, 1000),
-			new WaterColumns.Want(1.0, 3.0, 0.0, 0), // asked too long ago
-			new WaterColumns.Want(-10.0, 4.0, 0.0, 1000)
+			new WaterColumns.Want(1, 30.0, 1.0, 0.0, 1000),
+			new WaterColumns.Want(2, 5.0, 2.0, 0.0, 1000),
+			new WaterColumns.Want(3, 1.0, 3.0, 0.0, 0), // asked too long ago
+			new WaterColumns.Want(4, -10.0, 4.0, 0.0, 1000)
 		);
-		List<double[]> chosen = WaterColumns.choose(wants, 0.0, 0.0, 1500, 1000, 2);
+		List<WaterColumns.Want> chosen = WaterColumns.choose(wants, 0.0, 0.0, 1500, 1000, 2);
 		assertEquals(2, chosen.size());
-		assertArrayEquals(new double[] { 5.0, 2.0, 0.0 }, chosen.get(0), 1e-9);
-		assertArrayEquals(new double[] { -10.0, 4.0, 0.0 }, chosen.get(1), 1e-9);
+		assertEquals(2, chosen.get(0).id());
+		assertEquals(4, chosen.get(1).id());
+	}
+
+	@Test
+	void shouldKnowTheCellsAGridSearched() {
+		WaterColumns.Grid player = grid(0, 0, 16, NONE);
+		WaterColumns.Grid probe = grid(40, 0, 8, 5.0F, 0.0);
+		assertTrue(WaterColumns.known(player, List.of(probe), 3, -100, 3)); // the player's grid reaches every cell
+		assertTrue(WaterColumns.known(player, List.of(probe), 42, 2, 3));
+		assertFalse(WaterColumns.known(player, List.of(probe), 42, -5, 3)); // under where the probe looked
+		assertFalse(WaterColumns.known(player, List.of(probe), 60, 2, 3)); // no grid there
+		assertFalse(WaterColumns.known(null, List.of(), 3, 2, 3));
 	}
 }
