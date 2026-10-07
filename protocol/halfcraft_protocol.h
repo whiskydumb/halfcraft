@@ -488,7 +488,8 @@ namespace halfcraft::proto
 
 	enum WeaponTableFlags : std::uint32_t
 	{
-		kWeaponTableLive = 1u << 0,  // the host's player is in a map and alive: the list is its inventory
+		kWeaponTableLive = 1u << 0,        // the host's player is in a map and alive: the list is its inventory
+		kWeaponTableSuppressed = 1u << 1,  // the host keeps the weapons away (player_speedmod): none comes out
 	};
 
 	enum WeaponRecordFlags : std::uint32_t

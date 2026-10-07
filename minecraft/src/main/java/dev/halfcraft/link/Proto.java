@@ -311,6 +311,7 @@ public final class Proto {
 	public static final long WT_RECORD_BYTES = 32;
 	public static final int WT_MAX_WEAPONS = 48;
 	public static final int WT_LIVE = 1;
+	public static final int WT_SUPPRESSED = 1 << 1;
 	// WeaponRecord (relative to the record)
 	public static final long WT_R_ID = 0x00;
 	public static final long WT_R_CLIP = 0x04;

@@ -13,6 +13,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.protocol.game.ClientboundSetHeldSlotPacket;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
@@ -29,7 +30,8 @@ import net.minecraft.world.item.ItemStack;
  * stand-in can't leave the inventory: Q and F leave it in the hand (WeaponInputMixin), dropping it
  * any other way (WeaponDropMixin) and putting it into a container (WeaponSlotMixin,
  * {@link WeaponItem#canFitInsideContainerItems()}) fail, and whatever slips past (the creative
- * inventory) is put right on the next tick.
+ * inventory) is put right on the next tick. When Half-Life switches weapons by itself, the hand
+ * follows ({@link #followHalfLife}).
  */
 public final class HostWeapons {
 	// the main inventory, the armour and the offhand
@@ -38,6 +40,8 @@ public final class HostWeapons {
 	// per player: where each stand-in was last seen, and the weapons waiting for a free slot
 	private static final Map<UUID, Map<Integer, Integer>> LAST_SLOTS = new HashMap<>();
 	private static final Map<UUID, Set<Integer>> WAITING = new HashMap<>();
+	// per player: the weapon Half-Life had out last tick
+	private static final Map<UUID, Integer> LAST_OUT = new HashMap<>();
 
 	private HostWeapons() {
 	}
@@ -67,9 +71,41 @@ public final class HostWeapons {
 		int[] owned = table.weapons().stream().mapToInt(WeaponTable.Weapon::id).filter(ITEMS::containsKey).toArray();
 		for (ServerPlayer player : server.getPlayerList().getPlayers()) {
 			if (player.isAlive() && !player.isSpectator()) {
+				int held = weaponId(player.getInventory().getSelectedItem());
 				sync(player, owned);
+				followHalfLife(player, table, held);
 			}
 		}
+	}
+
+	/**
+	 * Half-Life switched from the weapon the hand held to another by itself, as Half-Life does when
+	 * the one out runs dry (the last grenade thrown) or goes away: the hand moves to the new one if
+	 * it's on the hotbar. Half-Life keeps it out a moment for that, and puts it away when the hand
+	 * stays (hc_weapons.cpp).
+	 *
+	 * @param held the weapon in the hand before this tick's sync took a gone one out of the inventory
+	 */
+	private static void followHalfLife(ServerPlayer player, WeaponTable table, int held) {
+		int out = table.active();
+		Integer before = LAST_OUT.put(player.getUUID(), out);
+		if (before == null || before == Proto.HOST_WEAPON_NONE || out == Proto.HOST_WEAPON_NONE || out == before || held != before) {
+			return;
+		}
+		// the hand moved on by itself, and Half-Life followed it before this server heard of it
+		if (!goneOrDry(table, before)) {
+			return;
+		}
+		Inventory inventory = player.getInventory();
+		for (int slot = 0; slot < Inventory.getSelectionSize(); slot++) {
+			if (weaponId(inventory.getItem(slot)) == out) {
+				inventory.setSelectedSlot(slot);
+				player.connection.send(new ClientboundSetHeldSlotPacket(slot));
+				HalfCraft.LOG.info("HalfCraft: Half-Life switched from its {} to its {} by itself: the hand follows (slot {})", name(before), name(out), slot);
+				return;
+			}
+		}
+		HalfCraft.LOG.info("HalfCraft: Half-Life switched from its {} to its {} by itself, which isn't on the hotbar: the hand stays", name(before), name(out));
 	}
 
 	private static void sync(ServerPlayer player, int[] owned) {
@@ -129,6 +165,15 @@ public final class HostWeapons {
 				HalfCraft.LOG.info("HalfCraft: took Half-Life's {} off the cursor (Half-Life doesn't have it, or it was there twice)", name(id));
 			}
 		}
+	}
+
+	/** Half-Life no longer has the weapon, or it has no rounds left at all (one without ammo never runs dry). */
+	private static boolean goneOrDry(WeaponTable table, int id) {
+		WeaponTable.Weapon weapon = table.find(id);
+		if (weapon == null) {
+			return true;
+		}
+		return (weapon.clip() >= 0 || weapon.ammo() >= 0) && weapon.clip() <= 0 && weapon.ammo() <= 0;
 	}
 
 	private static String name(int id) {

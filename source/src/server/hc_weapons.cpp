@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstring>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "core/hc_log.h"
@@ -24,11 +25,46 @@ namespace halfcraft
 {
 	namespace
 	{
+		// player_speedmod's SF_SPEED_MOD_SUPPRESS_WEAPONS (player.cpp)
+		constexpr int SPEED_MOD_SUPPRESS_WEAPONS = 1 << 0;
+		// how long a weapon source took out by itself stays out for minecraft's hand to move to it
+		// (HostWeapons): a tick of minecraft's server and a command back, unless it isn't on the hotbar
+		constexpr float FOLLOW_SECONDS = 1.0f;
+
 		// weapons minecraft has no item for, said once each
 		std::vector<std::string> g_unmirrored;
 		// the weapon last said to stay away: Weapon_Equip and BumpWeapon both ask for one picked up
 		int g_said_pickup_tick = -1;
 		int g_said_pickup_weapon = 0;
+		// a player_speedmod keeps the weapons away
+		bool g_suppressed = false;
+
+		/// the weapon out after the last frame, and one source took out by itself
+		struct SourcePick
+		{
+			EHANDLE last_active;
+			EHANDLE picked;
+			float   until = 0.0f;
+		};
+		std::unordered_map<int, SourcePick> g_picks;  // by the player's entity index
+
+		/// a player_speedmod keeps the player's weapons away. it slows the player meanwhile, so a respawn
+		/// or a load that ended the scene leaves no flag behind.
+		bool weapons_suppressed(CBasePlayer* player)
+		{
+			return g_suppressed && player->GetLaggedMovementValue() != 1.0f;
+		}
+
+		/// puts the weapon that's out away, with nothing in its place.
+		bool put_away(CBasePlayer* player, CBaseCombatWeapon* active)
+		{
+			if (!active->CanHolster() || !active->Holster()) {
+				return false;
+			}
+			player->ClearActiveWeapon();
+			player->HideViewModels();
+			return true;
+		}
 
 		/// the player's latest command, if minecraft's hand picked its weapon in it.
 		const CUserCmd* minecraft_command(CBasePlayer* player)
@@ -53,11 +89,35 @@ namespace halfcraft
 		{
 			const CUserCmd*    cmd = minecraft_command(player);
 			CBaseCombatWeapon* active = player->GetActiveWeapon();
+			SourcePick&        pick = g_picks[player->entindex()];
+			CBaseEntity*       before = pick.last_active.Get();
+			// from one weapon to another: not one coming back out (a vehicle left, a speedmod ended)
+			const bool switched = active && before && active != before;
+			pick.last_active = active;
 			if (!cmd || !active) {
+				return;
+			}
+			// minecraft's hand stays as it is, the weapon stays away (a command on its way took it out)
+			if (weapons_suppressed(player)) {
+				if (put_away(player, active)) {
+					pick.last_active = nullptr;
+					log_info("weapons: %s put away (player_speedmod keeps the weapons away)", active->GetClassname());
+				}
 				return;
 			}
 			CBaseCombatWeapon* wanted = selected_weapon(player, *cmd);
 			if (wanted == active) {
+				pick.picked = nullptr;
+				return;
+			}
+			// source took this one out by itself, as the one out ran dry or went away: it stays out while
+			// minecraft's hand moves to it (HostWeapons)
+			if (switched) {
+				pick.picked = active;
+				pick.until = gpGlobals->curtime + FOLLOW_SECONDS;
+				log_info("weapons: source took %s out by itself; it stays out for minecraft's hand to follow", active->GetClassname());
+			}
+			if (pick.picked.Get() == active && gpGlobals->curtime < pick.until) {
 				return;
 			}
 			// the gravity gun refuses to be switched away from while it holds something
@@ -67,9 +127,8 @@ namespace halfcraft
 			}
 			// the hand holds none of half-life's weapons, or one that can't come out (no ammo): nothing
 			// is out. the rpg refuses while its rocket flies; the next frame asks again
-			if ((!wanted || !player->Weapon_CanSwitchTo(wanted)) && active->CanHolster() && active->Holster()) {
-				player->ClearActiveWeapon();
-				player->HideViewModels();
+			if ((!wanted || !player->Weapon_CanSwitchTo(wanted)) && put_away(player, active)) {
+				pick.last_active = nullptr;
 				log_info("weapons: %s put away (minecraft's hand holds %s)", active->GetClassname(),
 					wanted ? wanted->GetClassname() : "none of half-life's weapons");
 			}
@@ -189,6 +248,9 @@ namespace halfcraft
 			}
 			CBaseCombatWeapon* active = player->GetActiveWeapon();
 			table.active = active ? weapon_id(active->GetClassname()) : proto::kHostWeaponNone;
+			if (weapons_suppressed(player)) {
+				table.flags |= proto::kWeaponTableSuppressed;
+			}
 		}
 		if (ever_sent_ && !std::memcmp(&table, &sent_, sizeof(table))) {
 			return;
@@ -197,6 +259,19 @@ namespace halfcraft
 		log_changes(sent_, table);
 		sent_ = table;
 		ever_sent_ = true;
+	}
+
+	void server_player_speed_mod(CBasePlayer* /*player*/, int flags, float speed)
+	{
+		if (!(flags & SPEED_MOD_SUPPRESS_WEAPONS)) {
+			return;  // it leaves the weapons alone, and so does setting it back
+		}
+		const bool suppressed = speed != 1.0f;
+		if (suppressed != g_suppressed) {
+			log_info(suppressed ? "weapons: player_speedmod keeps the weapons away: minecraft's hand takes none out"
+								: "weapons: player_speedmod gives the weapons back");
+		}
+		g_suppressed = suppressed;
 	}
 
 	bool server_minecraft_picks_weapon(CBasePlayer* player, CBaseCombatWeapon* weapon)

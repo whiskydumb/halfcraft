@@ -42,16 +42,13 @@ namespace halfcraft
 			return classname ? classname : "nothing";
 		}
 
-		/// the weapon source really has out, as server.dll's weapon table says. the client's own active
-		/// weapon is predicted: it takes every switch weaponselect asks for, even one the server refuses
-		/// (the rpg while its rocket flies), and clicks would reach the weapon that's really out.
-		std::uint32_t weapon_out(const ClientSession& session)
+		/// server.dll's weapon table, when it has a player. the weapon really out is its active one: the
+		/// client's own active weapon is predicted, it takes every switch weaponselect asks for, even one
+		/// the server refuses (the rpg while its rocket flies), and clicks would reach the weapon that's
+		/// really out.
+		bool live_weapons(const ClientSession& session, proto::WeaponTable& table)
 		{
-			proto::WeaponTable table{};
-			if (!session.link.read_weapons(table) || !(table.flags & proto::kWeaponTableLive)) {
-				return proto::kHostWeaponNone;
-			}
-			return table.active;
+			return session.link.read_weapons(table) && (table.flags & proto::kWeaponTableLive);
 		}
 
 		/// the player's weapon minecraft knows by id, if it has it.
@@ -121,8 +118,12 @@ namespace halfcraft
 		if (!player || !session.have_mc || !session.mc_in_world) {
 			return;
 		}
+		proto::WeaponTable  table{};
+		const bool          live = live_weapons(session, table);
 		const std::uint32_t held = session.mc.heldWeapon;
-		const std::uint32_t out = weapon_out(session);
+		const std::uint32_t out = live ? table.active : proto::kHostWeaponNone;
+		// a player_speedmod keeps the weapons away: the hand asks for none
+		const bool suppressed = live && (table.flags & proto::kWeaponTableSuppressed);
 		const bool          matched = held != proto::kHostWeaponNone && held == out;
 		g_ready = matched && !session.mc_screen_open;
 
@@ -135,7 +136,7 @@ namespace halfcraft
 		// has put the weapon away itself and takes it out again after. on a ladder or a ride minecraft's
 		// hotbar still picks it (hc_input.cpp)
 		if ((session.minecraft_owns_player || session.minecraft_hands) && !session.holding) {
-			C_BaseCombatWeapon* wanted = held != proto::kHostWeaponNone ? owned_weapon(player, held) : nullptr;
+			C_BaseCombatWeapon* wanted = held != proto::kHostWeaponNone && !suppressed ? owned_weapon(player, held) : nullptr;
 			cmd->hc_flags |= HC_CMD_WEAPONS;
 			cmd->weaponselect = wanted ? wanted->entindex() : 0;
 			cmd->weaponsubtype = wanted ? wanted->GetSubType() : 0;

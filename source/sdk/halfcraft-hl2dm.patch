@@ -356,7 +356,7 @@ index 7b2d595e..cbafb503 100644
  			SwitchToNextBestWeapon(GetActiveWeapon());
  		}
 diff --git a/src/game/server/player.cpp b/src/game/server/player.cpp
-index 2c0fa74f..24c91196 100644
+index 2c0fa74f..fda33a29 100644
 --- a/src/game/server/player.cpp
 +++ b/src/game/server/player.cpp
 @@ -102,6 +102,8 @@ ConVar sv_chat_seconds_per_msg_tier2( "sv_chat_seconds_per_msg_tier2", "10", FCV
@@ -403,7 +403,17 @@ index 2c0fa74f..24c91196 100644
  	{
  		Weapon_Switch( pWeapon );
  	}
-@@ -8437,6 +8449,8 @@ void CBasePlayer::VPhysicsShadowUpdate( IPhysicsObject *pPhysics )
+@@ -8044,6 +8056,9 @@ void CMovementSpeedMod::InputSpeedMod(inputdata_t &data)
+ 
+ 	if ( pPlayer )
+ 	{
++		// halfcraft: while this keeps the weapons away, minecraft's hand doesn't take one out
++		halfcraft::server_player_speed_mod( pPlayer, GetSpawnFlags(), data.value.Float() );
++
+ 		if ( data.value.Float() != 1.0f )
+ 		{
+ 			// Holster weapon immediately, to allow it to cleanup
+@@ -8437,6 +8452,8 @@ void CBasePlayer::VPhysicsShadowUpdate( IPhysicsObject *pPhysics )
  					{
  						newVelocity *= 0.5f;
  					}

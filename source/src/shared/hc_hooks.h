@@ -124,6 +124,13 @@ namespace halfcraft
 		ServerImpulseQuiet& operator=(const ServerImpulseQuiet&) = delete;
 	};
 
+	/// CMovementSpeedMod::InputSpeedMod (player_speedmod). one with SF_SPEED_MOD_SUPPRESS_WEAPONS puts
+	/// the player's weapon away until it's set back to 1, and minecraft's hand must not take one out
+	/// meanwhile (hc_weapons.cpp).
+	/// @param flags - its spawnflags
+	/// @param speed - the speed it sets: 1 ends what it began
+	void server_player_speed_mod(CBasePlayer* player, int flags, float speed);
+
 	/// CBasePlayer::OnTakeDamage.
 	/// @return true when the hit went to minecraft's health instead (source must not apply it)
 	bool server_player_damage(CBasePlayer* player, const CTakeDamageInfo& info);

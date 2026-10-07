@@ -636,7 +636,7 @@ index b0b2d867..326321ac 100644
  #pragma warning(disable:4244)
  #elif POSIX
 diff --git a/sp/src/game/server/player.cpp b/sp/src/game/server/player.cpp
-index 0538f90a..b33a5610 100644
+index 0538f90a..38f3c943 100644
 --- a/sp/src/game/server/player.cpp
 +++ b/sp/src/game/server/player.cpp
 @@ -97,6 +97,8 @@ ConVar sv_bonus_challenge( "sv_bonus_challenge", "0", FCVAR_REPLICATED, "Set to
@@ -683,7 +683,17 @@ index 0538f90a..b33a5610 100644
  	{
  		Weapon_Switch( pWeapon );
  	}
-@@ -8237,6 +8249,8 @@ void CBasePlayer::VPhysicsShadowUpdate( IPhysicsObject *pPhysics )
+@@ -7835,6 +7847,9 @@ void CMovementSpeedMod::InputSpeedMod(inputdata_t &data)
+ 
+ 	if ( pPlayer )
+ 	{
++		// halfcraft: while this keeps the weapons away, minecraft's hand doesn't take one out
++		halfcraft::server_player_speed_mod( pPlayer, GetSpawnFlags(), data.value.Float() );
++
+ 		if ( data.value.Float() != 1.0f )
+ 		{
+ 			// Holster weapon immediately, to allow it to cleanup
+@@ -8237,6 +8252,8 @@ void CBasePlayer::VPhysicsShadowUpdate( IPhysicsObject *pPhysics )
  					{
  						newVelocity *= 0.5f;
  					}
