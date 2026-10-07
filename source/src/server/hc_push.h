@@ -3,7 +3,10 @@
 // server.dll: source's pushes on the player while minecraft drives it. a trigger_push, a conveyor
 // belt or a point_push moves the player through source's base velocity, which only source's own
 // movement reads (CGameMovement::HalfCraftMove takes minecraft's position instead): minecraft gets it
-// as proto::kInPush, moves its player along, and keeps it as momentum when it stops.
+// as proto::kInPush, moves its player along, and keeps it as momentum when it stops. a shove that's
+// over at once (a trigger_push that pushes once, an antlion guard, a cop's stunstick) changes the
+// player's velocity, which minecraft's next move would undo: minecraft gets it as proto::kInImpulse
+// (server_player_impulse, hc_hooks.h).
 
 class CBasePlayer;
 

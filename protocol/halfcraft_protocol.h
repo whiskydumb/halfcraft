@@ -227,7 +227,10 @@ namespace halfcraft::proto
 		                     // while Minecraft drives it: a/b/c = Minecraft blocks per second * 1000 along x/y/z, repeated
 		                     // every kPushRepeatMs while it lasts. (0, 0, 0): it stopped, and the player keeps the last
 		                     // push as momentum (as Source does); nothing for kPushStaleMs: it's over, without momentum
-		// 23: kept for the puppet group (A), 26-27 for the world group (C)
+		kInImpulse = 23,     // the host shoved its player while Minecraft drives it, a shove that's over at once (a
+		                     // trigger_push that pushes once, an antlion guard: Source's velocity impulses): a/b/c =
+		                     // Minecraft blocks per second * 1000 along x/y/z, which the player takes as momentum
+		// 26-27: kept for the world group (C)
 		kInHurtFrom = 24,    // where the next kInHurt came from, for Minecraft's shield: a/b/c = Minecraft x/y/z (float bits)
 		                     // of the blast's centre or of what dealt it; only that one kInHurt uses it
 	};

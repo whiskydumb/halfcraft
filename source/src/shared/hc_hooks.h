@@ -6,6 +6,7 @@
 #include "inputsystem/ButtonCode.h"
 
 class CBaseCombatWeapon;
+class CBaseEntity;
 class CBasePlayer;
 class CTakeDamageInfo;
 class CUserCmd;
@@ -105,6 +106,23 @@ namespace halfcraft
 	void server_note_puppet_move();
 	/// the player's latest commands came from minecraft.
 	bool server_player_puppeted();
+
+	/// CBaseEntity::ApplyAbsVelocityImpulse on a player: a shove that's over at once (a trigger_push that
+	/// pushes once, an antlion guard, a cop's stunstick), which minecraft's player takes as momentum while
+	/// minecraft drives it: its next move would undo it in source (hc_push.cpp).
+	void server_player_impulse(CBaseEntity* player, const Vector& impulse);
+
+	/// around source's own corrections of the player's velocity, which are no shoves: a push that ends
+	/// (CPlayerMove::CheckMovingGround; kInPush's end carries it) and the physics shadow keeping up with
+	/// what the player stands on (CBasePlayer::VPhysicsShadowUpdate). server_player_impulse ignores what
+	/// comes while one is alive.
+	struct ServerImpulseQuiet
+	{
+		ServerImpulseQuiet();
+		~ServerImpulseQuiet();
+		ServerImpulseQuiet(const ServerImpulseQuiet&) = delete;
+		ServerImpulseQuiet& operator=(const ServerImpulseQuiet&) = delete;
+	};
 
 	/// CBasePlayer::OnTakeDamage.
 	/// @return true when the hit went to minecraft's health instead (source must not apply it)

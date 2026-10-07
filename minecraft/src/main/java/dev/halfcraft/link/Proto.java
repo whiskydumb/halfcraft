@@ -52,6 +52,7 @@ public final class Proto {
 	public static final int PUSH_REPEAT_MS = 200;
 	public static final int PUSH_STALE_MS = 500;
 	// 23: kept for the puppet group (A), 26-27 for the world group (C)
+	public static final int IN_IMPULSE = 23; // a/b/c = blocks per second * 1000, a shove that's over at once (HostPush)
 	public static final int IN_HURT_FROM = 24; // where the next IN_HURT came from: a/b/c = x/y/z (float bits)
 
 	// String channels (IN_STRING)

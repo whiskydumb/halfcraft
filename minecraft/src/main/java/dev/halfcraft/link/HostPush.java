@@ -9,7 +9,11 @@ import org.jspecify.annotations.Nullable;
  * stopped (Source turns a base velocity that ends into the player's own velocity: a trigger_push
  * throws you off its end). Half-Life repeats a push every {@link Proto#PUSH_REPEAT_MS} while it lasts,
  * so one not heard of for {@link Proto#PUSH_STALE_MS} is over without any momentum (Half-Life closed,
- * or Minecraft missed the stop). Pure logic: the caller passes the clock.
+ * or Minecraft missed the stop).
+ *
+ * <p>A shove that's over at once (a trigger_push that pushes once, an antlion guard's or a cop's
+ * shove: Source's velocity impulses) comes as {@link Proto#IN_IMPULSE}, and the player takes it as
+ * momentum on its next tick. Pure logic: the caller passes the clock.
  */
 public final class HostPush {
 	/** The one Half-Life's input feeds (render thread). */
@@ -22,6 +26,8 @@ public final class HostPush {
 	private long heardAt;
 	private boolean pushing;
 	private double @Nullable [] released;
+	private final double[] impulse = new double[3];  // blocks per second, Minecraft axes, not taken yet
+	private boolean impulsed;
 
 	/** An IN_PUSH: a/b/c along Minecraft's x/y/z, (0, 0, 0) when it stopped. */
 	public void accept(int a, int b, int c, long nowMs) {
@@ -45,6 +51,28 @@ public final class HostPush {
 			this.pushing = false;
 		}
 		return this.pushing ? this.velocity.clone() : null;
+	}
+
+	/** An IN_IMPULSE: a/b/c along Minecraft's x/y/z, added to any the player hasn't taken yet. */
+	public void impulse(int a, int b, int c) {
+		if (a == 0 && b == 0 && c == 0) {
+			return;
+		}
+		this.impulse[0] += a / SCALE;
+		this.impulse[1] += b / SCALE;
+		this.impulse[2] += c / SCALE;
+		this.impulsed = true;
+	}
+
+	/** The shoves since the last call, once (blocks per second): the player takes them as momentum. Null: none. */
+	public double @Nullable [] takeImpulse() {
+		if (!this.impulsed) {
+			return null;
+		}
+		double[] out = this.impulse.clone();
+		java.util.Arrays.fill(this.impulse, 0.0);
+		this.impulsed = false;
+		return out;
 	}
 
 	/** The push that just stopped, once (blocks per second): the player keeps it as momentum. Null: none. */

@@ -636,7 +636,7 @@ index b0b2d867..326321ac 100644
  #pragma warning(disable:4244)
  #elif POSIX
 diff --git a/sp/src/game/server/player.cpp b/sp/src/game/server/player.cpp
-index 0538f90a..6e2426ec 100644
+index 0538f90a..b33a5610 100644
 --- a/sp/src/game/server/player.cpp
 +++ b/sp/src/game/server/player.cpp
 @@ -97,6 +97,8 @@ ConVar sv_bonus_challenge( "sv_bonus_challenge", "0", FCVAR_REPLICATED, "Set to
@@ -682,6 +682,36 @@ index 0538f90a..6e2426ec 100644
 +	if ( bShouldSwitch && !halfcraft::server_minecraft_picks_weapon( this, pWeapon ) )
  	{
  		Weapon_Switch( pWeapon );
+ 	}
+@@ -8237,6 +8249,8 @@ void CBasePlayer::VPhysicsShadowUpdate( IPhysicsObject *pPhysics )
+ 					{
+ 						newVelocity *= 0.5f;
+ 					}
++					// halfcraft: the physics shadow keeping up with what the player stands on, no shove
++					halfcraft::ServerImpulseQuiet quiet;
+ 					ApplyAbsVelocityImpulse( newVelocity );
+ 				}
+ 			}
+diff --git a/sp/src/game/server/player_command.cpp b/sp/src/game/server/player_command.cpp
+index b607bbab..8a21a57c 100644
+--- a/sp/src/game/server/player_command.cpp
++++ b/sp/src/game/server/player_command.cpp
+@@ -14,6 +14,7 @@
+ #include "movehelper_server.h"
+ #include "iservervehicle.h"
+ #include "tier0/vprof.h"
++#include "shared/hc_hooks.h"
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+@@ -114,6 +115,8 @@ void CPlayerMove::CheckMovingGround( CBasePlayer *player, double frametime )
+ 	if ( !( player->GetFlags() & FL_BASEVELOCITY ) )
+ 	{
+ 		// Apply momentum (add in half of the previous frame of velocity first)
++		// halfcraft: no shove; minecraft takes a push that ends as momentum itself (kInPush)
++		halfcraft::ServerImpulseQuiet quiet;
+ 		player->ApplyAbsVelocityImpulse( (1.0 + ( frametime * 0.5 )) * player->GetBaseVelocity() );
+ 		player->SetBaseVelocity( vec3_origin );
  	}
 diff --git a/sp/src/game/server/server_episodic.vpc b/sp/src/game/server/server_episodic.vpc
 index 81c9297b..405a59ef 100644
@@ -739,6 +769,30 @@ index ffc95d46..92f38548 100644
  	while ( pAchievementHelper )
  	{
  		// create and initialize all achievements and insert them in our map
+diff --git a/sp/src/game/shared/baseentity_shared.cpp b/sp/src/game/shared/baseentity_shared.cpp
+index 43348cb1..98bd5814 100644
+--- a/sp/src/game/shared/baseentity_shared.cpp
++++ b/sp/src/game/shared/baseentity_shared.cpp
+@@ -19,6 +19,7 @@
+ #include "debugoverlay_shared.h"
+ #include "coordsize.h"
+ #include "vphysics/performance.h"
++#include "shared/hc_hooks.h"
+ 
+ #ifdef CLIENT_DLL
+ 	#include "c_te_effect_dispatch.h"
+@@ -2415,6 +2416,11 @@ void CBaseEntity::ApplyLocalVelocityImpulse( const Vector &inVecImpulse )
+ 
+ void CBaseEntity::ApplyAbsVelocityImpulse( const Vector &inVecImpulse )
+ {
++#ifdef GAME_DLL
++	// halfcraft: a shove on the player minecraft drives goes to minecraft too: its next move undoes it here
++	if ( IsPlayer() )
++		halfcraft::server_player_impulse( this, inVecImpulse );
++#endif
+ 	if ( inVecImpulse != vec3_origin )
+ 	{
+ 		Vector vecImpulse = inVecImpulse;
 diff --git a/sp/src/game/shared/gamemovement.cpp b/sp/src/game/shared/gamemovement.cpp
 index 8de6fc32..270242b9 100644
 --- a/sp/src/game/shared/gamemovement.cpp

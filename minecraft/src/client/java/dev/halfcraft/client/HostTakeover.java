@@ -19,7 +19,7 @@ import net.minecraft.world.phys.Vec3;
  *
  * <p>While Minecraft drives the player, Half-Life's pushes on it ({@link HostPush}: trigger_push,
  * conveyors, point_push) move it along, on top of its own movement, and leave it their momentum when
- * they stop.
+ * they stop; its shoves (a trigger_push that pushes once, an antlion guard) give it momentum at once.
  */
 public final class HostTakeover {
 	private static boolean following;
@@ -43,8 +43,9 @@ public final class HostTakeover {
 		if (!now) {
 			return false;
 		}
-		// a push that ended as Half-Life took over is no momentum for the hand-back
+		// a push that ended as Half-Life took over is no momentum for the hand-back, nor a shove meanwhile
 		HostPush.INSTANCE.takeReleased();
+		HostPush.INSTANCE.takeImpulse();
 		player.setDeltaMovement(Vec3.ZERO);
 		player.setPos(sky.x, sky.y, sky.z);
 		player.setOnGround(true);
@@ -58,6 +59,15 @@ public final class HostTakeover {
 		double[] released = HostPush.INSTANCE.takeReleased();
 		if (released != null && HostClient.linked()) {
 			player.addDeltaMovement(new Vec3(released[0] * seconds, released[1] * seconds, released[2] * seconds));
+		}
+		double[] shove = HostPush.INSTANCE.takeImpulse();
+		if (shove != null && HostClient.linked()) {
+			HalfCraft.LOG.info("HalfCraft: Half-Life shoves the player ({} {} {} blocks a second)", String.format("%.2f", shove[0]),
+				String.format("%.2f", shove[1]), String.format("%.2f", shove[2]));
+			player.addDeltaMovement(new Vec3(shove[0] * seconds, shove[1] * seconds, shove[2] * seconds));
+			if (shove[1] > 0.0) {
+				player.setOnGround(false);  // off the ground, as Source's shove lifts it
+			}
 		}
 		double[] push = HostClient.linked() ? HostPush.INSTANCE.velocity(System.currentTimeMillis()) : null;
 		if ((push != null) != pushed) {

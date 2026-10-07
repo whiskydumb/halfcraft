@@ -83,6 +83,31 @@ class HostPushTest {
 	}
 
 	@Test
+	void impulsesAddUpUntilTaken() {
+		HostPush push = new HostPush();
+		push.impulse(1000, 2000, 0);
+		push.impulse(500, 0, -1000);
+		assertArrayEquals(new double[] { 1.5, 2.0, -1.0 }, push.takeImpulse(), EPS);
+		assertNull(push.takeImpulse());
+	}
+
+	@Test
+	void noImpulseWithoutOne() {
+		HostPush push = new HostPush();
+		push.impulse(0, 0, 0);
+		assertNull(push.takeImpulse());
+	}
+
+	@Test
+	void anImpulseLeavesALastingPushAlone() {
+		HostPush push = new HostPush();
+		push.accept(1000, 0, 0, 1000);
+		push.impulse(0, 4000, 0);
+		assertArrayEquals(new double[] { 1.0, 0.0, 0.0 }, push.velocity(1000), EPS);
+		assertArrayEquals(new double[] { 0.0, 4.0, 0.0 }, push.takeImpulse(), EPS);
+	}
+
+	@Test
 	void callerCannotChangeThePush() {
 		HostPush push = new HostPush();
 		push.accept(1000, 0, 0, 0);

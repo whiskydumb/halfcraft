@@ -356,7 +356,7 @@ index 7b2d595e..cbafb503 100644
  			SwitchToNextBestWeapon(GetActiveWeapon());
  		}
 diff --git a/src/game/server/player.cpp b/src/game/server/player.cpp
-index 2c0fa74f..ac06a0fa 100644
+index 2c0fa74f..24c91196 100644
 --- a/src/game/server/player.cpp
 +++ b/src/game/server/player.cpp
 @@ -102,6 +102,8 @@ ConVar sv_chat_seconds_per_msg_tier2( "sv_chat_seconds_per_msg_tier2", "10", FCV
@@ -403,6 +403,36 @@ index 2c0fa74f..ac06a0fa 100644
  	{
  		Weapon_Switch( pWeapon );
  	}
+@@ -8437,6 +8449,8 @@ void CBasePlayer::VPhysicsShadowUpdate( IPhysicsObject *pPhysics )
+ 					{
+ 						newVelocity *= 0.5f;
+ 					}
++					// halfcraft: the physics shadow keeping up with what the player stands on, no shove
++					halfcraft::ServerImpulseQuiet quiet;
+ 					ApplyAbsVelocityImpulse( newVelocity );
+ 				}
+ 			}
+diff --git a/src/game/server/player_command.cpp b/src/game/server/player_command.cpp
+index a8469d6f..794ad271 100644
+--- a/src/game/server/player_command.cpp
++++ b/src/game/server/player_command.cpp
+@@ -14,6 +14,7 @@
+ #include "movehelper_server.h"
+ #include "iservervehicle.h"
+ #include "tier0/vprof.h"
++#include "shared/hc_hooks.h"
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+@@ -115,6 +116,8 @@ void CPlayerMove::CheckMovingGround( CBasePlayer *player, double frametime )
+ 	if ( !( player->GetFlags() & FL_BASEVELOCITY ) )
+ 	{
+ 		// Apply momentum (add in half of the previous frame of velocity first)
++		// halfcraft: no shove; minecraft takes a push that ends as momentum itself (kInPush)
++		halfcraft::ServerImpulseQuiet quiet;
+ 		player->ApplyAbsVelocityImpulse( (1.0 + ( frametime * 0.5 )) * player->GetBaseVelocity() );
+ 		player->SetBaseVelocity( vec3_origin );
+ 	}
 diff --git a/src/game/server/server_episodic.vpc b/src/game/server/server_episodic.vpc
 index 0234b27f..89f64293 100644
 --- a/src/game/server/server_episodic.vpc
@@ -429,6 +459,30 @@ index 0fc2e64b..78139395 100644
  
  $Configuration
  {
+diff --git a/src/game/shared/baseentity_shared.cpp b/src/game/shared/baseentity_shared.cpp
+index bf44dc19..84cf3376 100644
+--- a/src/game/shared/baseentity_shared.cpp
++++ b/src/game/shared/baseentity_shared.cpp
+@@ -19,6 +19,7 @@
+ #include "debugoverlay_shared.h"
+ #include "coordsize.h"
+ #include "vphysics/performance.h"
++#include "shared/hc_hooks.h"
+ 
+ #ifdef CLIENT_DLL
+ 	#include "c_te_effect_dispatch.h"
+@@ -2425,6 +2426,11 @@ void CBaseEntity::ApplyLocalVelocityImpulse( const Vector &inVecImpulse )
+ 
+ void CBaseEntity::ApplyAbsVelocityImpulse( const Vector &inVecImpulse )
+ {
++#ifdef GAME_DLL
++	// halfcraft: a shove on the player minecraft drives goes to minecraft too: its next move undoes it here
++	if ( IsPlayer() )
++		halfcraft::server_player_impulse( this, inVecImpulse );
++#endif
+ 	if ( inVecImpulse != vec3_origin )
+ 	{
+ 		Vector vecImpulse = inVecImpulse;
 diff --git a/src/game/shared/gamemovement.cpp b/src/game/shared/gamemovement.cpp
 index 4b79f72c..5ad95652 100644
 --- a/src/game/shared/gamemovement.cpp

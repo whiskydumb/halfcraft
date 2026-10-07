@@ -78,6 +78,7 @@ public final class InputBridge {
 			case Proto.IN_RESTORE -> rollback(minecraft, checkpointId(a, b), true);
 			case Proto.IN_STRING -> HostStrings.accept(code, a, b, c);
 			case Proto.IN_PUSH -> HostPush.INSTANCE.accept(a, b, c, System.currentTimeMillis());
+			case Proto.IN_IMPULSE -> HostPush.INSTANCE.impulse(a, b, c);
 			case Proto.IN_OPEN_MENU -> {
 				if (minecraft.gui.screen() == null && minecraft.player != null) {
 					releaseAll();
