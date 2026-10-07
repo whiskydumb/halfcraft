@@ -440,8 +440,9 @@ namespace halfcraft::proto
 		std::uint64_t renderPending;      // render ring bytes the host hasn't read yet
 		std::uint32_t lights;             // lights made of those emitters around the player
 		std::uint32_t shadowedLights;     // of those, the shadowed point lights (the rest light only characters)
+		float         gridZ;              // the map's block grid: the source z of minecraft's y = 0 (whole units)
 	};
-	static_assert(sizeof(HostDebug) == 0xE0);
+	static_assert(sizeof(HostDebug) == 0xE8);
 
 	struct HostDebugServer
 	{

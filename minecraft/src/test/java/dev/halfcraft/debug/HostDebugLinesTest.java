@@ -22,6 +22,7 @@ class HostDebugLinesTest {
 		d.angles[0] = 12.5F;
 		d.angles[1] = 90.0F;
 		d.slot = 13;
+		d.gridZ = 24.0F;
 		return d;
 	}
 
@@ -33,7 +34,7 @@ class HostDebugLinesTest {
 			"Map: d1_canals_08, chapter 4: WATER HAZARD",
 			"Source XYZ: 1234.50 / -67.25 / 8.00",
 			"Source facing: yaw 90.0, pitch 12.5",
-			"Mirror XYZ: 13343.500 / 0.200 / 1.750 (map slot 13)"
+			"Mirror XYZ: 13343.500 / 0.200 / 1.750 (map slot 13, block grid at Source z 24)"
 		), lines);
 	}
 

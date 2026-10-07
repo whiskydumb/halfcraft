@@ -178,6 +178,7 @@ namespace halfcraft
 				debug.worstFrameMs = clock_.worst_ms();
 				debug.overlayMs = overlay_cost_ms(clock_.frames());
 				debug.slot = s.slot.index;
+				debug.gridZ = s.slot.grid_z;
 				debug.collisionEpoch = s.epoch;
 				const auto backlog = s.link.backlog();
 				debug.inputPending = static_cast<std::uint32_t>(backlog.input);

@@ -34,6 +34,7 @@ public final class HostDebug {
 	public long renderPending;
 	public int lights;
 	public int shadowedLights;
+	public float gridZ;
 
 	// server.dll's part
 	public boolean haveServer;
@@ -113,6 +114,7 @@ public final class HostDebug {
 			long renderPending = s.get(JAVA_LONG, b + HD_RENDER_PENDING);
 			int lights = s.get(JAVA_INT, b + HD_LIGHTS);
 			int shadowedLights = s.get(JAVA_INT, b + HD_SHADOWED_LIGHTS);
+			float gridZ = s.get(JAVA_FLOAT, b + HD_GRID_Z);
 			VarHandle.loadLoadFence();
 			if ((int) INT.getAcquire(s, b + HD_SEQ) != seq1) {
 				continue;
@@ -135,6 +137,7 @@ public final class HostDebug {
 			out.renderPending = renderPending;
 			out.lights = lights;
 			out.shadowedLights = shadowedLights;
+			out.gridZ = gridZ;
 			return true;
 		}
 		return false;

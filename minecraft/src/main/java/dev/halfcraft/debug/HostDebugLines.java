@@ -30,7 +30,7 @@ public final class HostDebugLines {
 		lines.add(format("Source XYZ: %.2f / %.2f / %.2f", d.origin[0], d.origin[1], d.origin[2]));
 		String roll = d.angles[2] != 0.0F ? format(", roll %.1f", d.angles[2]) : "";
 		lines.add(format("Source facing: yaw %.1f, pitch %.1f%s", d.angles[1], d.angles[0], roll));
-		lines.add(format("Mirror XYZ: %.3f / %.3f / %.3f (map slot %d)", mirrorX, mirrorY, mirrorZ, d.slot));
+		lines.add(format("Mirror XYZ: %.3f / %.3f / %.3f (map slot %d, block grid at Source z %.0f)", mirrorX, mirrorY, mirrorZ, d.slot, d.gridZ));
 		return lines;
 	}
 

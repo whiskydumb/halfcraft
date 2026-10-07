@@ -282,7 +282,8 @@ public final class Proto {
 	public static final long HD_RENDER_PENDING = 0xD0;
 	public static final long HD_LIGHTS = 0xD8;
 	public static final long HD_SHADOWED_LIGHTS = 0xDC;
-	public static final long HD_BYTES = 0xE0;
+	public static final long HD_GRID_Z = 0xE0;
+	public static final long HD_BYTES = 0xE8;
 	public static final int HD_PUPPET = 1;
 	public static final int HD_MINECRAFT_INPUT = 1 << 1;
 	public static final int HD_MINECRAFT_HUD = 1 << 2;
