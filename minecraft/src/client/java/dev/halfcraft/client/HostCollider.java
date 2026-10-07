@@ -5,37 +5,17 @@ import dev.halfcraft.world.HostTri;
 import dev.halfcraft.world.TriCollider;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
 
-/** Feeds the local player's movement through {@link TriCollider} against nearby Half-Life triangles. */
+/**
+ * Half-Life's triangles around the local player, for putting it back on them (HostClient); its
+ * movement collides with them in PlayerCollider.
+ */
 public final class HostCollider {
 	// a floor less than this over the feet is the one they stand on, not one they sank into
 	private static final double SUNK_FROM = 0.01;
 
 	private HostCollider() {
-	}
-
-	public static Vec3 collide(LocalPlayer player, Vec3 move) {
-		AABB box = player.getBoundingBox();
-		double step = player.maxUpStep();
-		List<HostTri> tris = new ArrayList<>();
-		HostCollision.trianglesNear(box.expandTowards(move).inflate(1.0, 1.0 + step, 1.0), tris);
-		if (tris.isEmpty()) {
-			return move;
-		}
-		double[] r = TriCollider.resolve(
-			tris, (box.minX + box.maxX) * 0.5, box.minY, (box.minZ + box.maxZ) * 0.5, box.getXsize() * 0.5, box.getYsize(), step, player.onGround(),
-			move.x, move.y, move.z
-		);
-		if (r[0] == move.x && r[1] == move.y && r[2] == move.z) {
-			return move;
-		}
-		// The triangle pass (snapping down a slope, pushing out of a wall) can move the player into a
-		// Minecraft block placed on the terrain; collide that result with Minecraft blocks again.
-		return Entity.collideBoundingBox(player, new Vec3(r[0], r[1], r[2]), box, player.level(), List.of());
 	}
 
 	/**

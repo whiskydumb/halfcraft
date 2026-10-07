@@ -18,8 +18,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * A player who says they stand on something the server's copy of them doesn't collide with gets the
  * blocks under their feet sent again ("standing on air - force-sending blocks below", every 10 s). In
- * the mirror world that's Half-Life's ground, which the server's player never collides with: there
- * are no blocks to send, and the line kept coming. So is Half-Life holding the player itself (a ladder,
+ * the mirror world that's Half-Life's ground, which the server's player stands on only as triangles
+ * (EntityCollideMixin), not as blocks: there are no blocks to send, and the line kept coming. So is Half-Life holding the player itself (a ladder,
  * a lift, a vehicle: Minecraft's player stands wherever Half-Life's is). Only those cases are skipped:
  * over air with no Half-Life geometry, or under a Minecraft block, the server still checks as vanilla
  * does.

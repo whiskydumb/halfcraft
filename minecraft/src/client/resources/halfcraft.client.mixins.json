@@ -6,7 +6,6 @@
     "CameraEyeAccessor",
     "CameraZoomMixin",
     "ClientLevelAccessor",
-    "EntityCollideMixin",
     "FramerateLimitTrackerMixin",
     "HostDebugEntriesMixin",
     "HostDebugEntryListMixin",

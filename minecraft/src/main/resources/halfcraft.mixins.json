@@ -11,6 +11,7 @@
     "BoatDispenseItemBehaviorMixin",
     "BoatItemMixin",
     "DamageSourceInvoker",
+    "EntityCollideMixin",
     "EntityFluidInteractionMixin",
     "EntityHoldMixin",
     "EntityPickMixin",
@@ -40,6 +41,7 @@
     "ServerExplosionMixin",
     "ServerPlayerMixin",
     "WalkNodeEvaluatorMixin",
+    "WeaponClickMixin",
     "WeaponDropMixin",
     "WeaponSlotMixin"
   ],

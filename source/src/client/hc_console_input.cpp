@@ -136,6 +136,22 @@ CON_COMMAND(hc_hold, "halfcraft: hold a minecraft mouse button: hc_hold <1 left 
 	}
 }
 
+CON_COMMAND(hc_cursor, "halfcraft: put minecraft's cursor somewhere while one of its screens is open: hc_cursor <x> <y> (overlay pixels)")
+{
+	if (args.ArgC() < 3) {
+		Msg("usage: hc_cursor <x> <y> (overlay pixels, 0 0 is the top left), e.g. hc_cursor 640 360\n");
+		return;
+	}
+	if (!halfcraft::minecraft_linked("hc_cursor")) {
+		return;
+	}
+	auto& s = halfcraft::client_session();
+	s.cursor_x = std::clamp(atoi(args[1]), 0, std::max(0, s.viewport_w - 1));
+	s.cursor_y = std::clamp(atoi(args[2]), 0, std::max(0, s.viewport_h - 1));
+	s.link.push_input(halfcraft::proto::kInCursor, 0, s.cursor_x, s.cursor_y);
+	halfcraft::log_info("hc_cursor: %d %d", s.cursor_x, s.cursor_y);
+}
+
 CON_COMMAND(hc_use, "halfcraft: hold source's use (G: doors, buttons, chargers): hc_use <1 down | 0 up> [seconds before it lets go]")
 {
 	if (args.ArgC() < 2) {
