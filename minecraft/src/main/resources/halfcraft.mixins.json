@@ -8,6 +8,8 @@
     "AvatarDuckMixin",
     "BlockCollisionsMixin",
     "BlockStateBaseMixin",
+    "BoatDispenseItemBehaviorMixin",
+    "BoatItemMixin",
     "DamageSourceInvoker",
     "EntityFluidInteractionMixin",
     "EntityHoldMixin",

@@ -35,6 +35,8 @@ import org.jspecify.annotations.Nullable;
 public final class HostWater {
 	// a thing that stopped asking for this long gets no probe any more (gone, or out of the world)
 	private static final long WANT_MS = 1000;
+	// how finely a line is followed looking for the water surface (blocks)
+	private static final double RAY_STEP = 1.0 / 16.0;
 
 	private static volatile WaterColumns.@Nullable Grid grid;
 	private static volatile List<WaterColumns.Grid> probes = List.of();
@@ -146,6 +148,34 @@ public final class HostWater {
 	/** Minecraft y of Half-Life's water surface over the column of cell (x, y, z), or NaN where it has none. */
 	public static double surfaceAt(int x, int y, int z) {
 		return WaterColumns.surface(grid, probes, x, y, z);
+	}
+
+	/**
+	 * Where a line from {@code from} to {@code to} first comes down onto Half-Life's water (a boat put on
+	 * it, BoatItemMixin), or null when it doesn't; from under the water it never does.
+	 */
+	public static @Nullable Vec3 surfaceAlong(BlockGetter level, Vec3 from, Vec3 to) {
+		if (grid == null) {
+			return null;
+		}
+		int steps = Math.max(1, (int) Math.ceil(from.distanceTo(to) / RAY_STEP));
+		Vec3 prev = from;
+		for (int i = 0; i <= steps; i++) {
+			Vec3 p = from.lerp(to, (double) i / steps);
+			BlockPos cell = BlockPos.containing(p);
+			double s = surfaceAt(cell.getX(), cell.getY(), cell.getZ());
+			if (!Double.isNaN(s) && p.y <= s && level.getBlockState(cell).isAir()) {
+				if (i == 0) {
+					return null; // the eye is under it
+				}
+				// where the line crosses the surface between the last step and this one
+				double t = prev.y > s ? (prev.y - s) / (prev.y - p.y) : 1.0;
+				Vec3 at = prev.lerp(p, t);
+				return new Vec3(at.x, s, at.z);
+			}
+			prev = p;
+		}
+		return null;
 	}
 
 	/** How much of this block (0..1) is under Half-Life's water; 0 above the surface. */
