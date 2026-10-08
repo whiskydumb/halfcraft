@@ -90,6 +90,9 @@ make mc-run                  # the Minecraft dev client (finds a JDK 25 itself);
 make run ENGINE=hl2 MAP=d1_trainstation_02
 ```
 
+`make format` formats the C++ with clang-format 22 and `make lint` checks it; a compiler warning in
+HalfCraft's own C++ or Java fails its build.
+
 `make` alone lists the tasks; `ENGINE=hl2` or `ENGINE=hl2dm` limits one to an engine (`make run`
 defaults to `hl2dm`; the `hl2` build takes its shaders and campaign files from `source-sdk-2013` too,
 so its setup clones both trees). After changing Valve code inside an SDK tree, `make patches` writes
@@ -112,6 +115,12 @@ starts Minecraft through Prism (the first time it waits for the Microsoft sign-i
 engine on its game folder. `client.dll` starts
 Minecraft too when nothing else did, and again if it quits on its own, and says on screen what
 it's doing until it connects. Prism Launcher and Fabric API downloads are pinned by hash.
+
+Versions come from git tags: a commit tagged `vX.Y.Z` is release X.Y.Z, and the N commits after it are
+`X.(Y+1).0-dev.N+<commit>` (`tools/version.ps1`; the mod, `HalfCraft.exe` and the zip all carry it). CI
+(`.github/workflows`) checks every push: clang-format, the Minecraft mod's build and tests, both
+engines' build and the zip. Each push to `main` replaces the `dev` pre-release on GitHub, and a pushed
+tag `vX.Y.Z` publishes that release.
 
 Console variables: `hc_block_light` (block brightness in the map's light, default 2 = Source's
 overbright), `hc_torch_light` / `hc_torch_light_count` (Minecraft's lights on the map),

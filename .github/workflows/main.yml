@@ -1,0 +1,63 @@
+name: Main
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*.*.*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: main-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  version:
+    name: Version
+    runs-on: windows-2025
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: version
+        name: tools/version.ps1
+        shell: powershell
+        run: |
+          $version = & ./tools/version.ps1
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$version" -Encoding ascii
+          Write-Host "halfcraft $version"
+
+  lint:
+    name: Lint
+    uses: ./.github/workflows/lint.yml
+
+  test:
+    name: Test
+    needs: version
+    uses: ./.github/workflows/test.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+
+  package:
+    name: Package
+    needs: [version, lint, test]
+    uses: ./.github/workflows/package.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+
+  publish:
+    name: Publish
+    needs: [version, package]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    uses: ./.github/workflows/publish.yml
+    permissions:
+      contents: write
+    with:
+      version: ${{ needs.version.outputs.version }}

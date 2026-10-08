@@ -1,0 +1,49 @@
+name: Publish
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: halfcraft's version (tools/version.ps1)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: GitHub release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: halfcraft-${{ inputs.version }}
+          path: dist
+      - name: Notes
+        run: |
+          previous=$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' HEAD^ 2>/dev/null || true)
+          {
+            echo "HalfCraft $VERSION, built from $GITHUB_SHA."
+            echo
+            echo "Changes since ${previous:-the beginning}:"
+            echo
+            git log --format='- %s (%h)' ${previous:+$previous..}HEAD
+          } > notes.md
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: gh release create "$GITHUB_REF_NAME" dist/*.zip --verify-tag --title "HalfCraft $VERSION" --notes-file notes.md
+      - name: Dev build
+        if: github.ref == 'refs/heads/main'
+        run: |
+          gh release delete dev --cleanup-tag --yes || true
+          gh release create dev dist/*.zip --prerelease --target "$GITHUB_SHA" --title "HalfCraft $VERSION" --notes-file notes.md
