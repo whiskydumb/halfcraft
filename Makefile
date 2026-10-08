@@ -12,7 +12,7 @@
 #   make test-start [ENGINE=hl2]   set the game's saves and settings aside for tests; make test-stop: back
 #   make patches                   write sdk edits back into source\sdk\halfcraft-<engine>.patch
 #   make package                   dist\HalfCraft-<version>.zip (NOBUILD=1 packs what's built)
-#   make format                    clang-format halfcraft's c++; make lint: check it, as ci does
+#   make format                    clang-format halfcraft's c++, eclipse's formatter its java; make lint: check both
 #   make tidy                      clang-tidy over halfcraft's c++, both engines (after make build)
 #
 # ENGINE: hl2 (half-life 2's own 32-bit engine), hl2dm (half-life 2: deathmatch's 64-bit one) or all
@@ -75,9 +75,11 @@ package:
 
 format:
 	& ./tools/format.ps1
+	& ./tools/gradle.ps1 spotlessApply
 
 lint:
 	& ./tools/format.ps1 -Check
+	& ./tools/gradle.ps1 spotlessCheck
 
 tidy:
 	python tools/tidy.py

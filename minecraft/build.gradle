@@ -1,6 +1,7 @@
 plugins {
 	id 'net.fabricmc.fabric-loom' version "${loom_version}"
 	id 'maven-publish'
+	id 'com.diffplug.spotless' version "${spotless_version}"
 }
 
 repositories {
@@ -58,6 +59,16 @@ processResources {
 
 	filesMatching("fabric.mod.json") {
 		expand "version": version
+	}
+}
+
+// the java's formatting (make format, make lint): eclipse's formatter with halfcraft's settings. not part
+// of build: a line out of place doesn't stop a test run
+spotless {
+	enforceCheck false
+	java {
+		target 'src/**/*.java'
+		eclipse().configFile('eclipse-formatter.prefs')
 	}
 }
 

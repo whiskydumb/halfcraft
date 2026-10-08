@@ -113,7 +113,7 @@ public final class HostCombat {
 				live.put(a.actorId(), a);
 			}
 		}
-		for (Iterator<Map.Entry<Integer, HostActorEntity>> it = PROXIES.entrySet().iterator(); it.hasNext(); ) {
+		for (Iterator<Map.Entry<Integer, HostActorEntity>> it = PROXIES.entrySet().iterator(); it.hasNext();) {
 			Map.Entry<Integer, HostActorEntity> e = it.next();
 			HostActorEntity proxy = e.getValue();
 			if (!live.containsKey(e.getKey()) || proxy.isRemoved() || proxy.level() != level) {

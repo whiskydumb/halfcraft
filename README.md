@@ -90,7 +90,8 @@ make mc-run                  # the Minecraft dev client (finds a JDK 25 itself);
 make run ENGINE=hl2 MAP=d1_trainstation_02
 ```
 
-`make format` formats the C++ with clang-format 22 and `make lint` checks it; `make tidy` (after
+`make format` formats the C++ with clang-format 22 and the Java with Eclipse's formatter (Spotless,
+`minecraft/eclipse-formatter.prefs`), and `make lint` checks both; `make tidy` (after
 `make build`, a minute or two) runs clang-tidy 22 over it on both engines with the checks in
 `.clang-tidy`. A compiler warning in HalfCraft's own C++ or Java fails its build.
 
@@ -119,9 +120,9 @@ it's doing until it connects. Prism Launcher and Fabric API downloads are pinned
 
 Versions come from git tags: a commit tagged `vX.Y.Z` is release X.Y.Z, and the N commits after it are
 `X.(Y+1).0-dev.N+<commit>` (`tools/version.ps1`; the mod, `HalfCraft.exe` and the zip all carry it). CI
-(`.github/workflows`) checks every push: clang-format, the Minecraft mod's build and tests, both
-engines' build, clang-tidy and the zip. Each push to `main` replaces the `dev` pre-release on GitHub, and a pushed
-tag `vX.Y.Z` publishes that release.
+(`.github/workflows`) checks every push: clang-format, the Java's formatting, the Minecraft mod's
+build and tests, both engines' build, clang-tidy and the zip. Each push to `main` replaces the `dev`
+pre-release on GitHub, and a pushed tag `vX.Y.Z` publishes that release.
 
 Console variables: `hc_block_light` (block brightness in the map's light, default 2 = Source's
 overbright), `hc_torch_light` / `hc_torch_light_count` (Minecraft's lights on the map),

@@ -1,6 +1,6 @@
 # formats halfcraft's own c++ with clang-format (.clang-format says how), or checks that it is: make format,
 # make lint. the files: source\src, source\launcher, protocol and tools\*.cpp, tracked or new; never the sdk
-# trees, nor the java (clang-format breaks mixin annotations).
+# trees. the java is spotless's (minecraft\eclipse-formatter.prefs), which make format and make lint run too.
 #
 #   tools/format.ps1          rewrites the files that aren't formatted
 #   tools/format.ps1 -Check   lists them and fails; writes nothing

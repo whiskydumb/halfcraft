@@ -21,3 +21,23 @@ jobs:
       - name: make lint
         shell: powershell
         run: ./tools/format.ps1 -Check
+
+  spotless:
+    name: Java formatting
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      GRADLE_OPTS: -Dorg.gradle.daemon=false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: JDK 25
+        shell: powershell
+        run: ./.github/scripts/pinned.ps1 jdk
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          cache-provider: basic
+      - name: spotlessCheck
+        shell: powershell
+        run: ./tools/gradle.ps1 spotlessCheck
