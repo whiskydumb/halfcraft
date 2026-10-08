@@ -42,11 +42,11 @@ namespace halfcraft
 		const std::int64_t period = std::max<std::int64_t>(1, std::llround(double(mc.tickMs) * qpc_per_ms));
 
 		if (history_.empty() || history_.back().state.tickQpc != mc.tickQpc) {
-			if (!history_.empty() && mc.tickQpc < history_.back().state.tickQpc) {
-				history_.clear();  // minecraft restarted
-			} else if (!history_.empty() && mc.teleportCount != history_.back().state.teleportCount) {
-				// minecraft moved its player by itself (a pearl, /tp): the feet go straight to the new
-				// spot, never through the walls between the two
+			// minecraft restarted, or moved its player by itself (a pearl, /tp): the feet go straight to the
+			// new spot, never through the walls between the two
+			const bool restarted = !history_.empty() && mc.tickQpc < history_.back().state.tickQpc;
+			const bool teleported = !history_.empty() && mc.teleportCount != history_.back().state.teleportCount;
+			if (restarted || teleported) {
 				history_.clear();
 			}
 			Tick tick{ mc, mc.tickQpc, 1 };

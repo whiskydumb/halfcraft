@@ -24,6 +24,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <map>
 #include <set>
 #include <string>
@@ -320,7 +321,7 @@ namespace
 	{
 		auto        side = [&](int a, int b) { return (v[b * 3] - v[a * 3]) * (z - v[a * 3 + 2]) - (v[b * 3 + 2] - v[a * 3 + 2]) * (x - v[a * 3]); };
 		const float d0 = side(0, 1), d1 = side(1, 2), d2 = side(2, 0);
-		return !((d0 < 0.0f || d1 < 0.0f || d2 < 0.0f) && (d0 > 0.0f || d1 > 0.0f || d2 > 0.0f));
+		return (d0 >= 0.0f && d1 >= 0.0f && d2 >= 0.0f) || (d0 <= 0.0f && d1 <= 0.0f && d2 <= 0.0f);
 	}
 
 	struct Hole
@@ -330,7 +331,7 @@ namespace
 	};
 }
 
-int main(int argc, char** argv)
+int check(int argc, char** argv)
 {
 	if (argc != 3 && argc != 6) {
 		std::fprintf(stderr, "usage: collision_check <map.bsp> <grid z> [<source x> <source y> <radius>]\n");
@@ -460,6 +461,7 @@ int main(int argc, char** argv)
 	std::printf("worker: %llu regions with geometry, %.2f ms a region on average, %.2f ms at worst\n", static_cast<unsigned long long>(timed),
 		timed ? ms(worker) / static_cast<double>(timed) : 0.0, ms(slowest));
 	std::vector<Hole> worst;
+	worst.reserve(holes_by_block.size());
 	for (const auto& entry : holes_by_block) {
 		worst.push_back(entry.second);
 	}
@@ -468,4 +470,15 @@ int main(int argc, char** argv)
 		std::printf("  hole at source (%.0f, %.0f, %.0f): %d spots in its block\n", worst[i].x, worst[i].y, worst[i].z, worst[i].spots);
 	}
 	return holes == 0 ? 0 : 1;
+}
+
+int main(int argc, char** argv)
+{
+	// a map the bsp reader chokes on (a bad lump size, out of memory) says so instead of crashing
+	try {
+		return check(argc, argv);
+	} catch (const std::exception& error) {
+		std::fprintf(stderr, "collision_check: %s\n", error.what());
+		return 2;
+	}
 }

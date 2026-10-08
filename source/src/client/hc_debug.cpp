@@ -97,7 +97,7 @@ namespace halfcraft
 				const std::string token = "#" + folder_ + "_Chapter" + chapter_ + "_Title";
 				if (const wchar_t* wide = g_pVGuiLocalize ? g_pVGuiLocalize->Find(token.c_str()) : nullptr) {
 					char utf8[256];
-					g_pVGuiLocalize->ConvertUnicodeToANSI(wide, utf8, sizeof(utf8));
+					::ILocalize::ConvertUnicodeToANSI(wide, utf8, sizeof(utf8));
 					title_ = utf8;
 				}
 				log_info("debug screen: %s is chapter %s (%s)", map.c_str(), chapter_.c_str(), title_.empty() ? token.c_str() : title_.c_str());

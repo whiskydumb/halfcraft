@@ -148,7 +148,6 @@ namespace halfcraft
 			case KEY_F7:
 			case KEY_F9:         // quickload
 			case KEY_F10:        // quit
-				return true;
 			case KEY_ESCAPE:     // the engine routes it through client_ui_toggle
 				return true;
 			default:

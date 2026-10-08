@@ -110,7 +110,7 @@ namespace halfcraft
 	/// CBaseEntity::ApplyAbsVelocityImpulse on a player: a shove that's over at once (a trigger_push that
 	/// pushes once, an antlion guard, a cop's stunstick), which minecraft's player takes as momentum while
 	/// minecraft drives it: its next move would undo it in source (hc_push.cpp).
-	void server_player_impulse(CBaseEntity* player, const Vector& impulse);
+	void server_player_impulse(CBaseEntity* entity, const Vector& impulse);
 
 	/// around source's own corrections of the player's velocity, which are no shoves: a push that ends
 	/// (CPlayerMove::CheckMovingGround; kInPush's end carries it) and the physics shadow keeping up with

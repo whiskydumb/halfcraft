@@ -59,7 +59,7 @@ namespace
 			while (word[length] && word[length] != ' ' && word[length] != '\t' && word[length] != '"' && word[length] != '\r' && word[length] != '\n') {
 				++length;
 			}
-			if (length && word[0] != '#' && !(word[0] == '/' && word[1] == '/')) {
+			if (length && word[0] != '#' && (word[0] != '/' || word[1] != '/')) {
 				names.emplace_back(word, length);
 			}
 		}

@@ -53,8 +53,11 @@ namespace halfcraft
 			pending = std::max(0.0f, pending - (minecraft - seen) * SOURCE_PER_MINECRAFT);
 		}
 		seen = minecraft;
-		if (pending > 0.0f && (waited += frametime) > PENDING_SECONDS) {
-			pending = 0.0f;
+		if (pending > 0.0f) {
+			waited += frametime;
+			if (waited > PENDING_SECONDS) {
+				pending = 0.0f;
+			}
 		}
 		return static_cast<int>(std::lround(minecraft * SOURCE_PER_MINECRAFT + pending));
 	}

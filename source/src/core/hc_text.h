@@ -17,7 +17,7 @@ namespace halfcraft
 		while (bytes > 0 && bytes < text.size() && (static_cast<unsigned char>(text[bytes]) & 0xC0) == 0x80) {
 			--bytes;  // text[bytes] continues a character: drop the start of it too
 		}
-		std::memcpy(field, text.data(), bytes);
+		text.copy(field, bytes);
 		field[bytes] = '\0';
 	}
 }

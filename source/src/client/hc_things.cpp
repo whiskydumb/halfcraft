@@ -648,7 +648,7 @@ RecvPropInt(RECVINFO(m_iHeldSlot)),
 			McMesh                                scene_;
 			double                                scene_origin_[3]{};
 			bool                                  scene_fresh_ = false;  // arrived since scene_list_ was built
-			std::chrono::steady_clock::time_point scene_time_{};
+			std::chrono::steady_clock::time_point scene_time_;
 			McMesh                                avatar_;
 
 			IMaterial* crack_material_ = nullptr;

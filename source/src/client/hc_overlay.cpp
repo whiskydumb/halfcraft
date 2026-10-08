@@ -250,7 +250,7 @@ private:
 
 DECLARE_HUDELEMENT(CHudHalfCraftOverlay);
 
-CHudHalfCraftOverlay::CHudHalfCraftOverlay(const char* pElementName) : CHudElement(pElementName), BaseClass(NULL, "HudHalfCraftOverlay")
+CHudHalfCraftOverlay::CHudHalfCraftOverlay(const char* pElementName) : CHudElement(pElementName), BaseClass(nullptr, "HudHalfCraftOverlay")
 {
 	SetParent(g_pClientMode->GetViewport());
 	SetHiddenBits(0);  // minecraft's hud shows whatever source's hud is doing

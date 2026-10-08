@@ -87,7 +87,7 @@ namespace halfcraft
 		std::vector<std::array<int, 3>>                      offsets_;
 		// regions new to the stream since it last had them all (a teleport, a map load): logged once
 		// they're all out, with what gathering them cost the main thread
-		Clock::time_point settle_start_{};
+		Clock::time_point settle_start_;
 		Clock::duration   settle_cost_{};
 		std::size_t       settle_regions_ = 0;
 	};

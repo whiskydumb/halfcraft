@@ -121,7 +121,7 @@ namespace halfcraft
 			int                                   starts_ = 0;
 			bool                                  came_up_ = false;  // the minecraft of the last start (or one found running) came up
 			std::wstring                          failure_;
-			std::chrono::steady_clock::time_point next_check_{};
+			std::chrono::steady_clock::time_point next_check_;
 		};
 
 		MinecraftKeeper g_keeper;

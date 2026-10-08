@@ -70,7 +70,7 @@ namespace halfcraft
 			const float p0 = dot(v0, axis), p1 = dot(v1, axis), p2 = dot(v2, axis);
 			const float mn = std::min({ p0, p1, p2 }), mx = std::max({ p0, p1, p2 });
 			const float r = h * (std::fabs(axis[0]) + std::fabs(axis[1]) + std::fabs(axis[2]));
-			return !(mn > r || mx < -r);
+			return !(mn > r) && !(mx < -r);
 		}
 
 		// box centred at c with half-size h (all axes). triangle corners ta/tb/tc, face normal n.

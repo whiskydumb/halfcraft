@@ -30,7 +30,7 @@ namespace halfcraft
 																			  : map;
 		const auto  starts = [name](const char* prefix) {
 			for (std::size_t i = 0; prefix[i]; ++i) {
-				if (std::tolower(static_cast<unsigned char>(name[i])) != prefix[i]) {
+				if (!name[i] || std::tolower(static_cast<unsigned char>(name[i])) != prefix[i]) {
 					return false;
 				}
 			}

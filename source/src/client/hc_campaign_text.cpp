@@ -84,7 +84,7 @@ namespace halfcraft
 				return text;
 			}
 			char utf8[1024];
-			g_pVGuiLocalize->ConvertUnicodeToANSI(wide, utf8, sizeof(utf8));
+			::ILocalize::ConvertUnicodeToANSI(wide, utf8, sizeof(utf8));
 			return utf8;
 		}
 

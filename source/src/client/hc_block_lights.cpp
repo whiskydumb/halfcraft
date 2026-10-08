@@ -706,8 +706,11 @@ namespace halfcraft
 					s.cluster = *it->cluster;
 					s.fade = std::min(1.0f, s.fade + frametime / FADE_IN_SECONDS);
 					candidates.erase(it);
-				} else if ((s.fade -= frametime / FADE_OUT_SECONDS) <= 0.0f) {
-					s = {};
+				} else {
+					s.fade -= frametime / FADE_OUT_SECONDS;
+					if (s.fade <= 0.0f) {
+						s = {};
+					}
 				}
 			}
 			for (const Candidate& c : candidates) {

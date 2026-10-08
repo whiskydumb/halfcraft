@@ -300,7 +300,7 @@ bool CGameMovement::HalfCraftMove(void)
 	const Vector vecDown = vecOrigin - Vector(0.0f, 0.0f, HALFCRAFT_GROUND_DROP);
 	TryTouchGround(vecUp, vecDown, vecMins, vecMaxs, PlayerSolidMask(), COLLISION_GROUP_PLAYER_MOVEMENT, pm);
 	const bool bGround = (cmd->hc_flags & halfcraft::HC_CMD_ON_GROUND) && pm.m_pEnt && !pm.startsolid && pm.plane.normal.z >= 0.7f;
-	SetGroundEntity(bGround ? &pm : NULL);
+	SetGroundEntity(bGround ? &pm : nullptr);
 	CheckWater();
 
 	// half-life's footsteps for its ground under minecraft's player (its material, set by SetGroundEntity):
