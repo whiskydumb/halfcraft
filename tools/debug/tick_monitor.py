@@ -5,14 +5,13 @@ python tools/debug/tick_monitor.py [seconds]
 """
 
 import ctypes
-import mmap
-import struct
 import sys
 import time
+from pathlib import Path
 
-NAME = "Local\\HalfCraft_v1"
-OFF_TICK_QPC = 0x200 + 0x68  # McState.tickQpc
-OFF_FRAME = 0x200 + 0x38  # McState.frameCounter
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools\, where the halfcraft package is
+from halfcraft import protocol
+from halfcraft.link import open_link
 
 _kernel32 = ctypes.windll.kernel32
 
@@ -31,7 +30,10 @@ def qpc_frequency() -> int:
 
 def main() -> None:
     seconds = float(sys.argv[1]) if len(sys.argv) > 1 else 60
-    link = mmap.mmap(-1, 0x1000, tagname=NAME, access=mmap.ACCESS_READ)
+    schema = protocol.load()
+    link = open_link(schema)
+    state, at = schema.structs["McState"], schema.regions["McState"].at
+    tick_field, frame_field = state.field("tickQpc"), state.field("frameCounter")
     frequency = qpc_frequency()
     last_tick = last_frame = None
     last_frame_at = qpc()
@@ -40,8 +42,8 @@ def main() -> None:
     frame_stalls: list[tuple[str, float]] = []
     end = time.time() + seconds
     while time.time() < end:
-        tick = struct.unpack_from("<q", link, OFF_TICK_QPC)[0]
-        frame = struct.unpack_from("<Q", link, OFF_FRAME)[0]
+        tick = tick_field.read(link, at + tick_field.offset)
+        frame = frame_field.read(link, at + frame_field.offset)
         now = qpc()
         if tick != last_tick:
             if last_tick is not None and tick > last_tick:

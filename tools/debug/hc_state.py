@@ -3,32 +3,34 @@
 python tools/debug/hc_state.py [seconds]
 """
 
-import mmap
-import struct
 import sys
 import time
+from pathlib import Path
 
-NAME = "Local\\HalfCraft_v1"
-SIZE = 0x200 + 0xD8
-MAGIC = 0x464C4148  # "HALF"
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools\, where the halfcraft package is
+from halfcraft import protocol
+from halfcraft.link import open_link
 
 
 def main() -> None:
     seconds = float(sys.argv[1]) if len(sys.argv) > 1 else 0.0
-    # a name nobody holds gets a new, empty mapping: the magic tells
-    link = mmap.mmap(-1, SIZE, tagname=NAME, access=mmap.ACCESS_READ)
-    if struct.unpack_from("<I", link, 0)[0] != MAGIC:
-        raise SystemExit("no link in shared memory: is the game running?")
+    schema = protocol.load()
+    link = open_link(schema)
+    regions, structs = schema.regions, schema.structs
     end = time.time() + seconds
     while True:
-        _magic, _version, host_pid, mc_pid = struct.unpack_from("<IIII", link, 0)
-        _seq, flags, world, epoch, x, y, z, yaw, pitch, teleport, width, height, _hour = struct.unpack_from("<IIIIdddffIIIf", link, 0x100)
-        _mc_seq, mc_flags, mc_x, mc_y, mc_z, mc_yaw, mc_pitch, eye, _sensitivity, ack = struct.unpack_from("<IIdddffffI", link, 0x200)
+        header = structs["Header"].read(link, regions["Header"].at)
+        host = structs["HostState"].read(link, regions["HostState"].at)
+        mc = structs["McState"].read(link, regions["McState"].at)
         print(
-            f"host pid {host_pid} flags {flags:#x} world {world:08x} epoch {epoch} pos ({x:.2f} {y:.2f} {z:.2f}) "
-            f"look ({yaw:.1f} {pitch:.1f}) tp {teleport} view {width}x{height}"
+            f"host pid {header['hostPid']} flags {host['flags']:#x} world {host['worldId']:08x} epoch {host['collisionEpoch']} "
+            f"pos ({host['posX']:.2f} {host['posY']:.2f} {host['posZ']:.2f}) look ({host['yaw']:.1f} {host['pitch']:.1f}) "
+            f"tp {host['teleportSeq']} view {host['viewportW']}x{host['viewportH']}"
         )
-        print(f"mc   pid {mc_pid} flags {mc_flags:#x} pos ({mc_x:.2f} {mc_y:.2f} {mc_z:.2f}) look ({mc_yaw:.1f} {mc_pitch:.1f}) eye {eye:.2f} ack {ack}")
+        print(
+            f"mc   pid {header['mcPid']} flags {mc['flags']:#x} pos ({mc['x']:.2f} {mc['y']:.2f} {mc['z']:.2f}) "
+            f"look ({mc['yaw']:.1f} {mc['pitch']:.1f}) eye {mc['eyeHeight']:.2f} ack {mc['teleportAck']}"
+        )
         if time.time() >= end:
             break
         time.sleep(0.5)
