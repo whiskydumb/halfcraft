@@ -48,3 +48,9 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
+      - name: clang-tidy 22.1.8
+        shell: powershell
+        run: ./.github/scripts/pinned.ps1 clang-tidy
+      - name: make tidy
+        shell: powershell
+        run: python tools/tidy.py

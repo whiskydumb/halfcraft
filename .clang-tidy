@@ -1,0 +1,25 @@
+Checks: >-
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -bugprone-float-loop-counter,
+  -bugprone-unchecked-string-to-number-conversion,
+  clang-analyzer-*,
+  -clang-analyzer-optin.performance.Padding,
+  -clang-analyzer-security.FloatLoopCounter,
+  -clang-analyzer-security.VAList,
+  performance-*,
+  -performance-enum-size,
+  modernize-use-nullptr,
+  modernize-use-override,
+  misc-redundant-expression,
+  readability-misleading-indentation,
+  readability-redundant-member-init,
+  readability-simplify-boolean-expr,
+  readability-static-accessed-through-instance,
+  readability-inconsistent-declaration-parameter-name
+WarningsAsErrors: '*'
+CheckOptions:
+  bugprone-unused-return-value.AllowCastToVoid: true
