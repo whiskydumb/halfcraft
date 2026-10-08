@@ -7,6 +7,7 @@ Works for both engines: 64-bit hl2mp_win64.exe and 32-bit hl2.exe dumps.
     python tools/read_dump.py <dump.dmp> [pdb dir ...]
 """
 
+import bisect
 import ctypes
 import ctypes.wintypes as wt
 import struct
@@ -124,22 +125,49 @@ def walk_stack(data, streams, thread_id, symbols, modules, x86):
     ranges = memory_ranges(data, streams)
     images = {}
 
-    def read(address, size):
-        for start, block in ranges:
-            if start <= address and address + size <= start + len(block):
-                return block[address - start : address - start + size]
-        for base, length, name in modules:  # code and data straight from the module files
+    def module_image(address):
+        """(base, image) of the module an address is in, laid out from its file; image None if unreadable."""
+        for base, length, name in modules:
             if base <= address < base + length:
                 if name not in images:
                     try:
                         images[name] = load_image(name)
                     except OSError:
                         images[name] = None
-                image = images[name]
-                if image is not None:
-                    offset = address - base
-                    return image[offset : offset + size]
+                return base, images[name]
+        return None, None
+
+    def read(address, size):
+        for start, block in ranges:
+            if start <= address and address + size <= start + len(block):
+                return block[address - start : address - start + size]
+        base, image = module_image(address)  # code and data straight from the module files
+        if image is not None:
+            offset = address - base
+            return image[offset : offset + size]
         return None
+
+    pdata = {}  # module base: its .pdata entries (begin, end, unwind info rvas), sorted
+    entries = []  # the entries handed to dbghelp stay alive here
+
+    @ctypes.WINFUNCTYPE(ctypes.c_void_p, wt.HANDLE, ctypes.c_uint64)
+    def runtime_function(_process, address):
+        # x64: the module's own .pdata entry, from its file. dbghelp's SymFunctionTableAccess64 finds none
+        # without a live process, and the walk stops after the first frame
+        base, image = module_image(address)
+        if image is None:
+            return None
+        if base not in pdata:
+            pe = struct.unpack_from("<I", image, 0x3C)[0]
+            rva, size = struct.unpack_from("<II", image, pe + 24 + 112 + 3 * 8)  # pe32+ data directory 3: exceptions
+            pdata[base] = [struct.unpack_from("<III", image, rva + i * 12) for i in range(size // 12)]
+        table, target = pdata[base], address - base
+        index = bisect.bisect_right(table, (target, 0xFFFFFFFF, 0xFFFFFFFF)) - 1
+        if index < 0 or not table[index][0] <= target < table[index][1]:
+            return None
+        entry = (wt.DWORD * 3)(*table[index])
+        entries.append(entry)
+        return ctypes.addressof(entry)
 
     if x86:
         # x86 CONTEXT: 716 bytes; eip, esp, ebp
@@ -179,7 +207,7 @@ def walk_stack(data, streams, thread_id, symbols, modules, x86):
     dbghelp.SymFunctionTableAccess64.argtypes = [wt.HANDLE, ctypes.c_uint64]
     dbghelp.SymGetModuleBase64.restype = ctypes.c_uint64
     dbghelp.SymGetModuleBase64.argtypes = [wt.HANDLE, ctypes.c_uint64]
-    table_access = ctypes.WINFUNCTYPE(ctypes.c_void_p, wt.HANDLE, ctypes.c_uint64)(dbghelp.SymFunctionTableAccess64)
+    table_access = ctypes.WINFUNCTYPE(ctypes.c_void_p, wt.HANDLE, ctypes.c_uint64)(dbghelp.SymFunctionTableAccess64) if x86 else runtime_function
     module_base = ctypes.WINFUNCTYPE(ctypes.c_uint64, wt.HANDLE, ctypes.c_uint64)(dbghelp.SymGetModuleBase64)
 
     frame = StackFrame64()
