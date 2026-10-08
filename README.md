@@ -117,7 +117,8 @@ Console variables: `hc_block_light` (block brightness in the map's light, defaul
 overbright), `hc_torch_light` / `hc_torch_light_count` (Minecraft's lights on the map),
 `hc_damage_to_npc`, `hc_explosion_damage`; for debugging `hc_debug_blocks 1` (outline the blocks'
 collision), `hc_debug_drop 1` (drop a watermelon onto the blocks), `hc_debug_use 1` (log what use
-finds), `hc_debug_torch` (a torch light where you look, without Minecraft), and the commands `hc_look <pitch> <yaw>`, `hc_click <1|2|3>`, `hc_scroll <notches>`, `hc_press <key> <1|0> [seconds]` (a key or mouse button the way the real one goes, so a weapon held in Minecraft fires) and `hc_weapons` (the player's weapons as Minecraft gets them). `make cmd C="'save test' 'load test'"`
+finds), `hc_debug_torch` (a torch light where you look, without Minecraft), `hc_debug_voxels [regions]` (Minecraft's
+collision voxels around the player checked against Source's own collision), and the commands `hc_look <pitch> <yaw>`, `hc_click <1|2|3>`, `hc_scroll <notches>`, `hc_press <key> <1|0> [seconds]` (a key or mouse button the way the real one goes, so a weapon held in Minecraft fires) and `hc_weapons` (the player's weapons as Minecraft gets them). `make cmd C="'save test' 'load test'"`
 sends console commands to the running game, and `python tools/read_dump.py <dump> <folder with the pdbs>`
 names where a crash dump died: `build/game-hl2/bin` for `hl2.exe`, `build/game-hl2dm/bin/x64` for
 `hl2mp_win64.exe` (Steam keeps the dumps in `Steam/dumps`).

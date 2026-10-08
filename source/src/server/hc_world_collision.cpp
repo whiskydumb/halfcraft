@@ -185,6 +185,108 @@ namespace halfcraft
 		}
 	}
 
+	namespace
+	{
+		/// what gather() makes geometry of: the world, static props and walls (is_wall)
+		class GatheredFilter final : public CTraceFilter
+		{
+		public:
+			bool ShouldHitEntity(IHandleEntity* handle, int) override
+			{
+				if (staticpropmgr->IsStaticProp(handle)) {
+					return true;
+				}
+				CBaseEntity* entity = EntityFromEntityHandle(handle);
+				return entity && (entity->IsWorld() || is_wall(entity));
+			}
+		};
+	}
+
+	void WorldCollision::check_voxels(const McVec& centre, int radius)
+	{
+		constexpr int   R = COLLISION_REGION_SIZE;
+		constexpr int   G = REGION_VOXELS;
+		constexpr float REACH = 5.0f;  // half a voxel and the voxelizer's margin around a primitive (units)
+		struct Block
+		{
+			int  x, y, z;
+			int  phantoms;
+			bool full_layer;  // a whole 8x8 layer of it has nothing of source's near it
+		};
+		const int          px = static_cast<int>(std::floor(centre.x / R)), py = static_cast<int>(std::floor(centre.y / R));
+		const int          pz = static_cast<int>(std::floor(centre.z / R));
+		GatheredFilter     filter;
+		std::vector<Block> blocks;
+		long long          voxels = 0, phantoms = 0;
+		for (int rx = px - radius; rx <= px + radius; ++rx) {
+			for (int ry = py - 1; ry <= py + 1; ++ry) {
+				for (int rz = pz - radius; rz <= pz + radius; ++rz) {
+					const float   lo[3] = { float(rx * R) - 0.5f, float(ry * R) - 0.5f, float(rz * R) - 0.5f };
+					const float   hi[3] = { lo[0] + R + 1.0f, lo[1] + R + 1.0f, lo[2] + R + 1.0f };
+					ColPrimitives prims;
+					gather(lo, hi, prims);
+					RegionVoxels solid;
+					voxelize_region(prims, rx, ry, rz, solid);
+					int counts[R][R][R] = {};
+					int layers[R][R][R][8] = {};
+					for (int y = 0; y < G; ++y) {
+						for (int z = 0; z < G; ++z) {
+							const std::uint64_t row = solid[y * G + z];
+							for (int x = 0; x < G && row >> x; ++x) {
+								if (!(row >> x & 1)) {
+									continue;
+								}
+								++voxels;
+								float src[3];
+								mc_to_source(rx * R + (x + 0.5) / 8.0, ry * R + (y + 0.5) / 8.0, rz * R + (z + 0.5) / 8.0, slot_, src);
+								const Vector p(src[0], src[1], src[2]);
+								Ray_t        ray;
+								ray.Init(p - Vector(0, 0, 0.5f), p + Vector(0, 0, 0.5f), Vector(-REACH, -REACH, -REACH), Vector(REACH, REACH, REACH));
+								trace_t tr;
+								enginetrace->TraceRay(ray, PLAYER_SOLID_BRUSHES, &filter, &tr);
+								// a displacement is one-sided to a box already in it: come at it from above and from below too
+								bool near = tr.startsolid || tr.fraction < 1.0f;
+								for (float dir = -1.0f; dir <= 1.0f && !near; dir += 2.0f) {
+									Ray_t sweep;
+									sweep.Init(p - Vector(0, 0, dir * 2.0f * REACH), p + Vector(0, 0, dir * 2.0f * REACH), Vector(-REACH, -REACH, -1.0f), Vector(REACH, REACH, 1.0f));
+									enginetrace->TraceRay(sweep, PLAYER_SOLID_BRUSHES, &filter, &tr);
+									near = tr.startsolid || (tr.fraction < 1.0f && std::fabs(tr.endpos.z - p.z) <= REACH + 1.0f);
+								}
+								if (!near) {
+									++phantoms;
+									++counts[x / 8][y / 8][z / 8];
+									++layers[x / 8][y / 8][z / 8][y % 8];
+								}
+							}
+						}
+					}
+					for (int bx = 0; bx < R; ++bx) {
+						for (int by = 0; by < R; ++by) {
+							for (int bz = 0; bz < R; ++bz) {
+								if (counts[bx][by][bz]) {
+									bool full = false;
+									for (int l = 0; l < 8; ++l) {
+										full |= layers[bx][by][bz][l] == 64;
+									}
+									blocks.push_back({ rx * R + bx, ry * R + by, rz * R + bz, counts[bx][by][bz], full });
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		std::sort(blocks.begin(), blocks.end(), [](const Block& a, const Block& b) { return a.phantoms > b.phantoms; });
+		log_info("hc_debug_voxels: %lld voxels, %lld with nothing of source's near them, in %zu blocks", voxels, phantoms, blocks.size());
+		for (std::size_t i = 0; i < blocks.size() && i < 20; ++i) {
+			const Block& b = blocks[i];
+			float        src[3];
+			mc_to_source(b.x + 0.5, b.y + 0.5, b.z + 0.5, slot_, src);
+			log_info("hc_debug_voxels: block %d %d %d (source %.0f %.0f %.0f): %d phantom voxels%s", b.x, b.y, b.z, src[0], src[1], src[2], b.phantoms,
+				b.full_layer ? ", whole 8x8 layers of it" : "");
+		}
+	}
+
 	void WorldCollision::reset(MapSlot slot, const char* map_name)
 	{
 		slot_ = slot;

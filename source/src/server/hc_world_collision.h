@@ -30,6 +30,13 @@ namespace halfcraft
 
 		void gather(const float lo[3], const float hi[3], ColPrimitives& out) override;
 
+		/// hc_debug_voxels: voxelizes the regions around a point again and checks each voxel against
+		/// source's own collision (box traces, also from above and below: a displacement is one-sided),
+		/// logging the voxels nothing in source is near.
+		/// @param centre - minecraft coords
+		/// @param radius - regions around it horizontally (one above and below)
+		void check_voxels(const McVec& centre, int radius);
+
 		/// solid entities near the player that moved since the last frame: the regions they left
 		/// and entered go to minecraft again.
 		/// @param player - the player's feet, minecraft coords

@@ -8,6 +8,7 @@
 #include "hl2/weapon_physcannon.h"
 
 #include "tier0/valve_minmax_off.h"
+#include <algorithm>
 #include <memory>
 
 #include "core/hc_collision.h"
@@ -96,6 +97,19 @@ namespace halfcraft
 			}
 
 			void FrameUpdatePostEntityThink() override;
+
+			/// hc_debug_voxels
+			void check_voxels(int radius)
+			{
+				CBasePlayer* player = UTIL_GetLocalPlayer();
+				if (!player) {
+					log_info("hc_debug_voxels: no player");
+					return;
+				}
+				const Vector origin = player->GetAbsOrigin();
+				const float  feet[3] = { origin.x, origin.y, origin.z };
+				world_.check_voxels(source_to_mc(feet, slot_), radius);
+			}
 
 		private:
 			void update_hud(CBasePlayer* player, bool hide);
@@ -202,4 +216,13 @@ namespace halfcraft
 	{
 		return g_last_puppet_move >= 0.0f && gpGlobals->curtime - g_last_puppet_move < PUPPET_GRACE_SECONDS;
 	}
+}
+
+CON_COMMAND(hc_debug_voxels, "halfcraft: check minecraft's collision voxels around the player against source's own collision: hc_debug_voxels [regions around, 0-6, default 2]")
+{
+	if (!UTIL_IsCommandIssuedByServerAdmin()) {
+		return;
+	}
+	const int radius = args.ArgC() > 1 ? std::clamp(atoi(args[1]), 0, 6) : 2;
+	halfcraft::g_server_system.check_voxels(radius);
 }
