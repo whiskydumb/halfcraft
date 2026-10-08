@@ -95,6 +95,7 @@ public final class Proto {
 	public static final int EV_EXPLOSION = 3; // attackerId = the mob that set it off (0: nobody)
 	public static final int EV_ARROW_STUCK = 4;
 	public static final int EV_SCREENSHOT = 5; // (#6) actorId = the request number (1+)
+	public static final int EV_COLLISION_WANTED = 16; // a/b/c = where a projectile waits for the collision under it
 	// 12-13: kept for the puppet group (A), 16-17 for the world group (C)
 	// 6-7: kept for #12 (the host's weapons), 8-9 for #13 (Minecraft's mobs)
 	public static final int HIT_CRITICAL = 1;

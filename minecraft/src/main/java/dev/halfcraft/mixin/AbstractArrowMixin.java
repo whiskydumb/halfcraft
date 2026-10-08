@@ -74,6 +74,8 @@ public abstract class AbstractArrowMixin {
 		} else if (!self.level().isClientSide() && HostClip.open(self.level(), self.getX(), self.getY() - EDGE_LOOK_DOWN, self.getZ())) {
 			this.halfcraft$heldAtEdge = false;
 			this.setInGround(false);
+		} else if (!self.level().isClientSide()) {
+			HostClip.wantBelow(self.getX(), self.getY(), self.getZ());
 		}
 	}
 

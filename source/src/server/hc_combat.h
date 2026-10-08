@@ -34,6 +34,10 @@ namespace halfcraft
 		///   movement is source's then
 		void update(Link& link, CBasePlayer* player, MapSlot slot, bool minecraft_playing);
 
+		/// where minecraft's projectiles wait for the collision under them (proto::kEvCollisionWanted)
+		/// since the last call.
+		std::vector<McVec> take_collision_wanted();
+
 	private:
 		void write_actors(Link& link, CBasePlayer* player, MapSlot slot);
 		void apply_hit(CBasePlayer* player, const proto::McEvent& event);
@@ -43,6 +47,7 @@ namespace halfcraft
 
 		std::vector<proto::ActorRecord> records_;
 		bool                            actors_sent_ = false;
+		std::vector<McVec>              collision_wanted_;
 	};
 
 	/// the id minecraft knows a host actor by (proto::ActorRecord::id, and the attacker of its hurts).

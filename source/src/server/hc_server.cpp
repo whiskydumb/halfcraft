@@ -172,7 +172,11 @@ namespace halfcraft
 			}
 
 			// collision streams around where minecraft's player is (the same as source's while puppeted,
-			// and where minecraft is heading after a teleport otherwise)
+			// and where minecraft is heading after a teleport otherwise), and under its projectiles that
+			// fell out of the bottom of that
+			for (const McVec& point : combat_.take_collision_wanted()) {
+				streamer_->want_below(point);
+			}
 			const McVec centre{ host.posX, host.posY, host.posZ };
 			world_.track_movers(centre, *streamer_);
 			streamer_->update(centre, world_);

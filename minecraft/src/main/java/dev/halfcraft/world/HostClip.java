@@ -1,8 +1,12 @@
 package dev.halfcraft.world;
 
+import dev.halfcraft.link.HostLink;
+import dev.halfcraft.link.Proto;
 import dev.halfcraft.mobs.HostNav;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
@@ -76,6 +80,34 @@ public final class HostClip {
 		Direction.Axis axis = Direction.Axis.values()[edge.axis()];
 		Direction face = Direction.fromAxisAndDirection(axis, edge.step() > 0 ? Direction.AxisDirection.NEGATIVE : Direction.AxisDirection.POSITIVE);
 		return new EdgeHitResult(at.subtract(way.scale(EDGE_INSET)), face, BlockPos.containing(at.add(way.scale(EDGE_INSET))));
+	}
+
+	/** How often one region column is asked for again while something still waits on it. */
+	private static final long WANT_EVERY_MS = 1000;
+	// region column -> when it was last asked for
+	private static final Map<Long, Long> WANTED = new ConcurrentHashMap<>();
+
+	/**
+	 * Asks Half-Life for its collision under (x, y, z): a projectile that fell out of the bottom of the
+	 * space described around the player waits there, and falls on once the ground under it streams in.
+	 * Server thread; once a second per region column.
+	 */
+	public static void wantBelow(double x, double y, double z) {
+		if (!HostLink.active()) {
+			return;
+		}
+		int size = HostCollision.REGION_SIZE;
+		long column = BlockPos.asLong(Math.floorDiv(Mth.floor(x), size), Math.floorDiv(Mth.floor(y), size), Math.floorDiv(Mth.floor(z), size));
+		long now = System.currentTimeMillis();
+		Long last = WANTED.get(column);
+		if (last != null && now - last < WANT_EVERY_MS) {
+			return;
+		}
+		if (WANTED.size() > 256) {
+			WANTED.clear();
+		}
+		WANTED.put(column, now);
+		HostLink.pushEvent(Proto.EV_COLLISION_WANTED, 0, (float) x, (float) y, (float) z, 0.0F, 0);
 	}
 
 	/** Whether a projectile at (x, y, z) in the mirror world is somewhere it may be (see {@link #refineProjectile}). */

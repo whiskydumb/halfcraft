@@ -19,6 +19,8 @@ namespace halfcraft
 		constexpr auto  REFRESH_NEAR = 1000ms;   // re-send regions next to the player this often
 		constexpr auto  FRAME_BUDGET = 2500us;
 		constexpr int   MAX_HARVESTS_PER_FRAME = 3;
+		constexpr int   WANTED_DEPTH = 6;     // regions want_below sends under its point (48 blocks)
+		constexpr std::size_t MAX_WANTED = 64;  // queued at once: a handful of projectiles
 
 		bool finite(const float* v, int n)
 		{
@@ -79,6 +81,7 @@ namespace halfcraft
 		epoch_ = epoch;
 		harvested_.clear();
 		urgent_.clear();
+		wanted_.clear();
 		settle_regions_ = 0;
 		std::lock_guard<std::mutex> lock(mutex_);
 		queue_.clear();
@@ -110,6 +113,25 @@ namespace halfcraft
 		}
 	}
 
+	void CollisionStreamer::want_below(const McVec& point)
+	{
+		const int rx = static_cast<int>(std::floor(point.x / REGION_SIZE));
+		const int ry = static_cast<int>(std::floor(point.y / REGION_SIZE));
+		const int rz = static_cast<int>(std::floor(point.z / REGION_SIZE));
+		int       queued = 0;
+		for (int dy = 0; dy <= WANTED_DEPTH && wanted_.size() < MAX_WANTED; ++dy) {
+			const std::array<int, 3> r{ rx, ry - dy, rz };
+			if (harvested_.count(region_key(r[0], r[1], r[2])) || std::find(wanted_.begin(), wanted_.end(), r) != wanted_.end()) {
+				continue;
+			}
+			wanted_.push_back(r);
+			++queued;
+		}
+		if (queued) {
+			log_info("collision: minecraft waits for the ground under %.1f %.1f %.1f: %d more regions down there", point.x, point.y, point.z, queued);
+		}
+	}
+
 	void CollisionStreamer::update(const McVec& player, CollisionSource& source)
 	{
 		const int  prx = static_cast<int>(std::floor(player.x / REGION_SIZE));
@@ -126,6 +148,14 @@ namespace halfcraft
 				harvested_.erase(region_key(r[0], r[1], r[2]));  // far away: sent again whenever it's needed
 				continue;
 			}
+			harvest(r[0], r[1], r[2], source);
+			harvested_[region_key(r[0], r[1], r[2])] = start;
+			++done;
+		}
+		// regions minecraft asked for, away from the player
+		while (!wanted_.empty() && done < MAX_HARVESTS_PER_FRAME) {
+			const auto r = wanted_.front();
+			wanted_.erase(wanted_.begin());
 			harvest(r[0], r[1], r[2], source);
 			harvested_[region_key(r[0], r[1], r[2])] = start;
 			++done;

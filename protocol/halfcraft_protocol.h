@@ -329,7 +329,9 @@ namespace halfcraft::proto
 		kEvScreenshot = 5,  // (#6) Minecraft's screenshot key: actorId = Minecraft's request number (1+); the host saves its
 		                    // own finished frame (its world, its hud and Minecraft's overlay) and answers on kStrScreenshot
 		// 6-7: kept for #12 (the host's weapons), 8-9 for #13 (Minecraft's mobs), 12-13 for the puppet group (A),
-		// 16-17 for the world group (C)
+		// 17 for the world group (C)
+		kEvCollisionWanted = 16,  // a projectile waits at a/b/c (MC coords), under the space described around the player:
+		                          // the host streams its collision below there too
 	};
 
 	enum HitFlags : std::uint32_t

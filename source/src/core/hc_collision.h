@@ -51,6 +51,11 @@ namespace halfcraft
 		void update(const McVec& player, CollisionSource& source);
 		/// something moved: regions overlapping the minecraft box [lo, hi] go out again first.
 		void invalidate(const float lo[3], const float hi[3]);
+		/// minecraft wants the collision under a point (a projectile falling out of the bottom of the
+		/// volume around the player waits there): the column of regions below it goes out too, however
+		/// far from the player.
+		/// @param point - minecraft coords
+		void want_below(const McVec& point);
 
 	private:
 		struct Job
@@ -78,6 +83,7 @@ namespace halfcraft
 		std::atomic<std::uint32_t>                     epoch_{ 0 };
 		std::unordered_map<std::uint64_t, Clock::time_point> harvested_;
 		std::vector<std::array<int, 3>>                urgent_;
+		std::vector<std::array<int, 3>>                wanted_;  // want_below's, sent once each
 		std::vector<std::array<int, 3>>                offsets_;
 		// regions new to the stream since it last had them all (a teleport, a map load): logged once
 		// they're all out, with what gathering them cost the main thread

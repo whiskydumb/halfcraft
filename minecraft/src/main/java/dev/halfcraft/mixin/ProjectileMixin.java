@@ -3,6 +3,7 @@ package dev.halfcraft.mixin;
 import dev.halfcraft.HalfCraft;
 import dev.halfcraft.world.HostClip;
 import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import net.minecraft.world.entity.projectile.ProjectileDeflection;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
@@ -22,14 +23,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * and drops onto what Half-Life has described below it instead: arrows and tridents stick there (a
  * loyalty trident then comes back), pearls land, bobbers fall in. Projectiles without gravity
  * (fireballs, wind charges) can't drop, so they hit the edge like a wall. One falling out of the
- * bottom of the described space has nothing known to land on, so it stops there as on a floor: an
- * arrow stays until the ground under it streams in (AbstractArrowMixin), a loyalty trident comes back,
- * and anything else hits that floor (a pearl takes its thrower there, to fall on from it).
+ * bottom of the described space (only a few regions down) has nothing known to land on yet: it waits
+ * there while Half-Life streams the ground under it (HostClip.wantBelow) and falls on to it, a pearl
+ * too. An arrow waits stuck (AbstractArrowMixin); anything else that waits too long hits that edge
+ * as a floor (a pearl takes its thrower there, to fall on from it).
  */
 @Mixin(Projectile.class)
 public abstract class ProjectileMixin {
+	// how long a projectile waits at the bottom edge for the ground under it (ticks)
+	@Unique
+	private static final int WAIT_BELOW_TICKS = 200;
+
 	@Unique
 	private boolean halfcraft$edgeLogged;
+	@Unique
+	private int halfcraft$waitedBelow;
 
 	@Shadow
 	protected abstract void onHit(HitResult hitResult);
@@ -49,15 +57,26 @@ public abstract class ProjectileMixin {
 	private void halfcraft$atEdge(HostClip.EdgeHitResult edge) {
 		Projectile self = (Projectile) (Object) this;
 		boolean drops = !edge.below() && self.getGravity() > 0.0;
+		boolean waits = edge.below() && self.getGravity() > 0.0 && !(self instanceof AbstractArrow) && this.halfcraft$waitedBelow < WAIT_BELOW_TICKS;
 		if (!this.halfcraft$edgeLogged && !self.level().isClientSide()) {
 			this.halfcraft$edgeLogged = true;
 			Vec3 at = edge.getLocation();
 			HalfCraft.LOG.info("HalfCraft: {} reached the edge of Half-Life's collision at {} {} {}: {}", self.getType().toShortString(),
 				String.format("%.1f", at.x), String.format("%.1f", at.y), String.format("%.1f", at.z),
-				drops ? "drops" : edge.below() ? "stops on it" : "stops there");
+				drops ? "drops" : waits ? "waits for the ground under it" : edge.below() ? "stops on it" : "stops there");
 		}
 		if (drops) {
 			self.setDeltaMovement(0.0, Math.min(self.getDeltaMovement().y, 0.0), 0.0);
+		} else if (waits) {
+			// it stays at the edge: gravity brings it back to it every tick until the ground is known
+			self.setDeltaMovement(Vec3.ZERO);
+			if (!self.level().isClientSide()) {
+				Vec3 at = edge.getLocation();
+				HostClip.wantBelow(at.x, at.y, at.z);
+				if (++this.halfcraft$waitedBelow == WAIT_BELOW_TICKS) {
+					this.halfcraft$edgeLogged = false;  // say the fallback too
+				}
+			}
 		} else {
 			this.onHit(edge);
 		}

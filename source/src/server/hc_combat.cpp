@@ -200,10 +200,20 @@ namespace halfcraft
 			case proto::kEvScreenshot:
 				request_screenshot(event);
 				break;
+			case proto::kEvCollisionWanted:
+				collision_wanted_.push_back({ event.a, event.b, event.c });
+				break;
 			default:
 				break;
 			}
 		}
+	}
+
+	std::vector<McVec> Combat::take_collision_wanted()
+	{
+		std::vector<McVec> out;
+		out.swap(collision_wanted_);
+		return out;
 	}
 
 	void Combat::write_actors(Link& link, CBasePlayer* player, MapSlot slot)
