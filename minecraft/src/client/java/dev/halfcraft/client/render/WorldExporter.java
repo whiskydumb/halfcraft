@@ -232,9 +232,9 @@ public final class WorldExporter {
 						}
 						FluidState fluid = state.getFluidState();
 						if (!fluid.isEmpty()) {
-							// The Half-Life floor in the cell: the fluid is drawn in the space above it. Not
-							// groundTop: a wall or stair anywhere in the cell put that at the top, which
-							// flattened the fluid into a sheet there (its faces fighting, the flow texture lost).
+							// The Half-Life floor in the cell: the fluid is drawn in the space above it. Not the
+							// top of all its geometry: a wall or stair anywhere in the cell put that at the top,
+							// which flattened the fluid into a sheet there (its faces fighting, the flow texture lost).
 							MESH.fluidGround = HostCollision.floorTop(pos, fluid.getOwnHeight());
 							MESH.fluidBaseX = x;
 							MESH.fluidBaseY = y;

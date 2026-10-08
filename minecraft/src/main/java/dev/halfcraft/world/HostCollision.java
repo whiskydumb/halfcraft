@@ -29,7 +29,6 @@ public final class HostCollision {
 	private static final ConcurrentHashMap<Long, Integer> FILL = new ConcurrentHashMap<>();
 	private static final int FILL_LOWER = 1 << 10;
 	private static final int FILL_UPPER = 1 << 11;
-	private static final int FILL_TOP_SHIFT = 12; // highest occupied of the 8 voxel layers (3 bits)
 	private static final int FILL_NAV_SHIFT = 16; // how mobs path through the cell (NavGrid.classify)
 	private static final int FILL_SKY = 1 << 24; // all of it is the map's sky: no roof over what's under it
 	// Per block: its 8 occupancy layers, for the box tests mobs' pathfinding makes between cells (NavGrid).
@@ -152,22 +151,13 @@ public final class HostCollision {
 		return !FILL.isEmpty() && FILL.containsKey(pos.asLong());
 	}
 
-	/**
-	 * How high (0..1) Half-Life geometry reaches in this cell: the top of its highest part. Terrain
-	 * arrives as a thin surface, so what lies below that surface counts as ground too.
-	 */
-	public static float groundTop(BlockPos pos) {
-		Integer fill = FILL.isEmpty() ? null : FILL.get(pos.asLong());
-		return fill == null ? 0.0F : (((fill >> FILL_TOP_SHIFT) & 7) + 1) / 8.0F;
-	}
-
 	/** A fluid keeps at least this much of its cell above the Half-Life floor it rests on. */
 	private static final float MAX_FLUID_FLOOR = 0.95F;
 
 	/**
 	 * Height (0..1) of the Half-Life floor under the middle of this cell, below {@code surface} (a
-	 * fluid's own height there): the highest walkable triangle, or 0. Unlike {@link #groundTop}, walls,
-	 * stair risers and solid brushes reaching the top of the cell don't count.
+	 * fluid's own height there): the highest walkable triangle, or 0. Walls, stair risers and solid
+	 * brushes reaching the top of the cell don't count (FluidCells sees those in the voxels).
 	 */
 	public static float floorTop(BlockPos pos, float surface) {
 		if (!hasGeometry(pos)) {
@@ -192,6 +182,13 @@ public final class HostCollision {
 		tris.removeIf(t -> !t.walkable);
 		HostRay.Hit hit = HostRay.cast(tris, x, top, z, x, y0, z);
 		return hit == null ? 0.0F : (float) Math.clamp(hit.y() - y0, 0.0, MAX_FLUID_FLOOR);
+	}
+
+	/** Whether any Half-Life geometry crosses the segment from (fx, fy, fz) to (tx, ty, tz). */
+	public static boolean blocked(double fx, double fy, double fz, double tx, double ty, double tz) {
+		java.util.List<HostTri> tris = new java.util.ArrayList<>();
+		trianglesNear(new net.minecraft.world.phys.AABB(fx, fy, fz, tx, ty, tz).inflate(0.01), tris);
+		return !tris.isEmpty() && HostRay.cast(tris, fx, fy, fz, tx, ty, tz) != null;
 	}
 
 	/** True if Half-Life ground holds up whatever is in this cell (terrain in its lower half or the top of the cell below). */
@@ -416,16 +413,14 @@ public final class HostCollision {
 	private static int fillInfo(long[] layers) {
 		int count = 0;
 		int info = 0;
-		int top = 0;
 		for (int y = 0; y < 8; y++) {
 			long layer = layers[y];
 			count += Long.bitCount(layer);
 			if (layer != 0) {
 				info |= y < 4 ? FILL_LOWER : FILL_UPPER;
-				top = y;
 			}
 		}
-		return info | count | top << FILL_TOP_SHIFT | NavGrid.classify(layers) << FILL_NAV_SHIFT;
+		return info | count | NavGrid.classify(layers) << FILL_NAV_SHIFT;
 	}
 
 	private static @Nullable VoxelShape buildShape(long[] layers) {
