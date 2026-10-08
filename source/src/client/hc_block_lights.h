@@ -1,11 +1,11 @@
 #pragma once
 
-// client.dll: minecraft's light-emitting blocks (torches, lava, glowstone, ...) as source lights. the
-// nearest few (hc_torch_light_count) are point lights made of source's projected textures (its
-// flashlight), so they light half-life's world and characters per pixel in their colour; the next
-// ones light only characters (elights). minecraft's own blocks carry its block light in their
-// vertex colours already. hc_debug_torch puts one where the player looks, for tuning without
-// minecraft.
+// client.dll: minecraft's light-emitting blocks (torches, lava, glowstone, ...) as source lights. a
+// few (hc_torch_light_count: the ones whose light is on screen first, then the nearest) are point
+// lights made of source's projected textures (its flashlight), so they light half-life's world per
+// pixel in their colour, with shadows; they fade in and out as they change hands. characters get
+// every nearby light as an elight. minecraft's own blocks carry its block light in their vertex
+// colours already. hc_debug_torch puts one where the player looks, for tuning without minecraft.
 
 #include <cstdint>
 
