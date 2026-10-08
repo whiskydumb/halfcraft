@@ -1,8 +1,9 @@
 // client.dll: half-life's water around minecraft's player (proto::WaterGrid), so minecraft swims,
 // floats and drowns in half-life's canals and pools. minecraft treats the air below the surface
 // over each block column as water; the surface is found with point contents probes, top down,
-// in a window around the player's feet. the nearest few boats and fishing bobbers get a smaller grid
-// of their own the same way (proto::WaterProbes), which reaches them away from the player or far below.
+// in a window around the player's feet. a few boats and fishing bobbers, and mobs and dropped items off
+// that window, get a smaller grid of their own the same way (proto::WaterProbes), which reaches them
+// away from the player or far below.
 
 #include "cbase.h"
 #include "engine/IEngineTrace.h"

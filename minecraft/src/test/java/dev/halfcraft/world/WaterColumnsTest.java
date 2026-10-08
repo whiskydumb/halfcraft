@@ -77,15 +77,27 @@ class WaterColumnsTest {
 	@Test
 	void shouldChooseTheNearestFreshWantsUpToTheLimit() {
 		List<WaterColumns.Want> wants = List.of(
-			new WaterColumns.Want(1, 30.0, 1.0, 0.0, 1000),
-			new WaterColumns.Want(2, 5.0, 2.0, 0.0, 1000),
-			new WaterColumns.Want(3, 1.0, 3.0, 0.0, 0), // asked too long ago
-			new WaterColumns.Want(4, -10.0, 4.0, 0.0, 1000)
+			new WaterColumns.Want(1, 0, 30.0, 1.0, 0.0, 1000),
+			new WaterColumns.Want(2, 0, 5.0, 2.0, 0.0, 1000),
+			new WaterColumns.Want(3, 0, 1.0, 3.0, 0.0, 0), // asked too long ago
+			new WaterColumns.Want(4, 0, -10.0, 4.0, 0.0, 1000)
 		);
 		List<WaterColumns.Want> chosen = WaterColumns.choose(wants, 0.0, 0.0, 1500, 1000, 2);
 		assertEquals(2, chosen.size());
 		assertEquals(2, chosen.get(0).id());
 		assertEquals(4, chosen.get(1).id());
+	}
+
+	@Test
+	void shouldChooseLowerRanksBeforeNearerOnes() {
+		List<WaterColumns.Want> wants = List.of(
+			new WaterColumns.Want(1, 2, 1.0, 0.0, 0.0, 1000), // an item right by the grid's middle
+			new WaterColumns.Want(2, 0, 40.0, 0.0, 0.0, 1000), // a boat far off
+			new WaterColumns.Want(3, 1, 20.0, 0.0, 0.0, 1000), // a mob
+			new WaterColumns.Want(4, 0, 30.0, 0.0, 0.0, 1000) // a nearer boat
+		);
+		List<WaterColumns.Want> chosen = WaterColumns.choose(wants, 0.0, 0.0, 1500, 1000, 3);
+		assertEquals(List.of(4, 2, 3), chosen.stream().map(WaterColumns.Want::id).toList());
 	}
 
 	@Test

@@ -621,9 +621,10 @@ namespace halfcraft::proto
 	// HostState's 0x40-0x7F: kept for the puppet group (A), 0x80-0xBF for the world group (C).
 
 	// ---- water probes @0x29000 (seqlocks: Minecraft writes the requests, client.dll the answers) -----
-	// The host's water around Minecraft's boats and fishing bobbers, which the player's WaterGrid
-	// doesn't always reach: a boat left behind, a bobber cast far out or down into a canal. Minecraft
-	// lists where they are, ridden or not (WaterProbeRequests, the nearest to the player first, at most
+	// The host's water around Minecraft's boats and fishing bobbers, and its mobs and dropped items off
+	// the player's WaterGrid, which that grid doesn't reach: a boat left behind, a bobber cast far out or
+	// down into a canal, a zombie wading in one. Minecraft lists where they are (WaterProbeRequests: boats
+	// and bobbers first, then mobs, then items, the nearest to the player first of each, at most
 	// kMaxWaterProbes); client.dll probes a small grid of block columns
 	// around each, the way it probes the WaterGrid, and answers in WaterProbes at kWaterProbesAnswerOff.
 	// An answer's slot follows its request's, a frame or two behind; each is probed again when its

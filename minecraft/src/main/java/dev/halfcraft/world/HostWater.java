@@ -13,6 +13,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Blocks;
@@ -28,13 +30,21 @@ import org.jspecify.annotations.Nullable;
  * that surface, entities treat it as water, so the player swims, floats, sinks slowly and drowns
  * there as in Minecraft water. Only entity physics sees it; no blocks change.
  *
- * <p>Boats and fishing bobbers ask for water of their own ({@link #track}): client.dll probes a small
- * grid around each of the nearest few (WaterProbes in the protocol), which reaches them far from the
- * player or far below.
+ * <p>Boats and fishing bobbers ask for water of their own ({@link #track}), and so do mobs and dropped
+ * items off the player's grid ({@link #trackLoose}): client.dll probes a small grid around each of a
+ * few (WaterProbes in the protocol), which reaches them far from the player or far below. Boats and
+ * bobbers come first, as a boat that misses its water sinks for good; then mobs, then items, nearest
+ * first of each.
  */
 public final class HostWater {
 	// a thing that stopped asking for this long gets no probe any more (gone, or out of the world)
 	private static final long WANT_MS = 1000;
+	// who comes first for a probe (WaterColumns.Want.rank)
+	private static final int RANK_FLOATING = 0, RANK_MOB = 1, RANK_ITEM = 2;
+	// mobs and items further than this from the player's grid ask for no probe (blocks)
+	private static final double LOOSE_RANGE = 48.0;
+	// how often a change in how many probes are asked for is logged at most (mobs and items drift on and off the player's grid)
+	private static final long ASK_LOG_MS = 5000;
 	// how finely a line is followed looking for the water surface (blocks)
 	private static final double RAY_STEP = 1.0 / 16.0;
 
@@ -43,6 +53,7 @@ public final class HostWater {
 	// entity id -> where it wants Half-Life's water probed (client and server ticks alike)
 	private static final ConcurrentHashMap<Integer, WaterColumns.Want> WANTS = new ConcurrentHashMap<>();
 	private static int probesAsked;
+	private static long askLoggedMs;
 	// the entities a probe is chosen for (render thread writes, server thread reads)
 	private static volatile Set<Integer> probed = Set.of();
 	// server thread: boats waiting for their water this tick, and when that was last logged
@@ -75,9 +86,10 @@ public final class HostWater {
 		}
 		probed = ids;
 		WaterProbes.writeRequests(asks);
-		if (asks.size() != probesAsked) {
+		if (asks.size() != probesAsked && now - askLoggedMs >= ASK_LOG_MS) {
 			probesAsked = asks.size();
-			HalfCraft.LOG.info("HalfCraft: asking Half-Life for its water around {} boat(s) or bobber(s)", probesAsked);
+			askLoggedMs = now;
+			HalfCraft.LOG.info("HalfCraft: asking Half-Life for its water around {} boat(s), bobber(s), mob(s) or item(s)", probesAsked);
 		}
 		List<WaterColumns.Grid> answers = WaterProbes.read();
 		if (answers != null) {
@@ -91,6 +103,7 @@ public final class HostWater {
 		probed = Set.of();
 		WANTS.clear();
 		probesAsked = 0;
+		askLoggedMs = 0;
 	}
 
 	/**
@@ -103,7 +116,30 @@ public final class HostWater {
 		if (grid == null || !HostNav.inMirror(entity.level())) {
 			return;
 		}
-		WANTS.put(entity.getId(), new WaterColumns.Want(entity.getId(), entity.getX(), entity.getY(), entity.getZ(), System.currentTimeMillis()));
+		want(entity, RANK_FLOATING);
+	}
+
+	/**
+	 * A mob or a dropped item asks, every tick, for Half-Life's water where it is, while it's off the
+	 * player's grid and not far from it: a mob swims and an item floats in a canal the player's grid
+	 * doesn't reach, instead of walking or lying on its bottom. On the grid they need none.
+	 */
+	public static void trackLoose(Entity entity) {
+		WaterColumns.Grid g = grid;
+		int rank = entity instanceof Mob ? RANK_MOB : entity instanceof ItemEntity ? RANK_ITEM : -1;
+		if (g == null || rank < 0 || !HostNav.inMirror(entity.level())) {
+			return;
+		}
+		double dx = entity.getX() - (g.originX() + g.size() / 2.0), dz = entity.getZ() - (g.originZ() + g.size() / 2.0);
+		int x = Mth.floor(entity.getX()), z = Mth.floor(entity.getZ());
+		boolean onGrid = x >= g.originX() && z >= g.originZ() && x < g.originX() + g.size() && z < g.originZ() + g.size();
+		if (!onGrid && dx * dx + dz * dz <= LOOSE_RANGE * LOOSE_RANGE) {
+			want(entity, rank);
+		}
+	}
+
+	private static void want(Entity entity, int rank) {
+		WANTS.put(entity.getId(), new WaterColumns.Want(entity.getId(), rank, entity.getX(), entity.getY(), entity.getZ(), System.currentTimeMillis()));
 	}
 
 	public static boolean active() {

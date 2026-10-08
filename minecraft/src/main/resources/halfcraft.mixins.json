@@ -17,6 +17,7 @@
     "EntityHoldMixin",
     "EntityPickMixin",
     "EntitySwimMixin",
+    "EntityWaterProbeMixin",
     "FallingBlockMixin",
     "FishingHookMixin",
     "FlowingFluidMixin",

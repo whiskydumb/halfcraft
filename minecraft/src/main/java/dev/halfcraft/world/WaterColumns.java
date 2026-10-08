@@ -8,8 +8,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Half-Life's water surface over Minecraft's block columns, as client.dll's grids describe it: the
- * player's WaterGrid and the small grids of the water probes around boats and fishing bobbers (see
- * HostWater). Pure logic.
+ * player's WaterGrid and the small grids of the water probes around boats, fishing bobbers, mobs and
+ * dropped items (see HostWater). Pure logic.
  */
 public final class WaterColumns {
 	/** Below this a grid's surface means "no water in this column" (the protocol's kNoWater). */
@@ -26,8 +26,11 @@ public final class WaterColumns {
 	public record Grid(int originX, int originZ, int size, float[] surface, double bottom) {
 	}
 
-	/** A thing (entity id) that wants its water probed, where it is (Minecraft coords), and when it last asked (milliseconds). */
-	public record Want(int id, double x, double y, double z, long askedMs) {
+	/**
+	 * A thing (entity id) that wants its water probed, how much (rank: lower first), where it is
+	 * (Minecraft coords), and when it last asked (milliseconds).
+	 */
+	public record Want(int id, int rank, double x, double y, double z, long askedMs) {
 	}
 
 	/** The surface over column (x, z) in this grid, or NaN outside it or where it found no water. */
@@ -87,9 +90,9 @@ public final class WaterColumns {
 	}
 
 	/**
-	 * Which things get a probe: the ones that asked within {@code maxAgeMs}, nearest to (cx, cz) first
-	 * (the middle of the player's grid), at most {@code max}. The order holds while they stay put, so
-	 * each keeps its probe's slot.
+	 * Which things get a probe: the ones that asked within {@code maxAgeMs}, the lowest rank first and
+	 * of a rank the nearest to (cx, cz) (the middle of the player's grid), at most {@code max}. The order
+	 * holds while they stay put, so each keeps its probe's slot.
 	 */
 	public static List<Want> choose(Collection<Want> wants, double cx, double cz, long nowMs, long maxAgeMs, int max) {
 		List<Want> fresh = new ArrayList<>();
@@ -98,7 +101,7 @@ public final class WaterColumns {
 				fresh.add(want);
 			}
 		}
-		fresh.sort(Comparator.comparingDouble(w -> (w.x() - cx) * (w.x() - cx) + (w.z() - cz) * (w.z() - cz)));
+		fresh.sort(Comparator.comparingInt(Want::rank).thenComparingDouble(w -> (w.x() - cx) * (w.x() - cx) + (w.z() - cz) * (w.z() - cz)));
 		return fresh.size() > max ? new ArrayList<>(fresh.subList(0, max)) : fresh;
 	}
 }
