@@ -1,7 +1,6 @@
 package dev.halfcraft.world;
 
 import dev.halfcraft.HalfCraft;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import java.io.IOException;
@@ -14,6 +13,7 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderGetter;
+import net.minecraft.core.SectionPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -30,6 +30,8 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ExperienceOrb;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.decoration.BlockAttachedEntity;
@@ -39,6 +41,7 @@ import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import net.minecraft.world.entity.vehicle.VehicleEntity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -64,15 +67,18 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>A new game from Half-Life's menu starts a playthrough: each map it enters for the first time
  * (the new game's own, then each one a level transition brings up) goes back to how it was before
- * anything changed it, and the things lying about there go once the player is there. The maps a
- * playthrough entered are kept with the block log and with every checkpoint, so a save brings back
- * its own playthrough. A world without one (older than this, or a checkpoint from before it) clears
- * nothing until the next new game.
+ * anything changed it, and what the playthrough before left there (things lying about, boats, frames,
+ * armour stands, mobs other than pets) goes: in each chunk the first time its things load in the
+ * playthrough (see {@link Playthrough}). The playthrough is kept with the block log and with every
+ * checkpoint, so a save brings back its own. A world without one (older than this, or a checkpoint from
+ * before it) clears nothing until the next new game.
  *
  * <p>Server thread only.
  */
 public final class Rollback {
 	private static final int MAX_CHECKPOINTS = 256;
+	// A map reaches at most this many chunks north and south of its slot's middle (a source map spans +-410 blocks).
+	private static final int SLOT_CHUNKS = 32;
 	// Back the way it was, with no neighbour updates, drops, block entity side effects (a chest
 	// spilling its contents) or placement reactions (TNT lighting).
 	private static final int RESTORE_FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_SKIP_ALL_SIDEEFFECTS;
@@ -85,12 +91,12 @@ public final class Rollback {
 	private static final Long2ObjectOpenHashMap<Snapshot> ORIGINALS = new Long2ObjectOpenHashMap<>();
 	private static final Long2ObjectOpenHashMap<Snapshot> LATEST = new Long2ObjectOpenHashMap<>();
 
-	// Ticks the player spends in a map just cleared before what lies about there goes (its chunks load meanwhile).
-	private static final int SWEEP_TICKS = 40;
-	// The map slots the current playthrough entered; null: no playthrough (nothing gets cleared).
-	private static @Nullable IntOpenHashSet visited;
-	// The map just cleared (Minecraft x, east exclusive), and how many more ticks the player must spend in it before its sweep.
-	private static int sweepWest, sweepEast, sweepTicks;
+	// How often the things a sweep removed as chunks loaded are logged at most.
+	private static final long SWEEP_LOG_MS = 5000;
+	// The current playthrough; null: none (nothing gets cleared).
+	private static @Nullable Playthrough playthrough;
+	private static int sweptSinceLog;
+	private static long sweepLoggedMs;
 
 	private Rollback() {
 	}
@@ -101,8 +107,7 @@ public final class Rollback {
 	public static void load(MinecraftServer opened) {
 		ORIGINALS.clear();
 		LATEST.clear();
-		visited = null;
-		sweepTicks = 0;
+		playthrough = null;
 		Path file = dir(opened).resolve("blocks.nbt");
 		if (!Files.exists(file)) {
 			return;
@@ -112,8 +117,8 @@ public final class Rollback {
 			HolderGetter<Block> blocks = opened.overworld().registryAccess().lookupOrThrow(Registries.BLOCK);
 			readSnapshots(root.getListOrEmpty("originals"), blocks, ORIGINALS);
 			readSnapshots(root.getListOrEmpty("latest"), blocks, LATEST);
-			visited = readVisited(root);
-			HalfCraft.LOG.info("HalfCraft: rollback tracks {} blocks; {}", ORIGINALS.size(), describe(visited));
+			playthrough = readPlaythrough(root);
+			HalfCraft.LOG.info("HalfCraft: rollback tracks {} blocks; {}", ORIGINALS.size(), describe());
 		} catch (IOException | RuntimeException e) {
 			HalfCraft.LOG.warn("HalfCraft: couldn't read the rollback block log {}", file, e);
 		}
@@ -131,8 +136,7 @@ public final class Rollback {
 		writeBlockLog(closing);
 		ORIGINALS.clear();
 		LATEST.clear();
-		visited = null;
-		sweepTicks = 0;
+		playthrough = null;
 	}
 
 	/** LevelChunk.setBlockState, before: the first change to a block remembers how it was. */
@@ -197,7 +201,7 @@ public final class Rollback {
 		}
 		CompoundTag root = new CompoundTag();
 		root.put("blocks", blocks);
-		writeVisited(root);
+		writePlaythrough(root);
 		if (player != null) {
 			root.put("player", savePlayer(player));
 		}
@@ -245,14 +249,13 @@ public final class Rollback {
 
 		// What was flying or lying about since is gone (and whatever a removed chest held).
 		int removed = discard(level, Rollback::isTransient);
-		visited = readVisited(root);
-		sweepTicks = 0;
+		playthrough = readPlaythrough(root);
 
 		if (player != null && root.contains("player")) {
 			loadPlayer(player, root.getCompoundOrEmpty("player"));
 		}
 		HalfCraft.LOG.info("HalfCraft: rolled back to checkpoint {}: {} blocks, {} things removed{}; {}", Long.toHexString(id), changed, removed,
-			player != null ? ", the player" : "", describe(visited));
+			player != null ? ", the player" : "", describe());
 	}
 
 	/** The block at key back to want, unless it's so already (nothing to load, and its chunk can stay where it is). */
@@ -298,8 +301,8 @@ public final class Rollback {
 	/**
 	 * Half-Life's player entered a map afresh (Proto.IN_MAP_ENTERED): a new game from the menu starts a
 	 * playthrough, and the first time a playthrough enters a map, the map's tracked blocks go back to how
-	 * they were before anything changed them. Its loose things go once the player has been there a moment
-	 * ({@link #tick}).
+	 * they were before anything changed them, and what the playthrough before left there goes: now in
+	 * the chunks whose things are loaded, the rest as they load ({@link #sweepsOnLoad}).
 	 *
 	 * @param newGame - a new game from Half-Life's menu; otherwise a level transition
 	 * @param slot - the map's slot
@@ -309,14 +312,15 @@ public final class Rollback {
 	 */
 	public static void mapEntered(MinecraftServer server, boolean newGame, int slot, int west, int east, @Nullable ServerPlayer player) {
 		if (newGame) {
-			visited = new IntOpenHashSet();
+			playthrough = new Playthrough();
 			if (player != null) {
 				freshStart(player);
 			}
-		} else if (visited == null || visited.contains(slot)) {
+		} else if (playthrough == null || playthrough.entered(slot)) {
 			return;
 		}
-		visited.add(slot);
+		Playthrough current = playthrough;
+		current.enter(slot, west, east);
 		ServerLevel level = server.overworld();
 		int changed = 0;
 		for (long key : ORIGINALS.keySet().toLongArray()) {
@@ -325,39 +329,50 @@ public final class Rollback {
 				changed++;
 			}
 		}
-		sweepWest = west;
-		sweepEast = east;
-		sweepTicks = SWEEP_TICKS;
+		// the chunks whose things are in the world already: those that aren't sweep as they load
+		LongOpenHashSet loaded = new LongOpenHashSet();
+		for (int cx = SectionPos.blockToSectionCoord(west); cx < SectionPos.blockToSectionCoord(east); cx++) {
+			for (int cz = -SLOT_CHUNKS; cz <= SLOT_CHUNKS; cz++) {
+				if (level.areEntitiesLoaded(ChunkPos.pack(cx, cz))) {
+					current.markSwept(cx, cz);
+					loaded.add(ChunkPos.pack(cx, cz));
+				}
+			}
+		}
+		int removed = discard(level, entity -> loaded.contains(ChunkPos.pack(entity.blockPosition())) && isLeftBehind(entity));
 		writeBlockLog(server);
-		HalfCraft.LOG.info("HalfCraft: {} map slot {}: {} blocks back as they were before anything was built; {}", newGame ? "new game in" : "first time in",
-			slot, changed, describe(visited));
-	}
-
-	/** Server tick: a map just cleared loses what lies about in it once the player has been there a moment. */
-	public static void tick(MinecraftServer server) {
-		if (sweepTicks <= 0 || server.getPlayerList().getPlayers().isEmpty()) {
-			return;
-		}
-		ServerLevel level = server.overworld();
-		ServerPlayer player = server.getPlayerList().getPlayers().getFirst();
-		if (player.level() != level || player.getX() < sweepWest || player.getX() >= sweepEast) {
-			sweepTicks = SWEEP_TICKS;  // not there yet
-			return;
-		}
-		if (--sweepTicks > 0) {
-			return;
-		}
-		int removed = discard(level, entity -> entity.getX() >= sweepWest && entity.getX() < sweepEast && isLeftBehind(entity));
-		HalfCraft.LOG.info("HalfCraft: {} things left lying about in the cleared map removed", removed);
+		HalfCraft.LOG.info("HalfCraft: {} map slot {}: {} blocks back as they were before anything was built, {} things left from before removed; {}",
+			newGame ? "new game in" : "first time in", slot, changed, removed, describe());
 	}
 
 	/**
-	 * What a cleared map loses besides its blocks: what lies about, and what was built of entities
-	 * (frames, paintings, armour stands, empty boats and minecarts, end crystals). Pets and mobs stay.
+	 * A chunk's things are loading (PersistentEntitySectionManager.processPendingLoads): whether they're
+	 * from before the playthrough, in a map it entered, loading for the first time in it. Those that are
+	 * {@link #isLeftBehind} go then. Counts the chunk as swept.
 	 */
-	private static boolean isLeftBehind(Entity entity) {
+	public static boolean sweepsOnLoad(ServerLevel level, ChunkPos pos) {
+		Playthrough current = playthrough;
+		return current != null && level.dimension() == Level.OVERWORLD && current.sweep(pos.x(), pos.z());
+	}
+
+	/** {@link #sweepsOnLoad} took this many things out of a chunk as it loaded. */
+	public static void sweptOnLoad(int removed) {
+		sweptSinceLog += removed;
+		long now = System.currentTimeMillis();
+		if (sweptSinceLog > 0 && now - sweepLoggedMs >= SWEEP_LOG_MS) {
+			HalfCraft.LOG.info("HalfCraft: {} things left from before the playthrough removed as their chunks loaded", sweptSinceLog);
+			sweptSinceLog = 0;
+			sweepLoggedMs = now;
+		}
+	}
+
+	/**
+	 * What a cleared map loses besides its blocks: what lies about, what was built of entities (frames,
+	 * paintings, armour stands, empty boats and minecarts, end crystals) and mobs. Pets stay.
+	 */
+	public static boolean isLeftBehind(Entity entity) {
 		return isTransient(entity) || entity instanceof BlockAttachedEntity || entity instanceof ArmorStand || entity instanceof EndCrystal
-			|| entity instanceof VehicleEntity && !entity.isVehicle();
+			|| entity instanceof VehicleEntity && !entity.isVehicle() || entity instanceof Mob && !(entity instanceof TamableAnimal pet && pet.isTame());
 	}
 
 	/** A new game: the player comes in healthy and fed, with everything they carry. */
@@ -372,18 +387,24 @@ public final class Rollback {
 		player.setAirSupply(player.getMaxAirSupply());
 	}
 
-	private static @Nullable IntOpenHashSet readVisited(CompoundTag root) {
-		return root.getIntArray("visited").map(IntOpenHashSet::new).orElse(null);
+	private static @Nullable Playthrough readPlaythrough(CompoundTag root) {
+		return root.getIntArray("visited")
+			.map(slots -> Playthrough.of(slots, root.getIntArray("map_edges").orElse(new int[0]), root.getLongArray("swept").orElse(new long[0])))
+			.orElse(null);
 	}
 
-	private static void writeVisited(CompoundTag root) {
-		if (visited != null) {
-			root.putIntArray("visited", visited.toIntArray());
+	private static void writePlaythrough(CompoundTag root) {
+		Playthrough current = playthrough;
+		if (current != null) {
+			root.putIntArray("visited", current.slots());
+			root.putIntArray("map_edges", current.edges());
+			root.putLongArray("swept", current.swept());
 		}
 	}
 
-	private static String describe(@Nullable IntOpenHashSet slots) {
-		return slots == null ? "no playthrough" : "the playthrough has entered map slots " + slots;
+	private static String describe() {
+		Playthrough current = playthrough;
+		return current == null ? "no playthrough" : current.toString();
 	}
 
 	// ---- the player ----------------------------------------------------------------------------
@@ -443,7 +464,7 @@ public final class Rollback {
 		CompoundTag root = new CompoundTag();
 		root.put("originals", writeSnapshots(ORIGINALS));
 		root.put("latest", writeSnapshots(LATEST));
-		writeVisited(root);
+		writePlaythrough(root);
 		Path file = dir(of).resolve("blocks.nbt");
 		try {
 			Files.createDirectories(file.getParent());
