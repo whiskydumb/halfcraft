@@ -332,6 +332,21 @@ index a22dfc11..e8c2e539 100644
  	
  	CBasePlayer *pPlayer = UTIL_GetLocalPlayer();
  
+diff --git a/src/game/server/baseanimating.cpp b/src/game/server/baseanimating.cpp
+index fb59bca9..bc4ff2e8 100644
+--- a/src/game/server/baseanimating.cpp
++++ b/src/game/server/baseanimating.cpp
+@@ -2751,6 +2751,10 @@ CBoneCache *CBaseAnimating::GetBoneCache( void )
+ {
+ 	CStudioHdr *pStudioHdr = GetModelPtr( );
+ 	Assert(pStudioHdr);
++	// halfcraft: a dropship spawns the strider it carries before its own model is set, and the strider's
++	// first trace sets up its bones merged onto the dropship's (d3_c17_11): no model, no bone cache
++	if ( !pStudioHdr )
++		return NULL;
+ 
+ 	CBoneCache *pcache = Studio_GetBoneCache( m_boneCacheHandle );
+ 	int boneMask = BONE_USED_BY_HITBOX | BONE_USED_BY_ATTACHMENT;
 diff --git a/src/game/server/hl2/hl2_player.cpp b/src/game/server/hl2/hl2_player.cpp
 index 7b2d595e..cbafb503 100644
 --- a/src/game/server/hl2/hl2_player.cpp

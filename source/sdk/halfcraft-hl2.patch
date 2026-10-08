@@ -526,6 +526,21 @@ index 5b7cb1f1..8890e398 100644
  			{
  				// Check to see if we are done with the action sequence.
  				if ( m_hCine->FinishedActionSequence( this ) )
+diff --git a/sp/src/game/server/baseanimating.cpp b/sp/src/game/server/baseanimating.cpp
+index 34bf6378..610956dd 100644
+--- a/sp/src/game/server/baseanimating.cpp
++++ b/sp/src/game/server/baseanimating.cpp
+@@ -2586,6 +2586,10 @@ CBoneCache *CBaseAnimating::GetBoneCache( void )
+ {
+ 	CStudioHdr *pStudioHdr = GetModelPtr( );
+ 	Assert(pStudioHdr);
++	// halfcraft: a dropship spawns the strider it carries before its own model is set, and the strider's
++	// first trace sets up its bones merged onto the dropship's (d3_c17_11): no model, no bone cache
++	if ( !pStudioHdr )
++		return NULL;
+ 
+ 	CBoneCache *pcache = Studio_GetBoneCache( m_boneCacheHandle );
+ 	int boneMask = BONE_USED_BY_HITBOX | BONE_USED_BY_ATTACHMENT;
 diff --git a/sp/src/game/server/hl2/hl2_player.cpp b/sp/src/game/server/hl2/hl2_player.cpp
 index e7583f5a..528df6b0 100644
 --- a/sp/src/game/server/hl2/hl2_player.cpp
