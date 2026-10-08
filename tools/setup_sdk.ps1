@@ -20,9 +20,9 @@ $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent $PSScriptRoot
 
 $trees = @{
-	hl2dm = @{ Dir = "source-sdk-2013"; Url = "https://github.com/hardlightbridge/hl2dm-sp.git"; Commit = "67f81f0f" }  # 2026-10-02
-	# valve's repository dropped the singleplayer tree in 2025: a sparse clone of its last commit with sp\
-	hl2   = @{ Dir = "source-sdk-2013-sp"; Url = "https://github.com/ValveSoftware/source-sdk-2013.git"; Commit = "0d8dcee"; Sparse = "sp" }  # 2015-09-09
+	hl2dm = @{ Dir = "source-sdk-2013"; Url = "https://github.com/hardlightbridge/hl2dm-sp.git"; Commit = "67f81f0f5a64a7f2bb3c0de02409ed63a0570ed5" }  # 2026-10-02
+	# valve's repository dropped the singleplayer tree in 2025: its last commit with sp\ only
+	hl2   = @{ Dir = "source-sdk-2013-sp"; Url = "https://github.com/ValveSoftware/source-sdk-2013.git"; Commit = "0d8dceea4310fde5706b3ce1c70609d72a38efdf"; Sparse = "sp" }  # 2015-09-09
 }
 
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
@@ -42,16 +42,18 @@ foreach ($e in $(if ($Engine -eq "hl2dm") { @("hl2dm") } else { @("hl2", "hl2dm"
 	$sdk = Join-Path $repo $tree.Dir
 	$patch = Join-Path $repo "source\sdk\halfcraft-$e.patch"
 
+	# just the pinned commit, without history (a tree from before keeps its full clone)
 	if (-not (Test-Path (Join-Path $sdk ".git"))) {
+		git init --quiet $sdk
+		if ($LASTEXITCODE -ne 0) { throw "git init in $sdk failed" }
+		git -C $sdk config core.longpaths true
+		git -C $sdk remote add origin $tree.Url
 		if ($tree.Sparse) {
-			git clone --quiet --config core.longpaths=true --filter=blob:none --sparse --no-checkout $tree.Url $sdk
-			if ($LASTEXITCODE -ne 0) { throw "clone of $($tree.Url) failed" }
 			git -C $sdk sparse-checkout set $tree.Sparse
 			if ($LASTEXITCODE -ne 0) { throw "sparse checkout in $sdk failed" }
-		} else {
-			git clone --quiet --config core.longpaths=true $tree.Url $sdk
-			if ($LASTEXITCODE -ne 0) { throw "clone of $($tree.Url) failed" }
 		}
+		git -C $sdk fetch --quiet --depth 1 origin $tree.Commit
+		if ($LASTEXITCODE -ne 0) { throw "fetching $($tree.Commit) from $($tree.Url) failed" }
 	}
 
 	Push-Location $sdk

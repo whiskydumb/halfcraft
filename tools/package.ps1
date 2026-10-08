@@ -24,7 +24,7 @@ function Get-Property([string]$name) {
 	if (-not $match.Success) { throw "no $name in minecraft\gradle.properties" }
 	$match.Groups[1].Value.Trim()
 }
-$version = Get-Property "version"
+$version = & (Join-Path $PSScriptRoot "version.ps1")
 
 # pinned downloads
 $prismVersion = "11.1.1"

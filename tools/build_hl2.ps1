@@ -168,13 +168,13 @@ foreach ($e in $engines) {
 
 if ($NoLauncher) { return }
 
-# HalfCraft.exe, a release's launcher (source\launcher), versioned like the minecraft mod
+# HalfCraft.exe, a release's launcher (source\launcher), with halfcraft's version (tools/version.ps1)
 $launcherSrc = Join-Path $repo "source\launcher"
 $launcherOut = Join-Path $repo "build\launcher"
 New-Item -ItemType Directory -Force $launcherOut | Out-Null
-$version = (Select-String -Path (Join-Path $repo "minecraft\gradle.properties") -Pattern '^version=(\d+)\.(\d+)\.(\d+)').Matches[0]
-$numbers = ($version.Groups[1..3] | ForEach-Object { $_.Value }) -join ","
-Set-Content (Join-Path $launcherOut "version.h") "#define HC_VERSION $numbers,0`r`n#define HC_VERSION_TEXT `"$($numbers -replace ',', '.')`"" -Encoding ascii
+$numbers = & (Join-Path $PSScriptRoot "version.ps1") -Numbers
+$version = & (Join-Path $PSScriptRoot "version.ps1")
+Set-Content (Join-Path $launcherOut "version.h") "#define HC_VERSION $numbers`r`n#define HC_VERSION_TEXT `"$version`"" -Encoding ascii
 $vcvars = Join-Path $vs "VC\Auxiliary\Build\vcvars64.bat"
 $script = Join-Path $launcherOut "build.cmd"
 Set-Content $script -Encoding ascii @"

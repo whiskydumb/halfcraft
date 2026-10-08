@@ -1,5 +1,6 @@
 # runs the minecraft mod's gradle on a JDK 25, which the mod needs, whatever JAVA_HOME points at
-# (JAVA_HOME itself if it's 25+, else the newest one installed in program files).
+# (JAVA_HOME itself if it's 25+, else the newest one installed in program files), with halfcraft's version
+# (tools/version.ps1).
 #
 #   tools/gradle.ps1 build        the mod's jar (minecraft\build\libs)
 #   tools/gradle.ps1 runClient    the dev client (tools/launch_minecraft.bat)
@@ -31,7 +32,7 @@ try {
 	$env:JAVA_HOME = Find-Jdk25
 	Push-Location (Join-Path $repo "minecraft")
 	try {
-		.\gradlew.bat @Tasks --no-configuration-cache
+		.\gradlew.bat @Tasks --no-configuration-cache "-Pversion=$(& (Join-Path $PSScriptRoot 'version.ps1'))"
 		if ($LASTEXITCODE) { throw "gradle $($Tasks -join ' ') failed ($LASTEXITCODE)" }
 	} finally { Pop-Location }
 } finally { $env:JAVA_HOME = $javaHome }
