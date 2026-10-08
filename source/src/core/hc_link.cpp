@@ -123,6 +123,9 @@ namespace halfcraft
 		if (mapping_) {
 			::CloseHandle(mapping_);
 		}
+		if (frame_event_) {
+			::CloseHandle(frame_event_);
+		}
 	}
 
 	bool Link::create()
@@ -145,6 +148,13 @@ namespace halfcraft
 		mapping_ = ::CreateFileMappingW(INVALID_HANDLE_VALUE, access.lpSecurityDescriptor ? &access : nullptr, PAGE_READWRITE,
 			static_cast<DWORD>(size >> 32), static_cast<DWORD>(size & 0xFFFFFFFF), proto::kMappingName);
 		const DWORD created = ::GetLastError();
+		if (reset && mapping_) {
+			// the host's frames, for minecraft to wait on (without it minecraft naps and polls instead)
+			frame_event_ = ::CreateEventW(access.lpSecurityDescriptor ? &access : nullptr, FALSE, FALSE, proto::kFrameEventName);
+			if (!frame_event_) {
+				log_warning("CreateEvent for minecraft's frame pacing failed (%lu)", ::GetLastError());
+			}
+		}
 		if (access.lpSecurityDescriptor) {
 			::LocalFree(access.lpSecurityDescriptor);
 		}
@@ -231,6 +241,9 @@ namespace halfcraft
 	{
 		if (base_) {
 			seqlock_write(at<proto::HostState>(proto::kOffHostState), state);
+			if (frame_event_) {
+				::SetEvent(frame_event_);
+			}
 		}
 	}
 

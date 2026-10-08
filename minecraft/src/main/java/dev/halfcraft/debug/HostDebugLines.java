@@ -35,6 +35,16 @@ public final class HostDebugLines {
 		return lines;
 	}
 
+	/**
+	 * Minecraft's side of the overlay: the size it draws it at, how much smaller than Half-Life's viewport
+	 * (hc_overlay_scale), and what reading a frame back from the gpu takes, which on an integrated gpu
+	 * sets Minecraft's frame rate.
+	 */
+	public static String overlay(int width, int height, int divisor, double readbackMs) {
+		String smaller = divisor > 1 ? format(" (1/%d of the screen)", divisor) : "";
+		return format("Overlay: %dx%d%s, readback %.2f ms a frame", width, height, smaller, readbackMs);
+	}
+
 	/** Who drives the player, the rings between the games, Minecraft's lights in Half-Life, edicts. */
 	public static List<String> link(HostDebug d) {
 		List<String> lines = new ArrayList<>();

@@ -27,6 +27,10 @@ public final class FrameExporter {
 	private static final Staging[] staging = new Staging[STAGING];
 	private static long nextFrameId = 1;
 	private static boolean loggedFormat;
+	// what mapping and copying the last frames out of their readback buffers took (ns), for F3
+	private static final long[] readbackNs = new long[60];
+	private static int readbacks;
+	private static volatile int shippedWidth, shippedHeight;
 
 	private static final class Staging {
 		GpuBuffer buffer;
@@ -37,6 +41,24 @@ public final class FrameExporter {
 	}
 
 	private FrameExporter() {
+	}
+
+	/** What reading a frame back took on average over the last ones (ms; 0 before the first). */
+	public static double readbackMs() {
+		int count = Math.min(readbacks, readbackNs.length);
+		long total = 0;
+		for (int i = 0; i < count; i++) {
+			total += readbackNs[i];
+		}
+		return count == 0 ? 0.0 : total / (count * 1.0e6);
+	}
+
+	public static int width() {
+		return shippedWidth;
+	}
+
+	public static int height() {
+		return shippedHeight;
 	}
 
 	public static void capture(Minecraft minecraft) {
@@ -81,7 +103,10 @@ public final class FrameExporter {
 			if (slot.buffer != null) {
 				slot.buffer.close();
 			}
-			slot.buffer = RenderSystem.getDevice().createBuffer(() -> "HalfCraft overlay readback", 9, bytes);
+			// read on the cpu: cached memory (client storage), not the write-combined kind an integrated
+			// gpu's driver picks otherwise, which the cpu reads at a fraction of the speed
+			int usage = GpuBuffer.USAGE_MAP_READ | GpuBuffer.USAGE_HINT_CLIENT_STORAGE | GpuBuffer.USAGE_COPY_DST;
+			slot.buffer = RenderSystem.getDevice().createBuffer(() -> "HalfCraft overlay readback", usage, bytes);
 			slot.width = width;
 			slot.height = height;
 		}
@@ -105,10 +130,14 @@ public final class FrameExporter {
 		MemorySegment shm = HostLink.segment();
 		if (shm != null) {
 			long bytes = (long) newest.width * newest.height * 4L;
+			long start = System.nanoTime();
 			try (GpuBufferSlice.MappedView view = newest.buffer.map(true, false)) {
 				MemorySegment src = MemorySegment.ofBuffer(view.data());
 				MemorySegment.copy(src, 0, shm, HostLink.overlayBackSlotOffset(), Math.min(bytes, src.byteSize()));
 			}
+			readbackNs[readbacks++ % readbackNs.length] = System.nanoTime() - start;
+			shippedWidth = newest.width;
+			shippedHeight = newest.height;
 			HostLink.publishOverlay(newest.width, newest.height, true, newest.frameId);
 		}
 		// Anything older than what we just shipped is useless now.

@@ -287,11 +287,11 @@ namespace halfcraft
 			return false;
 		}
 		if (s.mc_screen_open) {
-			// minecraft's cursor, one overlay pixel per mouse count
+			// minecraft's cursor, one screen pixel per mouse count; minecraft gets it in its overlay's pixels
 			s.cursor_x = std::clamp(s.cursor_x + static_cast<int>(std::lround(mouse_x)), 0, std::max(0, s.viewport_w - 1));
 			s.cursor_y = std::clamp(s.cursor_y + static_cast<int>(std::lround(mouse_y)), 0, std::max(0, s.viewport_h - 1));
 			if (mouse_x != 0.0f || mouse_y != 0.0f) {
-				s.link.push_input(proto::kInCursor, 0, s.cursor_x, s.cursor_y);
+				s.link.push_input(proto::kInCursor, 0, s.cursor_x / s.overlay_divisor, s.cursor_y / s.overlay_divisor);
 			}
 		} else {
 			// minecraft's own mouse-look formula (MouseHandler.turnPlayer)

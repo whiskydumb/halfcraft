@@ -32,6 +32,8 @@ namespace halfcraft
 		bool loading = true;
 		int  viewport_w = 1920;
 		int  viewport_h = 1080;
+		// minecraft draws its overlay at the viewport over this, and it's scaled back up (hc_overlay.cpp)
+		int overlay_divisor = 1;
 
 		// who drives the player
 		bool puppeting = false;              // minecraft's position drives source's player
@@ -97,4 +99,7 @@ namespace halfcraft
 
 	/// key/mouse bookkeeping when input moves between the games (hc_input.cpp).
 	void input_release_all(ClientSession& session);
+
+	/// how much smaller than the viewport minecraft draws its overlay (hc_overlay.cpp, hc_overlay_scale).
+	int overlay_divisor_for(int viewport_w, int viewport_h);
 }

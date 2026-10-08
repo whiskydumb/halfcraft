@@ -6,6 +6,7 @@ import dev.halfcraft.link.Proto;
 import dev.halfcraft.link.HostLink;
 import dev.halfcraft.link.HostTeleports;
 import dev.halfcraft.world.HostCollision;
+import java.util.concurrent.locks.LockSupport;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -31,6 +32,7 @@ public final class HostClient {
 	private static boolean tookOver;
 	private static boolean windowHidden;
 	private static int appliedViewportW, appliedViewportH;
+	private static volatile int overlayDivisor = 1;
 
 	// Teleport / hold state: Half-Life decides where the player is after loads, doors and respawns.
 	private static int lastTeleportSeq = -1;
@@ -436,11 +438,16 @@ public final class HostClient {
 		}
 		hostStalled = false;
 		long deadline = System.nanoTime() + 25_000_000L;
-		// HostState.seq advances by 2 per Half-Life frame (odd while writing).
-		while ((HostLink.hostStateSeq() >>> 1) == lastPacedSeq && System.nanoTime() < deadline) {
-			Thread.onSpinWait();
-			if (deadline - System.nanoTime() > 2_000_000L) {
-				Thread.yield();
+		// HostState.seq advances by 2 per Half-Life frame (odd while writing). Asleep in between, on the
+		// event Half-Life sets each frame (short naps with an older one): a spinning core takes boost
+		// headroom from Half-Life, and on a laptop power from the integrated gpu both games draw with.
+		while ((HostLink.hostStateSeq() >>> 1) == lastPacedSeq) {
+			long left = deadline - System.nanoTime();
+			if (left <= 0) {
+				break;
+			}
+			if (!HostLink.waitForHostFrame((int) Math.max(1L, left / 1_000_000L))) {
+				LockSupport.parkNanos(Math.min(left, 200_000L));
 			}
 		}
 		int seqNow = HostLink.hostStateSeq() >>> 1;
@@ -477,15 +484,23 @@ public final class HostClient {
 		HalfCraft.LOG.info("HalfCraft: game window hidden (run with -Dhalfcraft.showWindow=true to keep it)");
 	}
 
+	/** How much smaller than Half-Life's viewport the overlay is drawn (WindowMixin divides a set gui scale by it). */
+	public static int overlayDivisor() {
+		return overlayDivisor;
+	}
+
 	private static void applyViewportSize(Minecraft minecraft) {
-		int w = Math.min(host.viewportW, Proto.MAX_OVERLAY_W);
-		int h = Math.min(host.viewportH, Proto.MAX_OVERLAY_H);
-		if (w <= 0 || h <= 0 || (w == appliedViewportW && h == appliedViewportH)) {
+		int divisor = host.divisor();
+		int w = Math.min(host.viewportW / divisor, Proto.MAX_OVERLAY_W);
+		int h = Math.min(host.viewportH / divisor, Proto.MAX_OVERLAY_H);
+		if (w <= 0 || h <= 0 || (w == appliedViewportW && h == appliedViewportH && divisor == overlayDivisor)) {
 			return;
 		}
 		appliedViewportW = w;
 		appliedViewportH = h;
+		overlayDivisor = divisor;
 		minecraft.getWindow().setWindowed(w, h);
-		HalfCraft.LOG.info("HalfCraft: sizing overlay to Half-Life viewport {}x{}", w, h);
+		minecraft.resizeGui();
+		HalfCraft.LOG.info("HalfCraft: sizing overlay to {}x{} (Half-Life's viewport {}x{} over {})", w, h, host.viewportW, host.viewportH, divisor);
 	}
 }

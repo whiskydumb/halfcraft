@@ -211,6 +211,7 @@ namespace halfcraft
 			}
 			s.link.heartbeat();
 			engine->GetScreenSize(s.viewport_w, s.viewport_h);
+			s.overlay_divisor = overlay_divisor_for(s.viewport_w, s.viewport_h);
 
 			// ---- minecraft -------------------------------------------------------------------
 			const bool mc_alive = s.link.mc_alive();
@@ -418,6 +419,7 @@ namespace halfcraft
 			host.teleportSeq = s.teleport_seq;
 			host.viewportW = static_cast<std::uint32_t>(s.viewport_w);
 			host.viewportH = static_cast<std::uint32_t>(s.viewport_h);
+			host.overlayDivisor = static_cast<std::uint32_t>(s.overlay_divisor);
 			host.gameHour = IDLE_GAME_HOUR;
 			host.speedFactor = player ? player->GetLaggedMovementValue() : 1.0f;  // player_speedmod
 			s.link.write_host_state(host);

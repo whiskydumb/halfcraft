@@ -1,10 +1,12 @@
 package dev.halfcraft.client.debug;
 
 import dev.halfcraft.HalfCraft;
+import dev.halfcraft.client.FrameExporter;
 import dev.halfcraft.client.HostClient;
 import dev.halfcraft.debug.HostDebugLines;
 import dev.halfcraft.link.HostDebug;
 import dev.halfcraft.link.HostLink;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -40,7 +42,9 @@ public final class HostDebugScreen {
 	static {
 		entry("host", d -> {
 			Entity camera = Minecraft.getInstance().getCameraEntity();
-			return camera == null ? HostDebugLines.location(d, 0, 0, 0) : HostDebugLines.location(d, camera.getX(), camera.getY(), camera.getZ());
+			List<String> lines = new ArrayList<>(camera == null ? HostDebugLines.location(d, 0, 0, 0) : HostDebugLines.location(d, camera.getX(), camera.getY(), camera.getZ()));
+			lines.add(1, HostDebugLines.overlay(FrameExporter.width(), FrameExporter.height(), HostClient.overlayDivisor(), FrameExporter.readbackMs()));
+			return lines;
 		});
 		entry("host_link", HostDebugLines::link);
 		entry("host_target", HostDebugLines::target);

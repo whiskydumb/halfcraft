@@ -27,6 +27,12 @@ class HostDebugLinesTest {
 	}
 
 	@Test
+	void overlaySaysItsSizeTheDivisorAndTheReadback() {
+		assertEquals("Overlay: 1128x752 (1/2 of the screen), readback 1.25 ms a frame", HostDebugLines.overlay(1128, 752, 2, 1.25));
+		assertEquals("Overlay: 1280x720, readback 0.40 ms a frame", HostDebugLines.overlay(1280, 720, 1, 0.4));
+	}
+
+	@Test
 	void locationShowsMapChapterAndSourceCoordinates() {
 		List<String> lines = HostDebugLines.location(inMap(), 13343.5, 0.2, 1.75);
 		assertEquals(List.of(

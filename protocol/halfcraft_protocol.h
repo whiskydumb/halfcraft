@@ -16,6 +16,9 @@ namespace halfcraft::proto
 	inline constexpr std::uint32_t kMagic = 0x464C4148;  // "HALF"
 	inline constexpr std::uint32_t kVersion = 3;
 	inline constexpr wchar_t       kMappingName[] = L"Local\\HalfCraft_v1";
+	// an auto-reset event the host sets after each frame's HostState: minecraft waits on it to draw once
+	// per host frame, asleep in between
+	inline constexpr wchar_t kFrameEventName[] = L"Local\\HalfCraft_v1_frame";
 
 	// ---- region offsets ---------------------------------------------------------------------
 	inline constexpr std::uint64_t kOffHeader = 0x0;
@@ -100,8 +103,12 @@ namespace halfcraft::proto
 		float         gameHour;
 		float         seatYaw;           // the way the vehicle's seat faces (MC degrees), with kHostSeated
 		float         speedFactor;       // how fast source lets its player move (player_speedmod): 1 normal, 0.5 half speed
+		// minecraft draws its overlay at the viewport's size over this (hc_overlay_scale), a gui scale it
+		// was given divided alike, and the host scales it back up pixel for pixel. 0 (an older host): 1
+		std::uint32_t overlayDivisor;
+		std::uint32_t overlayPad;
 	};
-	static_assert(sizeof(HostState) == 0x48);
+	static_assert(sizeof(HostState) == 0x50);
 
 	// ---- MC -> host state @0x200 (seqlock) --------------------------------------------------
 	enum McFlags : std::uint32_t

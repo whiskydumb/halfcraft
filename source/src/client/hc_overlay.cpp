@@ -1,8 +1,11 @@
 // client.dll: minecraft's hand, hotbar, hearts and every open minecraft screen, drawn over source's
 // frame as a hud element (so source's own menus and console still go on top).
 //
-// minecraft renders them offscreen at source's resolution into the overlay triple buffer, rgba8 with
-// premultiplied alpha. here a frame becomes a grid of TILE x TILE vgui textures. one texture for the
+// minecraft renders them offscreen into the overlay triple buffer, rgba8 with premultiplied alpha, at
+// source's resolution or a half or a third of it (hc_overlay_scale): its hud is made of pixels a gui
+// scale big anyway, so at half the size it draws with half the gui scale, and here each pixel goes back
+// up to two. reading a frame back from the gpu costs minecraft time by the pixel, and on an integrated
+// gpu that sets its frame rate. here a frame becomes a grid of TILE x TILE vgui textures. one texture for the
 // whole screen was power-of-two sized (4096 wide past 2048 pixels, which vguimatsurface overran on
 // some setups), and uploading it whole took most of a frame: 20 ms at 3440x1440. most of the frame is
 // see-through and most of the rest stays put, so a tile is un-premultiplied (vgui blends straight
@@ -118,16 +121,19 @@ namespace
 			return uploaded;
 		}
 
-		/// stretches the last frame over the top-left wide x tall of the screen.
-		void draw(int wide, int tall) const
+		/// draws the last frame from the screen's top left, each of its pixels the same whole number of
+		/// screen pixels (the screen's width over the frame's, rounded: the overlay divisor it was drawn
+		/// for), so pixel art stays crisp. a frame that doesn't divide the screen evenly leaves a sliver of
+		/// fewer than that many pixels at the right and bottom.
+		void draw(int wide) const
 		{
 			if (width_ == 0) {
 				return;
 			}
 			vgui::surface()->DrawSetColor(255, 255, 255, 255);
-			// a tile edge lands on the same screen pixel for both neighbours: no gaps, no overlaps
-			const auto screen_x = [&](int x) { return static_cast<int>(static_cast<long long>(x) * wide / width_); };
-			const auto screen_y = [&](int y) { return static_cast<int>(static_cast<long long>(y) * tall / height_); };
+			const int  scale = std::max(1, (wide + width_ / 2) / width_);
+			const auto screen_x = [&](int x) { return x * scale; };
+			const auto screen_y = [&](int y) { return y * scale; };
 			for (int row = 0; row < rows_; ++row) {
 				for (int column = 0; column < columns_; ++column) {
 					const Tile& tile = tiles_[static_cast<std::size_t>(row) * columns_ + column];
@@ -295,7 +301,7 @@ void CHudHalfCraftOverlay::Paint(void)
 
 	int nWide, nTall;
 	GetSize(nWide, nTall);
-	m_Tiles.draw(nWide, nTall);
+	m_Tiles.draw(nWide);
 }
 
 CON_COMMAND(hc_perf, "halfcraft: the frame rate and what minecraft's overlay costs, over the last 300 frames")
@@ -306,4 +312,36 @@ CON_COMMAND(hc_perf, "halfcraft: the frame rate and what minecraft's overlay cos
 float halfcraft::overlay_cost_ms(int frames)
 {
 	return g_perf.recent_upload_ms(static_cast<std::size_t>(std::max(frames, 0)));
+}
+
+static ConVar hc_overlay_scale("hc_overlay_scale", "0", FCVAR_ARCHIVE,
+	"halfcraft: minecraft draws its hand, hud and screens at 1/N of the screen, scaled back up pixel for pixel: 0 picks (2 where minecraft's "
+	"own gui scale halves evenly, so the hud stays as it was; else 1), or 1, 2, 3");
+
+namespace
+{
+	/// minecraft's own gui scale for a window (Window.calculateScale, gui scale 0): the biggest that leaves
+	/// it 320x240 of gui.
+	int mc_auto_gui_scale(int wide, int tall)
+	{
+		return std::max(1, std::min(wide / 320, tall / 240));
+	}
+}
+
+int halfcraft::overlay_divisor_for(int viewport_w, int viewport_h)
+{
+	int divisor = 1;
+	if (const int wanted = hc_overlay_scale.GetInt(); wanted >= 1) {
+		divisor = std::min(wanted, 3);
+	} else {
+		const int scale = mc_auto_gui_scale(viewport_w, viewport_h);
+		if (scale % 2 == 0 && mc_auto_gui_scale(viewport_w / 2, viewport_h / 2) == scale / 2) {
+			divisor = 2;
+		}
+	}
+	// the overlay holds 3840x2160 at most: a bigger screen gets a smaller overlay, not none
+	while (viewport_w / divisor > static_cast<int>(proto::kMaxOverlayW) || viewport_h / divisor > static_cast<int>(proto::kMaxOverlayH)) {
+		++divisor;
+	}
+	return divisor;
 }

@@ -45,6 +45,7 @@ namespace halfcraft
 		void                        heartbeat();
 
 		// host <-> minecraft state (seqlocks)
+		/// the host's state for this frame; the host's link also wakes minecraft's frame pacing.
 		void write_host_state(const proto::HostState& state);
 		bool read_host_state(proto::HostState& out) const;
 		bool read_mc_state(proto::McState& out) const;
@@ -116,6 +117,7 @@ namespace halfcraft
 		}
 
 		void*         mapping_{ nullptr };
+		void*         frame_event_{ nullptr };  // the host's: set after each HostState (proto::kFrameEventName)
 		std::uint8_t* base_{ nullptr };
 		std::uint64_t view_bytes_{ 0 };
 		std::uint32_t overlay_front_{ 2 };

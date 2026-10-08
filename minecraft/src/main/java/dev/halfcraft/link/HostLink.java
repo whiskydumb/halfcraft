@@ -37,7 +37,12 @@ public final class HostLink {
 	private static final MethodHandle QUERY_PERFORMANCE_COUNTER;
 	private static final MethodHandle QUERY_PERFORMANCE_FREQUENCY;
 	private static final MethodHandle CREATE_MUTEX;
+	private static final MethodHandle OPEN_EVENT;
+	private static final MethodHandle WAIT_FOR_SINGLE_OBJECT;
+	private static final int SYNCHRONIZE = 0x00100000;
 	private static MemorySegment runningMutex;
+	// Half-Life's frame event (Proto.FRAME_EVENT_NAME); null before it's open, or from a Half-Life without one
+	private static volatile MemorySegment frameEvent;
 	private static final MemorySegment QPC_OUT = Arena.global().allocate(JAVA_LONG);
 
 	static {
@@ -54,6 +59,42 @@ public final class HostLink {
 		QUERY_PERFORMANCE_COUNTER = linker.downcallHandle(k32.find("QueryPerformanceCounter").orElseThrow(), FunctionDescriptor.of(JAVA_INT, ADDRESS));
 		QUERY_PERFORMANCE_FREQUENCY = linker.downcallHandle(k32.find("QueryPerformanceFrequency").orElseThrow(), FunctionDescriptor.of(JAVA_INT, ADDRESS));
 		CREATE_MUTEX = linker.downcallHandle(k32.find("CreateMutexW").orElseThrow(), FunctionDescriptor.of(ADDRESS, ADDRESS, JAVA_INT, ADDRESS));
+		OPEN_EVENT = linker.downcallHandle(k32.find("OpenEventW").orElseThrow(), FunctionDescriptor.of(ADDRESS, JAVA_INT, JAVA_INT, ADDRESS));
+		WAIT_FOR_SINGLE_OBJECT = linker.downcallHandle(k32.find("WaitForSingleObject").orElseThrow(), FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_INT));
+	}
+
+	/**
+	 * Sleeps until Half-Life finishes a frame (it sets its frame event after each HostState) or ms pass.
+	 * False without the event (a Half-Life before it): the caller naps and polls instead.
+	 */
+	public static boolean waitForHostFrame(int ms) {
+		MemorySegment event = frameEvent;
+		if (event == null) {
+			return false;
+		}
+		try {
+			int result = (int) WAIT_FOR_SINGLE_OBJECT.invokeExact(event, ms);
+			return result != -1; // WAIT_FAILED
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	// the frame event, once the mapping is open: it outlives a Half-Life restart while this holds it, as the mapping does
+	private static void openFrameEvent() {
+		if (frameEvent != null) {
+			return;
+		}
+		try (Arena arena = Arena.ofConfined()) {
+			MemorySegment name = arena.allocateFrom(FRAME_EVENT_NAME, StandardCharsets.UTF_16LE);
+			MemorySegment handle = (MemorySegment) OPEN_EVENT.invokeExact(SYNCHRONIZE, 0, name);
+			if (handle.address() != 0) {
+				frameEvent = handle;
+				HalfCraft.LOG.info("HalfCraft: waiting on Half-Life's frame event between frames");
+			}
+		} catch (Throwable t) {
+			HalfCraft.LOG.warn("HalfCraft: couldn't open Half-Life's frame event", t);
+		}
 	}
 
 	/**
@@ -109,6 +150,10 @@ public final class HostLink {
 	/** Try to open the mapping at most once a second. Call regularly from the render thread. */
 	public static void poll() {
 		if (shm != null) {
+			if (frameEvent == null && System.currentTimeMillis() - lastOpenAttempt >= 1000) {
+				lastOpenAttempt = System.currentTimeMillis();
+				openFrameEvent();
+			}
 			LONG.setRelease(shm, OFF_HEADER + H_MC_HEARTBEAT, tickCount());
 			long session = (long) LONG.getAcquire(shm, OFF_HEADER + H_HOST_SESSION);
 			if (session != hostSession) {
@@ -209,6 +254,7 @@ public final class HostLink {
 		public float gameHour;
 		public float seatYaw;
 		public float speedFactor;
+		public int overlayDivisor;
 
 		public boolean inGame() {
 			return (this.flags & HOST_IN_GAME) != 0;
@@ -230,6 +276,14 @@ public final class HostLink {
 		/** In a Half-Life vehicle's seat, which faces {@link #seatYaw}. */
 		public boolean seated() {
 			return (this.flags & HOST_SEATED) != 0;
+		}
+
+		/**
+		 * How much smaller than Half-Life's viewport the overlay is drawn (hc_overlay_scale), its gui scale
+		 * alike; Half-Life scales it back up. 1 from a Half-Life before it.
+		 */
+		public int divisor() {
+			return Math.max(1, this.overlayDivisor);
 		}
 	}
 
@@ -301,6 +355,7 @@ public final class HostLink {
 			out.gameHour = s.get(JAVA_FLOAT, b + HS_GAME_HOUR);
 			out.seatYaw = s.get(JAVA_FLOAT, b + HS_SEAT_YAW);
 			out.speedFactor = s.get(JAVA_FLOAT, b + HS_SPEED_FACTOR);
+			out.overlayDivisor = s.get(JAVA_INT, b + HS_OVERLAY_DIVISOR);
 			VarHandle.loadLoadFence();
 			int seq2 = (int) INT.getAcquire(s, b + HS_SEQ);
 			if (seq1 == seq2) {
