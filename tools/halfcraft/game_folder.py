@@ -210,7 +210,7 @@ def write_game_folder(engine: Engine, destination: Path, folder: str, *, symbols
 
 def copy_game_folder(engine: Engine, destination: Path, *, symbols: bool = False) -> None:
     """lays out a game folder into destination. symbols: the .pdb next to each dll (dev folders:
-    tools/read_dump.py finds them there).
+    tools/debug/read_dump.py finds them there).
     """
     # laid out afresh in build\stage, then synced over: a file halfcraft shipped before and doesn't now
     # (halfcraft-files.txt lists the last layout's) goes, what the game wrote stays

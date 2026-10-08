@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       version:
-        description: halfcraft's version (tools/version.py)
+        description: halfcraft's version (tools/build/version.py)
         required: true
         type: string
 
@@ -32,7 +32,7 @@ jobs:
         with:
           cache-provider: basic
       - name: Build and test
-        run: python tools/gradle.py build
+        run: python tools/build/gradle.py build
       - name: Test reports
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

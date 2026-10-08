@@ -2,17 +2,20 @@
 engines (tools/halfcraft/engines.py); that engine's steam app must be installed. minecraft: make mc-run (the dev
 client); it links up by itself once the game runs.
 
-python tools/run_hl2.py                          hl2:dm's 64-bit engine, windowed 1280x720, main menu
-python tools/run_hl2.py --engine hl2             half-life 2's own 32-bit engine
-python tools/run_hl2.py --map d1_trainstation_02 straight into a map
-python tools/run_hl2.py --fullscreen
-python tools/run_hl2.py --width 2560 --height 1080
-python tools/run_hl2.py -- +hc_debug_blocks 1    more engine arguments after --
+python tools/game/run_hl2.py                          hl2:dm's 64-bit engine, windowed 1280x720, main menu
+python tools/game/run_hl2.py --engine hl2             half-life 2's own 32-bit engine
+python tools/game/run_hl2.py --map d1_trainstation_02 straight into a map
+python tools/game/run_hl2.py --fullscreen
+python tools/game/run_hl2.py --width 2560 --height 1080
+python tools/game/run_hl2.py -- +hc_debug_blocks 1    more engine arguments after --
 """
 
 import argparse
 import subprocess
+import sys
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools\, where the halfcraft package is
 from halfcraft import ToolError, engines
 
 

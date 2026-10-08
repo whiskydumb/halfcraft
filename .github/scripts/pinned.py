@@ -4,6 +4,7 @@ job's later steps at it (GITHUB_ENV).
 python .github/scripts/pinned.py clang-format   CLANG_FORMAT: clang-format 22.1.3, out of the windows wheel pip would install
 python .github/scripts/pinned.py clang-tidy     CLANG_TIDY: clang-tidy 22.1.8, the same way (pypi has no 22.1.3 of it)
 python .github/scripts/pinned.py jdk            JAVA_HOME: temurin 25.0.4.1+1
+python .github/scripts/pinned.py ruff           RUFF: ruff 0.16.9 (pyproject.toml's), out of its windows wheel
 """
 
 import argparse
@@ -44,6 +45,12 @@ PINS = {
         "00c847d804f4a78e9f04f2683faf14fed898535b177b7fc704486cb0284e9283",
         "javac.exe",
         "JAVA_HOME",
+    ),
+    "ruff": Pin(
+        "https://files.pythonhosted.org/packages/14/21/26e4643629b3ebb44f0a06f9c9a53058d63d989415f63a9a3c28e2ee7f22/ruff-0.16.9-py3-none-win_amd64.whl",
+        "6bd40fec8cd4c8a3d4dd589bd8ad4e6320c13c29234159bfd959a40d529d597b",
+        "ruff.exe",
+        "RUFF",
     ),
 }
 

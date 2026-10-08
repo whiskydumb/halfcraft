@@ -1,12 +1,12 @@
 """checks a map's collision voxels offline: wherever half-life 2's player can stand, minecraft's mobs and items
-must find a voxel to stand on too. builds tools\\collision_check.cpp (the streamer's own voxelizer,
+must find a voxel to stand on too. builds tools\\debug\\collision_check.cpp (the streamer's own voxelizer,
 source\\src\\core\\hc_collision_shapes.h) into build\\collision_check and runs it on the map's .bsp from half-life 2's
 install. no game has to run.
 
-python tools/collision_check.py --map d1_canals_01 --grid-z 16                    the whole map
-python tools/collision_check.py --map d1_canals_01 --grid-z 16 --at 217,-968      512 units square around a spot (x, y;
+python tools/debug/collision_check.py --map d1_canals_01 --grid-z 16                    the whole map
+python tools/debug/collision_check.py --map d1_canals_01 --grid-z 16 --at 217,-968      512 units square around a spot (x, y;
                                                                                   --at=-217,968 when x is negative)
-python tools/collision_check.py --bsp C:\\maps\\x.bsp --grid-z 0                    any .bsp
+python tools/debug/collision_check.py --bsp C:\\maps\\x.bsp --grid-z 0                    any .bsp
 
 --grid-z: the map's grid height, as server.dll logs it on a load ("grid offset for d1_canals_01: 16 units").
 exits 1 when it finds holes, and lists the worst of them (source coordinates). it also prints what the
@@ -14,13 +14,15 @@ streamer's worker thread spends on a region (triangulate + voxelize), on average
 """
 
 import argparse
+import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools\, where the halfcraft package is
 from halfcraft import REPO, ToolError, commands, engines, visual_studio
 
 OUT = REPO / "build/collision_check"
 EXE = OUT / "collision_check.exe"
-SOURCE = REPO / "tools/collision_check.cpp"
+SOURCE = REPO / "tools/debug/collision_check.cpp"
 COMPILE_SECONDS = 600
 CHECK_SECONDS = 1800
 

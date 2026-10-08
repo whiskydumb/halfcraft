@@ -1,14 +1,17 @@
 """builds halfcraft's half-life 2 side (tools/halfcraft/build.py says what that takes).
 
-python tools/build_hl2.py                   both engines: generate projects, build release, lay out
-python tools/build_hl2.py --engine hl2      half-life 2's own 32-bit engine only (source-sdk-2013-sp)
-python tools/build_hl2.py --engine hl2dm    half-life 2: deathmatch's 64-bit engine only (source-sdk-2013)
-python tools/build_hl2.py --no-projects     skip vpc (no .vpc file changed)
-python tools/build_hl2.py --no-launcher     skip HalfCraft.exe
+python tools/build/build_hl2.py                   both engines: generate projects, build release, lay out
+python tools/build/build_hl2.py --engine hl2      half-life 2's own 32-bit engine only (source-sdk-2013-sp)
+python tools/build/build_hl2.py --engine hl2dm    half-life 2: deathmatch's 64-bit engine only (source-sdk-2013)
+python tools/build/build_hl2.py --no-projects     skip vpc (no .vpc file changed)
+python tools/build/build_hl2.py --no-launcher     skip HalfCraft.exe
 """
 
 import argparse
+import sys
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools\, where the halfcraft package is
 from halfcraft import build, engines
 
 

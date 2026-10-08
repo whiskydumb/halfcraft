@@ -1,10 +1,10 @@
 """waits for a line in a game's log, for test scripts: half-life's console.log (run with -condebug, as make run
 does) or minecraft's latest.log.
 
-mark=$(python tools/wait_log.py mc-test --mark)          where the log ends now (a byte offset)
-python tools/hl2_command.py "hc_mc kill @s"
-python tools/wait_log.py hl2dm --after "$mark" --pattern "so does gordon" --timeout 20
-python tools/wait_log.py mc-test --after "$mark" --pattern "teleported" --absent --timeout 5
+mark=$(python tools/game/wait_log.py mc-test --mark)          where the log ends now (a byte offset)
+python tools/game/hl2_command.py "hc_mc kill @s"
+python tools/game/wait_log.py hl2dm --after "$mark" --pattern "so does gordon" --timeout 20
+python tools/game/wait_log.py mc-test --after "$mark" --pattern "teleported" --absent --timeout 5
 
 the log: hl2 or hl2dm (build\\game-<engine>\\console.log), mc (minecraft\\run, the player's dev client), mc-test
 (minecraft\\run\\test, make mc-test's) or a file's path. --pattern is a python regex. lines before --after don't
@@ -15,9 +15,11 @@ one. --absent turns it round: 0 when no line matched in time.
 
 import argparse
 import re
+import sys
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools\, where the halfcraft package is
 from halfcraft import REPO, ToolError, engines, windows
 
 LOGS = {

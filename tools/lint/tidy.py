@@ -1,12 +1,12 @@
 """clang-tidy over halfcraft's own c++ (.clang-tidy says which checks and which headers report): make tidy.
 
-    python tools/tidy.py                  everything, both engines
-    python tools/tidy.py --engine hl2dm   one engine's client.dll and server.dll (and the launcher, tools)
-    python tools/tidy.py source/src/client/hc_block_lights.cpp ...   just these files
-    python tools/tidy.py --checks="-*,bugprone-*"                    other checks than .clang-tidy's
+    python tools/lint/tidy.py                  everything, both engines
+    python tools/lint/tidy.py --engine hl2dm   one engine's client.dll and server.dll (and the launcher, tools)
+    python tools/lint/tidy.py source/src/client/hc_block_lights.cpp ...   just these files
+    python tools/lint/tidy.py --checks="-*,bugprone-*"                    other checks than .clang-tidy's
 
 each file is checked with the flags it's built with: client.dll's and server.dll's from the projects vpc
-generates (make build makes them), the launcher's and tools\\*.cpp's from their cl lines. a file both dlls
+generates (make build makes them), the launcher's and tools\\debug\\*.cpp's from their cl lines. a file both dlls
 build (source\\src\\core, shared) is checked for each, since CLIENT_DLL and GAME_DLL change it. findings in
 the sdk trees' own code never report. exits 1 on any finding.
 
@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from xml.etree import ElementTree
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools\, where the halfcraft package is
 from halfcraft import REPO, llvm
 
 SECONDS_PER_FILE = 300
@@ -48,10 +49,10 @@ PROJECTS = [
     Project("hl2", REPO / "source-sdk-2013-sp/sp/src/game/client/client_episodic.vcxproj", "Release|Win32", "i686-pc-windows-msvc"),
     Project("hl2", REPO / "source-sdk-2013-sp/sp/src/game/server/server_episodic.vcxproj", "Release|Win32", "i686-pc-windows-msvc"),
 ]
-# built by plain cl lines (tools/halfcraft/build.py, tools/collision_check.py), 64-bit
+# built by plain cl lines (tools/halfcraft/build.py, tools/debug/collision_check.py), 64-bit
 PLAIN = {
     "source/launcher/": ["-DUNICODE", "-D_UNICODE", f"-I{REPO / 'source/src'}", f"-I{REPO / 'protocol'}"],
-    "tools/": [f"-I{REPO / 'source/src'}"],
+    "tools/debug/": [f"-I{REPO / 'source/src'}"],
 }
 # clang-tidy's own lines about the run, not about a finding
 NOISE = ("Suppressed ", "Use -header-filter", "Found compiler error")

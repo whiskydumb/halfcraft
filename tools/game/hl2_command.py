@@ -1,6 +1,6 @@
 """sends console commands to the running game (make run, either engine), one after another:
 
-python tools/hl2_command.py "save test" "hc_look 75 0" "hc_click 3" "load test"
+python tools/game/hl2_command.py "save test" "hc_look 75 0" "hc_click 3" "load test"
 
 each command goes through a cfg file and +exec over -hijack (-hijack alone drops some arguments). output lands
 in the game's console.log. useful where typing into the console isn't (synthetic keys, keyboard layouts).
@@ -8,9 +8,11 @@ in the game's console.log. useful where typing into the console isn't (synthetic
 
 import argparse
 import subprocess
+import sys
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools\, where the halfcraft package is
 from halfcraft import ToolError, commands, engines, windows
 
 SECONDS = 15

@@ -1,4 +1,4 @@
-# the sdk checkouts (tools/setup_sdk.py makes source-sdk-2013 and source-sdk-2013-sp; -valve is a local
+# the sdk checkouts (tools/build/setup_sdk.py makes source-sdk-2013 and source-sdk-2013-sp; -valve is a local
 # reference copy)
 source-sdk-2013/
 source-sdk-2013-sp/
@@ -19,9 +19,9 @@ minecraft/logs/
 *.iml
 
 # release packaging: the launcher's build, pinned downloads, the zips
-build/
-.cache/
-dist/
+/build/
+/.cache/
+/dist/
 
 # python
 __pycache__/

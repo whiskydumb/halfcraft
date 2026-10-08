@@ -52,7 +52,9 @@ source/          the Source mod (C++)
   halfcraft_*.vpc  pulled into Valve's client/server projects
 protocol/        the shared memory layout, the one source of truth for both sides
 package/         what a release carries besides code: the Prism instance template, the players' README
-tools/           setup, build, run and packaging scripts, link and crash-dump debugging helpers
+tools/           the Python tools: halfcraft/ (what they share), build/ (setup, build, packaging),
+                 game/ (run, test sessions, console commands, logs), lint/, debug/ (link and crash-dump
+                 helpers), assets/
 Makefile         the tasks, wrapping tools/
 ```
 
@@ -90,8 +92,9 @@ make mc-run                  # the Minecraft dev client (finds a JDK 25 itself);
 make run ENGINE=hl2 MAP=d1_trainstation_02
 ```
 
-`make format` formats the C++ with clang-format 22 and the Java with Eclipse's formatter (Spotless,
-`minecraft/eclipse-formatter.prefs`), and `make lint` checks both; `make tidy` (after
+`make format` formats the C++ with clang-format 22, the Python with ruff (`pyproject.toml` pins it;
+`pip install ruff` or uv's `uvx` runs it) and the Java with Eclipse's formatter (Spotless,
+`minecraft/eclipse-formatter.prefs`), and `make lint` checks all three, ruff's lints included; `make tidy` (after
 `make build`, a minute or two) runs clang-tidy 22 over it on both engines with the checks in
 `.clang-tidy`. A compiler warning in HalfCraft's own C++ or Java fails its build.
 
@@ -119,8 +122,8 @@ Minecraft too when nothing else did, and again if it quits on its own, and says 
 it's doing until it connects. Prism Launcher and Fabric API downloads are pinned by hash.
 
 Versions come from git tags: a commit tagged `vX.Y.Z` is release X.Y.Z, and the N commits after it are
-`X.(Y+1).0-dev.N+<commit>` (`tools/version.py`; the mod, `HalfCraft.exe` and the zip all carry it). CI
-(`.github/workflows`) checks every push: clang-format, the Java's formatting, the Minecraft mod's
+`X.(Y+1).0-dev.N+<commit>` (`tools/build/version.py`; the mod, `HalfCraft.exe` and the zip all carry it). CI
+(`.github/workflows`) checks every push: clang-format, ruff, the Java's formatting, the Minecraft mod's
 build and tests, both engines' build, clang-tidy and the zip. Each push to `main` replaces the `dev`
 pre-release on GitHub, and a pushed tag `vX.Y.Z` publishes that release.
 
@@ -130,20 +133,20 @@ overbright), `hc_torch_light` / `hc_torch_light_count` (Minecraft's lights on th
 collision), `hc_debug_drop 1` (drop a watermelon onto the blocks), `hc_debug_use 1` (log what use
 finds), `hc_debug_torch` (a torch light where you look, without Minecraft), `hc_debug_voxels [regions]` (Minecraft's
 collision voxels around the player checked against Source's own collision), and the commands `hc_look <pitch> <yaw>`, `hc_click <1|2|3>`, `hc_scroll <notches>`, `hc_press <key> <1|0> [seconds]` (a key or mouse button the way the real one goes, so a weapon held in Minecraft fires) and `hc_weapons` (the player's weapons as Minecraft gets them). `make cmd C="'save test' 'load test'"`
-sends console commands to the running game, and `python tools/read_dump.py <dump> <folder with the pdbs>`
+sends console commands to the running game, and `python tools/debug/read_dump.py <dump> <folder with the pdbs>`
 names where a crash dump died: `build/game-hl2/bin` for `hl2.exe`, `build/game-hl2dm/bin/x64` for
 `hl2mp_win64.exe` (Steam keeps the dumps in `Steam/dumps`).
 
 Tests that change things play apart from your own games. `make test-start` sets the game folders'
 saves and `config.cfg` aside, then `make mc-test` starts a Minecraft dev client with a run folder
 (`minecraft/run/test`) and a world (`HalfCraftTest`) of its own; quit both games before
-`make test-stop` puts your saves and settings back (`tools/test_session.py`). Neither client starts
+`make test-stop` puts your saves and settings back (`tools/game/test_session.py`). Neither client starts
 while another Minecraft runs (they'd share the link), the test client only in a test session and
 yours only outside one. In the game, `hc_mc <command>` runs a Minecraft command as the player (the
-answer goes to chat and to Minecraft's log). For scripts (`tools/hl2_command.py`; typed into the
+answer goes to chat and to Minecraft's log). For scripts (`tools/game/hl2_command.py`; typed into the
 console they're let go as it closes), `hc_key <SDL scancode> [1|0] [seconds]`,
 `hc_hold <mouse button> <1|0> [seconds]` and `hc_use <1|0> [seconds]` press Minecraft's keys and
-buttons and Source's use, and `tools/wait_log.py` waits for a line in either game's log.
+buttons and Source's use, and `tools/game/wait_log.py` waits for a line in either game's log.
 
 ## Not done yet
 

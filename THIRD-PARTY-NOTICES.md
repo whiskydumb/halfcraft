@@ -10,7 +10,7 @@ HalfCraft is MIT-licensed (see `LICENSE`). It is built from, or a release contai
 | Source SDK 2013 for Half-Life 2's engine: Valve's singleplayer tree as of 2015 (pinned in `tools/halfcraft/sdk.py`) | Source 1 SDK License (Valve) | https://github.com/ValveSoftware/source-sdk-2013 |
 
 `source/sdk/halfcraft-hl2.patch` and `source/sdk/halfcraft-hl2dm.patch` are modifications of SDK
-files and fall under the same license. The SDK itself isn't in this repository: `tools/setup_sdk.py`
+files and fall under the same license. The SDK itself isn't in this repository: `tools/build/setup_sdk.py`
 downloads it.
 
 ## The bundled Minecraft (when packaged)

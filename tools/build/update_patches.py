@@ -1,12 +1,15 @@
 """writes the sdk trees' edits to valve's code back into source\\sdk\\halfcraft-<engine>.patch. run it after
-changing anything inside source-sdk-2013\\src or source-sdk-2013-sp\\sp\\src; tools/setup_sdk.py applies them.
+changing anything inside source-sdk-2013\\src or source-sdk-2013-sp\\sp\\src; tools/build/setup_sdk.py applies them.
 
-    python tools/update_patches.py                 both
-    python tools/update_patches.py --engine hl2    source-sdk-2013-sp only
+    python tools/build/update_patches.py                 both
+    python tools/build/update_patches.py --engine hl2    source-sdk-2013-sp only
 """
 
 import argparse
+import sys
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools\, where the halfcraft package is
 from halfcraft import commands, sdk
 
 

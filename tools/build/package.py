@@ -3,22 +3,24 @@
 HalfCraft-<version>.zip       unpack anywhere, start HalfCraft.exe (package\\README.txt says the rest)
 HalfCraft-<version>-pdb.zip   both engines' client.dll and server.dll debug symbols (hl2\\, hl2dm\\), for crash dumps
 
-python tools/package.py [--no-build]
+python tools/build/package.py [--no-build]
 
 the zip's HalfCraft folder: HalfCraft.exe, game-hl2\\ and game-hl2dm\\ (the game folders of the two engines,
 tools/halfcraft/game_folder.py), minecraft\\ (portable Prism Launcher with the HalfCraft instance and its mods,
 from package\\minecraft), README.txt, LICENSE.txt, THIRD-PARTY-NOTICES.md.
 
-building needs what tools/build_hl2.py needs plus JDK 25 (tools/halfcraft/gradle.py finds it). Prism Launcher
+building needs what tools/build/build_hl2.py needs plus JDK 25 (tools/halfcraft/gradle.py finds it). Prism Launcher
 and Fabric API are downloaded once into .cache\\package and checked against the hashes pinned below.
 """
 
 import argparse
 import re
 import shutil
+import sys
 import zipfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools\, where the halfcraft package is
 from halfcraft import REPO, ToolError, build, downloads, engines, folders, game_folder, gradle, shaders
 from halfcraft.version import version
 

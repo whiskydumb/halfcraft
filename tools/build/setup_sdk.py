@@ -1,8 +1,8 @@
 """checks out the source sdk 2013 trees halfcraft builds against (tools/halfcraft/sdk.py pins them) and applies
-halfcraft's edits to valve's code (source\\sdk\\halfcraft-<engine>.patch, written by tools/update_patches.py).
+halfcraft's edits to valve's code (source\\sdk\\halfcraft-<engine>.patch, written by tools/build/update_patches.py).
 
-python tools/setup_sdk.py                   both
-python tools/setup_sdk.py --engine hl2dm    source-sdk-2013 only. --engine hl2 sets up both all the same: the hl2
+python tools/build/setup_sdk.py                   both
+python tools/build/setup_sdk.py --engine hl2dm    source-sdk-2013 only. --engine hl2 sets up both all the same: the hl2
                                             build takes the world shaders and the campaign files (chapters,
                                             strings) from source-sdk-2013 too
 
@@ -10,7 +10,10 @@ afterwards: make build
 """
 
 import argparse
+import sys
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools\, where the halfcraft package is
 from halfcraft import ToolError, commands, sdk
 
 FETCH_SECONDS = 3600

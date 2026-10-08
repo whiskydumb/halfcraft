@@ -1,13 +1,13 @@
 """keeps test sessions away from the player's own games: half-life's saves and settings, and minecraft's world.
 
-python tools/test_session.py start [--engine hl2dm]   puts build\\game-<engine>\\save and cfg\\config.cfg aside
+python tools/game/test_session.py start [--engine hl2dm]   puts build\\game-<engine>\\save and cfg\\config.cfg aside
                                                       (build\\test-session\\<engine>): the test starts without saves
-python tools/test_session.py stop [--engine hl2dm]    puts them back; the test's own saves and settings go to
+python tools/game/test_session.py stop [--engine hl2dm]    puts them back; the test's own saves and settings go to
                                                       build\\test-session\\<engine>-last
-python tools/test_session.py status                   what's set aside, and which games run
-python tools/test_session.py minecraft                the minecraft test client (make mc-test): its own run
+python tools/game/test_session.py status                   what's set aside, and which games run
+python tools/game/test_session.py minecraft                the minecraft test client (make mc-test): its own run
                                                       folder (minecraft\\run\\test) and world (HalfCraftTest)
-python tools/test_session.py dev-client               the player's minecraft dev client (make mc-run)
+python tools/game/test_session.py dev-client               the player's minecraft dev client (make mc-run)
 
 half-life's saves carry checkpoints of the player's minecraft world, and every changelevel autosaves over them,
 so a test never plays with them. the game folder itself stays: its strings file is named after it
@@ -20,10 +20,12 @@ default) does both engines.
 
 import argparse
 import shutil
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools\, where the halfcraft package is
 from halfcraft import REPO, ToolError, engines, folders, gradle, windows
 
 SESSIONS = REPO / "build/test-session"

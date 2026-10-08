@@ -30,10 +30,10 @@ jobs:
         with:
           python-version: "3.13.15"
       - id: version
-        name: tools/version.py
+        name: tools/build/version.py
         shell: bash
         run: |
-          version=$(python tools/version.py)
+          version=$(python tools/build/version.py)
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "halfcraft $version"
 

@@ -1,11 +1,14 @@
 """prints halfcraft's version (tools/halfcraft/version.py says where it comes from).
 
-python tools/version.py             0.2.0-dev.12+1a2b3c4d5
-python tools/version.py --numbers   the four numbers a windows version resource takes: 0,2,0,12
+python tools/build/version.py             0.2.0-dev.12+1a2b3c4d5
+python tools/build/version.py --numbers   the four numbers a windows version resource takes: 0,2,0,12
 """
 
 import argparse
+import sys
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools\, where the halfcraft package is
 from halfcraft.version import numbers, version
 
 

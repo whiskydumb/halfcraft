@@ -11,7 +11,7 @@ import net.minecraft.server.permissions.LevelBasedPermissionSet;
  * Minecraft commands from Half-Life's console (hc_mc, string channel STR_COMMAND). They run as the
  * player with an owner's permission, like a command typed into chat in a world with cheats on. What
  * a command answers goes to the player's chat and to the log ("HalfCraft: hc_mc ..."), where test
- * scripts wait for it (tools/wait_log.py).
+ * scripts wait for it (tools/game/wait_log.py).
  */
 public final class HostCommand {
 	private HostCommand() {

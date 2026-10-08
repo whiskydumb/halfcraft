@@ -12,7 +12,7 @@
 #   make test-start [ENGINE=hl2]   set the game's saves and settings aside for tests; make test-stop: back
 #   make patches                   write sdk edits back into source\sdk\halfcraft-<engine>.patch
 #   make package                   dist\HalfCraft-<version>.zip (NOBUILD=1 packs what's built)
-#   make format                    clang-format halfcraft's c++, eclipse's formatter its java; make lint: check both
+#   make format                    clang-format the c++, ruff the python, eclipse's formatter the java; make lint: check
 #   make tidy                      clang-tidy over halfcraft's c++, both engines (after make build)
 #
 # ENGINE: hl2 (half-life 2's own 32-bit engine), hl2dm (half-life 2: deathmatch's 64-bit one) or all
@@ -34,48 +34,48 @@ help:
 	@Get-Content Makefile | Select-Object -First 20 | ForEach-Object { $$_ -replace '^# ?', '' }
 
 setup:
-	python tools/setup_sdk.py --engine $(ENGINE)
+	python tools/build/setup_sdk.py --engine $(ENGINE)
 
 build:
-	python tools/build_hl2.py --engine $(ENGINE) $(if $(NOPROJECTS),--no-projects)
+	python tools/build/build_hl2.py --engine $(ENGINE) $(if $(NOPROJECTS),--no-projects)
 
 mc:
-	python tools/gradle.py build
+	python tools/build/gradle.py build
 
 mc-run:
-	python tools/test_session.py dev-client
+	python tools/game/test_session.py dev-client
 
 mc-test:
-	python tools/test_session.py minecraft
+	python tools/game/test_session.py minecraft
 
 run:
-	python tools/run_hl2.py --engine $(RUN_ENGINE) $(if $(MAP),--map $(MAP)) $(if $(ARGS),-- $(ARGS))
+	python tools/game/run_hl2.py --engine $(RUN_ENGINE) $(if $(MAP),--map $(MAP)) $(if $(ARGS),-- $(ARGS))
 
 cmd:
-	python tools/hl2_command.py -- $(C)
+	python tools/game/hl2_command.py -- $(C)
 
 test-start:
-	python tools/test_session.py start --engine $(ENGINE)
+	python tools/game/test_session.py start --engine $(ENGINE)
 
 test-stop:
-	python tools/test_session.py stop --engine $(ENGINE)
+	python tools/game/test_session.py stop --engine $(ENGINE)
 
 patches:
-	python tools/update_patches.py --engine $(ENGINE)
+	python tools/build/update_patches.py --engine $(ENGINE)
 
 package:
-	python tools/package.py $(if $(NOBUILD),--no-build)
+	python tools/build/package.py $(if $(NOBUILD),--no-build)
 
 format:
-	python tools/format.py
-	python tools/gradle.py spotlessApply
+	python tools/lint/format.py
+	python tools/build/gradle.py spotlessApply
 
 lint:
-	python tools/format.py --check
-	python tools/gradle.py spotlessCheck
+	python tools/lint/format.py --check
+	python tools/build/gradle.py spotlessCheck
 
 tidy:
-	python tools/tidy.py
+	python tools/lint/tidy.py
 
 # build output that's safe to throw away: not build\game-* (saves and settings live there)
 clean:

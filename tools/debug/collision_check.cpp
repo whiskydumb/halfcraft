@@ -1,5 +1,5 @@
 // collision_check: are a map's collision voxels a floor wherever half-life's floors are? (built and run by
-// tools/collision_check.py)
+// tools/debug/collision_check.py)
 //
 // minecraft's player walks on half-life's exact triangles; its mobs and items stand on the voxels server.dll
 // streams with them. this reads a map's .bsp, gathers what server.dll's WorldCollision gathers from the

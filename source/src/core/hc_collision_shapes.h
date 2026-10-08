@@ -2,7 +2,7 @@
 
 // the geometry half of the collision stream (core/hc_collision.h): solid shapes in minecraft space (half-life's
 // brushes turned into them), convex hulls turned into triangles, and a region's 8x8x8-per-block occupancy.
-// pure code, no engine and no link, so tools/collision_check.cpp checks a map's .bsp offline with exactly
+// pure code, no engine and no link, so tools/debug/collision_check.cpp checks a map's .bsp offline with exactly
 // what server.dll runs.
 
 #include <algorithm>

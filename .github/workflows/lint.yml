@@ -7,8 +7,8 @@ permissions:
   contents: read
 
 jobs:
-  clang-format:
-    name: clang-format
+  format:
+    name: C++ and Python formatting
     runs-on: windows-2025
     timeout-minutes: 15
     steps:
@@ -20,8 +20,10 @@ jobs:
           python-version: "3.13.15"
       - name: clang-format 22.1.3
         run: python .github/scripts/pinned.py clang-format
+      - name: ruff 0.16.9
+        run: python .github/scripts/pinned.py ruff
       - name: make lint
-        run: python tools/format.py --check
+        run: python tools/lint/format.py --check
 
   spotless:
     name: Java formatting
@@ -42,4 +44,4 @@ jobs:
         with:
           cache-provider: basic
       - name: spotlessCheck
-        run: python tools/gradle.py spotlessCheck
+        run: python tools/build/gradle.py spotlessCheck
