@@ -233,7 +233,6 @@ public final class HostLink {
 		}
 	}
 
-	/** Seqlock read of HostState into {@code out}. Returns false if the link is down. */
 	/** Half-Life's water surface around the player (see WaterGrid in the protocol). */
 	public static final class WaterGrid {
 		public int originX, originZ, worldId;

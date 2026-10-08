@@ -12,6 +12,7 @@
 #   make test-start [ENGINE=hl2]   set the game's saves and settings aside for tests; make test-stop: back
 #   make patches                   write sdk edits back into source\sdk\halfcraft-<engine>.patch
 #   make package                   dist\HalfCraft-<version>.zip (NOBUILD=1 packs what's built)
+#   make format                    clang-format halfcraft's c++; make lint: check it, as ci does
 #
 # ENGINE: hl2 (half-life 2's own 32-bit engine), hl2dm (half-life 2: deathmatch's 64-bit one) or all
 # (default; `make run` takes hl2dm then). NOPROJECTS=1 skips vpc when no .vpc file changed.
@@ -21,7 +22,7 @@
 SHELL := $(or $(wildcard C:/Windows/Sysnative/WindowsPowerShell/v1.0/powershell.exe),powershell.exe)
 .SHELLFLAGS := -NoProfile -ExecutionPolicy Bypass -Command
 .DEFAULT_GOAL := help
-.PHONY: help setup build mc mc-run mc-test run cmd test-start test-stop patches package clean
+.PHONY: help setup build mc mc-run mc-test run cmd test-start test-stop patches package format lint clean
 
 ENGINE ?= all
 RUN_ENGINE := $(if $(filter all,$(ENGINE)),hl2dm,$(ENGINE))
@@ -36,7 +37,7 @@ space := $(empty) $(empty)
 ARGS_LIST := $(subst $(space),$(comma),$(foreach a,$(ARGS),'$(a)'))
 
 help:
-	@Get-Content Makefile | Select-Object -First 18 | ForEach-Object { $$_ -replace '^# ?', '' }
+	@Get-Content Makefile | Select-Object -First 19 | ForEach-Object { $$_ -replace '^# ?', '' }
 
 setup:
 	& ./tools/setup_sdk.ps1 -Engine $(ENGINE)
@@ -70,6 +71,12 @@ patches:
 
 package:
 	& ./tools/package.ps1 $(if $(NOBUILD),-NoBuild)
+
+format:
+	& ./tools/format.ps1
+
+lint:
+	& ./tools/format.ps1 -Check
 
 # build output that's safe to throw away: not build\game-* (saves and settings live there)
 clean:

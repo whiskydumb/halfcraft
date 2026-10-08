@@ -9,6 +9,7 @@
 #
 # expects both patched sdk trees (tools/setup_sdk.ps1: the shaders always come from source-sdk-2013) and
 # visual studio 2022+ with its x64 and x86 compilers. the games have to be closed: their dlls get replaced.
+# halfcraft's own code (source\) builds without warnings: one there fails the build (the sdk's are valve's).
 
 param(
 	[ValidateSet("all", "hl2", "hl2dm")][string]$Engine = "all",
@@ -46,9 +47,22 @@ if (-not $windowsSdk) {
 	throw "no windows 10/11 sdk found"
 }
 
+$logs = Join-Path $repo "build\logs"
+New-Item -ItemType Directory -Force $logs | Out-Null
+
 function Invoke-MSBuild([string]$project, [string]$platform, [string]$target = "Build") {
-	& $msbuild $project "/t:$target" /m /nologo /v:minimal "/p:Configuration=$Configuration" "/p:Platform=$platform" "/p:PlatformToolset=$toolset" "/p:WindowsTargetPlatformVersion=$windowsSdk"
+	$warnings = Join-Path $logs "$([IO.Path]::GetFileNameWithoutExtension($project))-$platform-warnings.log"
+	& $msbuild $project "/t:$target" /m /nologo /v:minimal "/p:Configuration=$Configuration" "/p:Platform=$platform" "/p:PlatformToolset=$toolset" "/p:WindowsTargetPlatformVersion=$windowsSdk" "/flp:LogFile=$warnings;WarningsOnly"
 	if ($LASTEXITCODE -ne 0) { throw "build of $project failed ($LASTEXITCODE)" }
+	# what the compiler says about halfcraft's own files (the sdk compiles them too, with each of its projects);
+	# msbuild /m puts its node's number in front of each line
+	$ours = Get-Content $warnings | ForEach-Object { $_ -replace "^\s*\d+>", "" } |
+		Where-Object { $_ -match "warning" -and $_.StartsWith("$repo\source\", [StringComparison]::OrdinalIgnoreCase) } |
+		ForEach-Object { $_ -replace " \[[^\]]+\]$", "" } | Sort-Object -Unique
+	if ($ours) {
+		$ours | ForEach-Object { Write-Host $_ }
+		throw "halfcraft's code has $(@($ours).Count) warnings (above): fix them"
+	}
 }
 
 function Get-SdkSource([string]$tree, [string]$engine) {
@@ -168,7 +182,7 @@ Set-Content $script -Encoding ascii @"
 call "$vcvars" >nul 2>&1 || exit /b 1
 cd /d "$launcherSrc"
 rc /nologo /I "$launcherOut" /fo "$launcherOut\halfcraft.res" halfcraft.rc || exit /b 1
-cl /nologo /O2 /MT /W4 /EHsc /std:c++17 /DUNICODE /D_UNICODE /I "$repo\source\src" /I "$repo\protocol" /Fo"$launcherOut\\" /Fe"$launcherOut\HalfCraft.exe" halfcraft_launcher.cpp "$repo\source\src\core\hc_prism.cpp" "$launcherOut\halfcraft.res" /link /SUBSYSTEM:WINDOWS user32.lib shell32.lib shlwapi.lib advapi32.lib comctl32.lib || exit /b 1
+cl /nologo /O2 /MT /W4 /WX /EHsc /std:c++17 /DUNICODE /D_UNICODE /I "$repo\source\src" /I "$repo\protocol" /Fo"$launcherOut\\" /Fe"$launcherOut\HalfCraft.exe" halfcraft_launcher.cpp "$repo\source\src\core\hc_prism.cpp" "$launcherOut\halfcraft.res" /link /SUBSYSTEM:WINDOWS user32.lib shell32.lib shlwapi.lib advapi32.lib comctl32.lib || exit /b 1
 "@
 cmd /c "`"$script`""
 if ($LASTEXITCODE -ne 0) { throw "launcher build failed ($LASTEXITCODE)" }

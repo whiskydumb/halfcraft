@@ -694,10 +694,10 @@ final class AvatarExporter implements SubmitNodeCollector {
 			return null;
 		}
 		Identifier texture = ((TextureBindingAccessor) binding).halfcraft$location();
-		if (texture.equals(TextureAtlas.LOCATION_BLOCKS)) {
+		if (texture.equals(HostAtlas.BLOCKS_TEXTURE)) {
 			return this.batch(0, UV_BLOCK_ATLAS, flags);
 		}
-		if (texture.equals(TextureAtlas.LOCATION_ITEMS)) {
+		if (texture.equals(HostAtlas.ITEMS_TEXTURE)) {
 			return this.batch(0, UV_ITEM_ATLAS, flags);
 		}
 		int id = textureId(texture);
@@ -910,9 +910,9 @@ final class AvatarExporter implements SubmitNodeCollector {
 			Identifier texture = layer.textureAtlasLocation();
 			int flags = layer.translucent() ? PARTICLE_BLENDED : PARTICLE;
 			Batch batch;
-			if (texture.equals(TextureAtlas.LOCATION_BLOCKS)) {
+			if (texture.equals(HostAtlas.BLOCKS_TEXTURE)) {
 				batch = this.batch(0, UV_BLOCK_ATLAS, flags);
-			} else if (texture.equals(TextureAtlas.LOCATION_ITEMS)) {
+			} else if (texture.equals(HostAtlas.ITEMS_TEXTURE)) {
 				batch = this.batch(0, UV_ITEM_ATLAS, flags);
 			} else {
 				int id = textureId(texture);

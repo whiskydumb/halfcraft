@@ -17,6 +17,11 @@ import net.minecraft.server.packs.resources.ResourceManager;
  * Built on the CPU from each sprite's first animation frame.
  */
 final class HostAtlas {
+	// the atlases' textures, as render types and sprites name them: TextureAtlas.LOCATION_BLOCKS and
+	// LOCATION_ITEMS are deprecated for AtlasIds, which names an atlas, not its texture
+	static final Identifier BLOCKS_TEXTURE = Identifier.withDefaultNamespace("textures/atlas/blocks.png");
+	static final Identifier ITEMS_TEXTURE = Identifier.withDefaultNamespace("textures/atlas/items.png");
+
 	final int width, height;
 	final ByteBuffer pixels;
 	private final int blockW, blockH, itemW, itemH;
@@ -365,6 +370,6 @@ final class HostAtlas {
 	}
 
 	private static boolean isItem(TextureAtlasSprite sprite) {
-		return sprite.atlasLocation().equals(TextureAtlas.LOCATION_ITEMS);
+		return sprite.atlasLocation().equals(ITEMS_TEXTURE);
 	}
 }

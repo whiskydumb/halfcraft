@@ -60,6 +60,7 @@ public class HostActorEntity extends LivingEntity {
 		}
 	}
 
+	@SuppressWarnings("this-escape")  // an entity sets itself up in its constructor, as Minecraft's own do
 	public HostActorEntity(EntityType<? extends HostActorEntity> type, Level level) {
 		super(type, level);
 		this.setNoGravity(true);

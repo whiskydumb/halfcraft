@@ -63,6 +63,9 @@ processResources {
 
 tasks.withType(JavaCompile).configureEach {
 	it.options.release = 25
+	// every warning is an error, but restricted (HostLink's calls into kernel32 are the point) and
+	// classfile (about the libraries' class files, not ours)
+	it.options.compilerArgs += ["-Xlint:all,-restricted,-classfile", "-Werror"]
 }
 
 java {
