@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       version:
-        description: halfcraft's version (tools/version.ps1)
+        description: halfcraft's version (tools/version.py)
         required: true
         type: string
 

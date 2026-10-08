@@ -10,23 +10,21 @@ generates (make build makes them), the launcher's and tools\\*.cpp's from their 
 build (source\\src\\core, shared) is checked for each, since CLIENT_DLL and GAME_DLL change it. findings in
 the sdk trees' own code never report. exits 1 on any finding.
 
-clang-tidy 22 (clang-format's version): $CLANG_TIDY if set, else visual studio's (its c++ clang tools),
-else the one on the path. ci gets the pinned wheel's (.github/scripts/pinned.ps1 clang-tidy).
+clang-tidy 22, clang-format's version (tools/halfcraft/llvm.py finds it).
 """
 
 import argparse
 import os
 import re
-import shutil
 import subprocess
 import sys
-import xml.etree.ElementTree as ElementTree
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
+from xml.etree import ElementTree
 
-REPO = Path(__file__).resolve().parent.parent
-MAJOR = 22
+from halfcraft import REPO, llvm
+
 SECONDS_PER_FILE = 300
 MSBUILD = {"m": "http://schemas.microsoft.com/developer/msbuild/2003"}
 OURS = ("source/src/", "source/launcher/", "protocol/", "tools/")
@@ -55,6 +53,9 @@ PLAIN = {
     "source/launcher/": ["-DUNICODE", "-D_UNICODE", f"-I{REPO / 'source/src'}", f"-I{REPO / 'protocol'}"],
     "tools/": [f"-I{REPO / 'source/src'}"],
 }
+# clang-tidy's own lines about the run, not about a finding
+NOISE = ("Suppressed ", "Use -header-filter", "Found compiler error")
+GENERATED = re.compile(r"^\d+ warnings? (and \d+ errors? )?generated")
 DIAGNOSTIC = re.compile(r"^(?P<path>[A-Za-z]:[^:]+|[^:]+):(?P<line>\d+):(?P<col>\d+): (?P<kind>warning|error): (?P<text>.*?)(?: \[(?P<check>[^\]]+)\])?$")
 
 
@@ -63,29 +64,6 @@ class Job:
     file: Path
     args: tuple[str, ...]  # the compile command after "--"
     label: str  # which build the flags are from
-
-
-def find_clang_tidy() -> str:
-    """clang-tidy of the same major version as the style's clang-format."""
-    candidates = []
-    if os.environ.get("CLANG_TIDY"):
-        candidates.append(os.environ["CLANG_TIDY"])
-    vswhere = Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Microsoft Visual Studio/Installer/vswhere.exe"
-    if vswhere.exists():
-        found = subprocess.run([str(vswhere), "-latest", "-prerelease", "-products", "*", "-property", "installationPath"], capture_output=True, text=True, timeout=60)
-        for line in found.stdout.splitlines():
-            if line.strip():
-                candidates.append(str(Path(line.strip()) / "VC/Tools/Llvm/x64/bin/clang-tidy.exe"))
-    if shutil.which("clang-tidy"):
-        candidates.append(shutil.which("clang-tidy"))
-    for exe in candidates:
-        if not Path(exe).exists():
-            continue
-        version = subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=60).stdout
-        if re.search(rf"LLVM version {MAJOR}\.", version):
-            return exe
-        print(f"warning: {exe} isn't clang-tidy {MAJOR}", file=sys.stderr)
-    raise SystemExit(f"no clang-tidy {MAJOR} found: set CLANG_TIDY, add visual studio's c++ clang tools, or pip install clang-tidy=={MAJOR}.*")
 
 
 def ours(path: Path) -> str | None:
@@ -108,7 +86,7 @@ def project_jobs(project: Project) -> list[Job]:
     """one job for each of halfcraft's files in a project, with that project's flags."""
     if not project.path.exists():
         raise SystemExit(f"{project.path.relative_to(REPO)} is missing: make build generates the projects")
-    root = ElementTree.parse(project.path).getroot()
+    root = ElementTree.parse(project.path).getroot()  # noqa: S314 vpc's own project, written by make build
     base = project.path.parent
     settings = None
     for group in root.findall("m:ItemDefinitionGroup", MSBUILD):
@@ -141,12 +119,12 @@ def plain_jobs() -> list[Job]:
     return jobs
 
 
-def run(clang_tidy: str, job: Job, checks: str | None) -> str:
-    command = [clang_tidy, "--quiet", f"--header-filter={header_filter()}", str(job.file)]
+def run(clang_tidy: Path, job: Job, checks: str | None) -> str:
+    command = [str(clang_tidy), "--quiet", f"--header-filter={header_filter()}", str(job.file)]
     if checks:
         command.insert(1, f"--checks={checks}")
     try:
-        done = subprocess.run([*command, "--", *job.args], capture_output=True, text=True, cwd=REPO, timeout=SECONDS_PER_FILE)
+        done = subprocess.run([*command, "--", *job.args], capture_output=True, text=True, cwd=REPO, timeout=SECONDS_PER_FILE, check=False)
     except subprocess.TimeoutExpired:
         return f"{job.file}:1:1: error: clang-tidy took over {SECONDS_PER_FILE} s [tidy-timeout]\n"
     return done.stdout + done.stderr
@@ -170,9 +148,8 @@ def findings(output: str) -> dict[tuple[str, int, int, str], list[str]]:
             current = (relative, int(match["line"]), int(match["col"]), check)
             found.setdefault(current, [f"{relative}:{match['line']}:{match['col']}: {match['kind']}: {match['text']} [{current[3]}]"])
             continue
-        if current and line.strip() and not line.startswith(("Suppressed ", "Use -header-filter", "Found compiler error")) and not re.match(r"^\d+ warnings? (and \d+ errors? )?generated", line):
-            if line not in found[current]:
-                found[current].append(line)
+        if current and line.strip() and line not in found[current] and not line.startswith(NOISE) and not GENERATED.match(line):
+            found[current].append(line)
     return found
 
 
@@ -184,7 +161,7 @@ def main() -> int:
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 4)
     options = parser.parse_args()
 
-    clang_tidy = find_clang_tidy()
+    clang_tidy = llvm.find("clang-tidy", "CLANG_TIDY")
     jobs = [job for project in PROJECTS if options.engine in ("all", project.engine) for job in project_jobs(project)] + plain_jobs()
     if options.files:
         wanted = {file.resolve() for file in options.files}

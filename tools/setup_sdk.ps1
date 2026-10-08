@@ -1,5 +1,5 @@
 # checks out the source sdk 2013 trees halfcraft builds against and applies halfcraft's edits to valve's
-# code (source\sdk\halfcraft-<engine>.patch, written by tools/update_patches.ps1).
+# code (source\sdk\halfcraft-<engine>.patch, written by tools/update_patches.py).
 #
 #   hl2dm  source-sdk-2013      hl2dm-sp: valve's 2025 sdk with the singleplayer campaigns building and
 #                               running on half-life 2: deathmatch's 64-bit engine

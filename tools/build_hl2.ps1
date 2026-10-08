@@ -168,12 +168,13 @@ foreach ($e in $engines) {
 
 if ($NoLauncher) { return }
 
-# HalfCraft.exe, a release's launcher (source\launcher), with halfcraft's version (tools/version.ps1)
+# HalfCraft.exe, a release's launcher (source\launcher), with halfcraft's version (tools/version.py)
 $launcherSrc = Join-Path $repo "source\launcher"
 $launcherOut = Join-Path $repo "build\launcher"
 New-Item -ItemType Directory -Force $launcherOut | Out-Null
-$numbers = & (Join-Path $PSScriptRoot "version.ps1") -Numbers
-$version = & (Join-Path $PSScriptRoot "version.ps1")
+$numbers = python (Join-Path $PSScriptRoot "version.py") --numbers
+$version = python (Join-Path $PSScriptRoot "version.py")
+if ($LASTEXITCODE -ne 0 -or -not $version) { throw "tools/version.py failed" }
 Set-Content (Join-Path $launcherOut "version.h") "#define HC_VERSION $numbers`r`n#define HC_VERSION_TEXT `"$version`"" -Encoding ascii
 $vcvars = Join-Path $vs "VC\Auxiliary\Build\vcvars64.bat"
 $script = Join-Path $launcherOut "build.cmd"

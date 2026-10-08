@@ -1,0 +1,9 @@
+[tool.ruff]
+required-version = "==0.16.9"
+target-version = "py313"
+line-length = 160
+src = ["tools"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "A", "C4", "SIM", "PTH", "PIE", "RET", "PERF", "PL", "RUF", "ANN", "S", "TRY", "FURB"]
+ignore = ["E501", "PLR0913", "PLR2004", "S603", "S607", "TRY003"]

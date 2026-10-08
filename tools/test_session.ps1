@@ -163,7 +163,8 @@ switch ($Action) {
 		if ($missing.Count -gt 0) {
 			throw "no test session for $($missing -join ', '): the test world would autosave over the player's saves. make test-start first"
 		}
-		& (Join-Path $PSScriptRoot "gradle.ps1") runTestClient
+		python (Join-Path $PSScriptRoot "gradle.py") runTestClient
+		if ($LASTEXITCODE -ne 0) { throw "the test client's gradle failed ($LASTEXITCODE)" }
 	}
 	"dev-client" {
 		Assert-MinecraftStopped "two would fight over the one link"
@@ -171,6 +172,7 @@ switch ($Action) {
 		if ($on.Count -gt 0) {
 			throw "a test session is on for $($on -join ', '): the player's world would play against the test's saves. make test-stop first"
 		}
-		& (Join-Path $PSScriptRoot "gradle.ps1") runClient
+		python (Join-Path $PSScriptRoot "gradle.py") runClient
+		if ($LASTEXITCODE -ne 0) { throw "the dev client's gradle failed ($LASTEXITCODE)" }
 	}
 }

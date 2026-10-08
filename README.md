@@ -119,7 +119,7 @@ Minecraft too when nothing else did, and again if it quits on its own, and says 
 it's doing until it connects. Prism Launcher and Fabric API downloads are pinned by hash.
 
 Versions come from git tags: a commit tagged `vX.Y.Z` is release X.Y.Z, and the N commits after it are
-`X.(Y+1).0-dev.N+<commit>` (`tools/version.ps1`; the mod, `HalfCraft.exe` and the zip all carry it). CI
+`X.(Y+1).0-dev.N+<commit>` (`tools/version.py`; the mod, `HalfCraft.exe` and the zip all carry it). CI
 (`.github/workflows`) checks every push: clang-format, the Java's formatting, the Minecraft mod's
 build and tests, both engines' build, clang-tidy and the zip. Each push to `main` replaces the `dev`
 pre-release on GitHub, and a pushed tag `vX.Y.Z` publishes that release.

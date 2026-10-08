@@ -9,7 +9,7 @@
 # engines, laid out by tools/engines.ps1), minecraft\ (portable Prism Launcher with the HalfCraft instance
 # and its mods, from package\minecraft), README.txt, LICENSE.txt, THIRD-PARTY-NOTICES.md.
 #
-# building needs what tools/build_hl2.ps1 needs plus JDK 25 (tools/gradle.ps1 finds it). Prism Launcher
+# building needs what tools/build_hl2.ps1 needs plus JDK 25 (tools/gradle.py finds it). Prism Launcher
 # and Fabric API are downloaded once into .cache\package and checked against the hashes pinned below.
 
 param([switch]$NoBuild)
@@ -24,7 +24,8 @@ function Get-Property([string]$name) {
 	if (-not $match.Success) { throw "no $name in minecraft\gradle.properties" }
 	$match.Groups[1].Value.Trim()
 }
-$version = & (Join-Path $PSScriptRoot "version.ps1")
+$version = python (Join-Path $PSScriptRoot "version.py")
+if ($LASTEXITCODE -ne 0 -or -not $version) { throw "tools/version.py failed" }
 
 # pinned downloads
 $prismVersion = "11.1.1"
@@ -80,7 +81,8 @@ function Copy-Text([string]$from, [string]$to, [hashtable]$values = @{}) {
 }
 
 if (-not $NoBuild) {
-	& (Join-Path $PSScriptRoot "gradle.ps1") build
+	python (Join-Path $PSScriptRoot "gradle.py") build
+	if ($LASTEXITCODE -ne 0) { throw "the minecraft mod's build failed" }
 	& (Join-Path $PSScriptRoot "build_hl2.ps1")
 }
 

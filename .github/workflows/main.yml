@@ -26,13 +26,16 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13.15"
       - id: version
-        name: tools/version.ps1
-        shell: powershell
+        name: tools/version.py
+        shell: bash
         run: |
-          $version = & ./tools/version.ps1
-          Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$version" -Encoding ascii
-          Write-Host "halfcraft $version"
+          version=$(python tools/version.py)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "halfcraft $version"
 
   lint:
     name: Lint

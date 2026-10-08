@@ -7,7 +7,7 @@
 #   tools/run_hl2.ps1 -Fullscreen
 #   tools/run_hl2.ps1 -Width 2560 -Height 1080   another window size
 #
-# minecraft: tools/launch_minecraft.bat (dev client); it links up by itself once the game runs.
+# minecraft: make mc-run (the dev client); it links up by itself once the game runs.
 
 param(
 	[ValidateSet("hl2", "hl2dm")][string]$Engine = "hl2dm",

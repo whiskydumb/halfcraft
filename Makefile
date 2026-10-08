@@ -1,6 +1,6 @@
 # halfcraft's tasks. each one wraps a script in tools\ (read it for the details); the real builds are
 # vpc + msbuild (half-life side) and gradle (minecraft side). needs gnu make 4+ on windows, e.g.
-# `winget install ezwinports.make`, and windows powershell.
+# `winget install ezwinports.make`, python 3.13+ and windows powershell.
 #
 #   make setup                     clone both sdk trees and apply halfcraft's patches
 #   make build [ENGINE=hl2]        dlls, shaders, dev game folders build\game-<engine>, HalfCraft.exe
@@ -47,7 +47,7 @@ build:
 	& ./tools/build_hl2.ps1 -Engine $(ENGINE) $(if $(NOPROJECTS),-NoProjects)
 
 mc:
-	& ./tools/gradle.ps1 build
+	python tools/gradle.py build
 
 mc-run:
 	& ./tools/test_session.ps1 dev-client
@@ -68,18 +68,18 @@ test-stop:
 	& ./tools/test_session.ps1 stop -Engine $(ENGINE)
 
 patches:
-	& ./tools/update_patches.ps1 -Engine $(ENGINE)
+	python tools/update_patches.py --engine $(ENGINE)
 
 package:
 	& ./tools/package.ps1 $(if $(NOBUILD),-NoBuild)
 
 format:
-	& ./tools/format.ps1
-	& ./tools/gradle.ps1 spotlessApply
+	python tools/format.py
+	python tools/gradle.py spotlessApply
 
 lint:
-	& ./tools/format.ps1 -Check
-	& ./tools/gradle.ps1 spotlessCheck
+	python tools/format.py --check
+	python tools/gradle.py spotlessCheck
 
 tidy:
 	python tools/tidy.py
