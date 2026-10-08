@@ -631,7 +631,7 @@ namespace
 	bool g_new_game_asked = false;
 }
 
-// the menu's chapter cfgs run this before their map (tools/engines.ps1)
+// the menu's chapter cfgs run this before their map (tools/halfcraft/game_folder.py)
 CON_COMMAND(hc_new_game, "halfcraft: the next map to load is a new game from the menu (the chapter cfgs run this before their map)")
 {
 	g_new_game_asked = true;

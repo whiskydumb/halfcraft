@@ -1,6 +1,6 @@
 #pragma once
 
-// which chapter a map belongs to. the game folder's cfg/chapter<N>.cfg (tools/engines.ps1 numbers
+// which chapter a map belongs to. the game folder's cfg/chapter<N>.cfg (tools/halfcraft/game_folder.py numbers
 // half-life 2's 1-14 with 9a, episode one's 15-19 and episode two's 20-26) each load their chapter's
 // first map; a map further into a chapter belongs to the last chapter that starts at or before it in
 // play order (campaign_order). engine-agnostic.

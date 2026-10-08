@@ -8,7 +8,7 @@
 // a new game from the menu starts a playthrough (proto::kInMapEntered): minecraft clears the builds of
 // each map the playthrough enters for the first time, the new game's own map and every one a level
 // transition brings up. the menu's chapter cfgs run client.dll's hc_new_game before their map
-// (tools/engines.ps1), which tells them from a `map` typed into the console: that one starts no playthrough.
+// (tools/halfcraft/game_folder.py), which tells them from a `map` typed into the console: that one starts no playthrough.
 
 #include "core/hc_units.h"
 

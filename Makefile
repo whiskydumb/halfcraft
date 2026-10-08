@@ -44,7 +44,7 @@ setup:
 	& ./tools/setup_sdk.ps1 -Engine $(ENGINE)
 
 build:
-	& ./tools/build_hl2.ps1 -Engine $(ENGINE) $(if $(NOPROJECTS),-NoProjects)
+	python tools/build_hl2.py --engine $(ENGINE) $(if $(NOPROJECTS),--no-projects)
 
 mc:
 	python tools/gradle.py build
@@ -71,7 +71,7 @@ patches:
 	python tools/update_patches.py --engine $(ENGINE)
 
 package:
-	& ./tools/package.ps1 $(if $(NOBUILD),-NoBuild)
+	python tools/package.py $(if $(NOBUILD),--no-build)
 
 format:
 	python tools/format.py

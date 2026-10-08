@@ -35,7 +35,7 @@ campaigns'. On its map, `source/src/server/hc_lost_coast.cpp` loads its own `sce
 Two's `blackout.mdl`, the first-person knockout rig, has none of the animations Half-Life 2, Episode One
 and Lost Coast play on it (Half-Life 2's d1_trainstation_04 and Lost Coast's intro wait for its get-up),
 so off Episode Two's maps `source/src/server/hc_blackout.cpp` puts Episode One's, which has them all,
-first. The game folders are put together by `tools/engines.ps1` from hl2dm-sp's campaign folders.
+first. The game folders are put together by `tools/halfcraft/game_folder.py` from hl2dm-sp's campaign folders.
 
 ## Layout
 

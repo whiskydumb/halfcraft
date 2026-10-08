@@ -69,7 +69,7 @@ namespace halfcraft
 		}
 
 		/// a "#token" text in the player's language, as the engine reads its titles.txt; anything else as is.
-		/// the campaign's own value comes first where the campaigns differ: tools/engines.ps1 writes it as
+		/// the campaign's own value comes first where the campaigns differ: tools/halfcraft/game_folder.py writes it as
 		/// "<its path id>_<token>"
 		std::string localized(const std::string& text, const char* path_id)
 		{

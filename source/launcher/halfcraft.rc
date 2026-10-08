@@ -1,5 +1,5 @@
-// HalfCraft.exe's resources. version.h comes from tools/build_hl2.ps1 (the version in
-// minecraft/gradle.properties).
+// HalfCraft.exe's resources. version.h comes from tools/halfcraft/build.py (halfcraft's version, from
+// git's tags: tools/halfcraft/version.py).
 
 #include <windows.h>
 #include "version.h"

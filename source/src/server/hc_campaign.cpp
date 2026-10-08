@@ -2,7 +2,7 @@
 // hl2_complete does, but each campaign keeps its own skill values. skill_manifest.cfg loads half-life 2's
 // skill.cfg on every map; an episode's map adds that episode's skill_episodic.cfg on top before its npcs
 // spawn (without it hunters, antlion workers and the advisor would read zeros). the game folder has the
-// two as skill_ep1.cfg and skill_ep2.cfg (tools/engines.ps1). a map of another campaign than the episode
+// two as skill_ep1.cfg and skill_ep2.cfg (tools/halfcraft/game_folder.py). a map of another campaign than the episode
 // last loaded first puts back what the episodes' files change, then runs skill_manifest.cfg again.
 
 #include "cbase.h"

@@ -12,7 +12,7 @@
 #                                       the hl2 build takes the world shaders and the campaign files
 #                                       (chapters, strings) from source-sdk-2013 too
 #
-# afterwards: tools/build_hl2.ps1
+# afterwards: make build
 
 param([ValidateSet("all", "hl2", "hl2dm")][string]$Engine = "all")
 

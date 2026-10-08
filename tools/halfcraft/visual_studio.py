@@ -16,3 +16,11 @@ def installation(*components: str) -> Path | None:
         command += ["-requires", component]
     found = commands.run(command, timeout=60, check=False, capture=True).stdout.strip()
     return Path(found.splitlines()[0]) if found else None
+
+
+def run_script(vs: Path, script: Path, lines: list[str], *, timeout: float, what: str) -> None:
+    """runs cmd lines after visual studio's vcvars64.bat (cl, rc and link on the path), from a .cmd file."""
+    vcvars = vs / "VC/Auxiliary/Build/vcvars64.bat"
+    text = "".join(f"{line}\r\n" for line in ["@echo off", f'call "{vcvars}" >nul 2>&1 || exit /b 1', *lines])
+    script.write_bytes(text.encode("ascii"))
+    commands.run(["cmd", "/c", script], timeout=timeout, what=what)

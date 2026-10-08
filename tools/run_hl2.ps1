@@ -1,5 +1,5 @@
-# starts halfcraft's half-life 2 from its dev game folder (build\game-<engine>, tools/build_hl2.ps1) on one
-# of the two engines (tools/engines.ps1); that engine's steam app must be installed.
+# starts halfcraft's half-life 2 from its dev game folder (build\game-<engine>, make build) on one
+# of the two engines (tools/halfcraft/engines.py); that engine's steam app must be installed.
 #
 #   tools/run_hl2.ps1                         hl2:dm's 64-bit engine, windowed 1280x720, main menu
 #   tools/run_hl2.ps1 -Engine hl2             half-life 2's own 32-bit engine
@@ -24,7 +24,7 @@ $repo = Split-Path -Parent $PSScriptRoot
 
 $game = Join-Path $repo "build\game-$Engine"
 if (-not (Test-Path (Join-Path $game "$($script:GameFolderEngines[$Engine].GameBin)\client.dll"))) {
-	throw "no build in $game - run tools/build_hl2.ps1 -Engine $Engine first"
+	throw "no build in $game - run make build ENGINE=$Engine first"
 }
 $running = Get-RunningEngine
 if ($running) {

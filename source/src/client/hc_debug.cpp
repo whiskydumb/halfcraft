@@ -93,7 +93,7 @@ namespace halfcraft
 					}
 					return;
 				}
-				// the chapter dialog's own strings: "<game folder>_Chapter<N>_Title" (tools/engines.ps1)
+				// the chapter dialog's own strings: "<game folder>_Chapter<N>_Title" (tools/halfcraft/game_folder.py)
 				const std::string token = "#" + folder_ + "_Chapter" + chapter_ + "_Title";
 				if (const wchar_t* wide = g_pVGuiLocalize ? g_pVGuiLocalize->Find(token.c_str()) : nullptr) {
 					char utf8[256];

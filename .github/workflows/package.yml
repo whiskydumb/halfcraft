@@ -38,11 +38,9 @@ jobs:
       - name: Minecraft mod
         run: python tools/gradle.py assemble
       - name: Half-Life side
-        shell: powershell
-        run: ./tools/build_hl2.ps1
+        run: python tools/build_hl2.py
       - name: Zip
-        shell: powershell
-        run: ./tools/package.ps1 -NoBuild
+        run: python tools/package.py --no-build
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: halfcraft-${{ inputs.version }}

@@ -1,8 +1,8 @@
 """halfcraft's version, from git's tags. a commit tagged vX.Y.Z is release X.Y.Z; N commits past the newest
 such tag are X.(Y+1).0-dev.N+<commit>: the release they lead to, and how far along. before the first tag
 they lead to 0.1.0. $HALFCRAFT_VERSION wins when set (ci's jobs share one; a source tree without git).
-the minecraft mod (tools/gradle.py), HalfCraft.exe (tools/build_hl2.ps1) and the release zip
-(tools/package.ps1) all take it from here.
+the minecraft mod (tools/gradle.py), HalfCraft.exe (tools/halfcraft/build.py) and the release zip
+(tools/package.py) all take it from here.
 """
 
 import os
