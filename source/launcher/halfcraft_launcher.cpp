@@ -455,7 +455,8 @@ namespace
 			return 1;
 		}
 
-		std::wstring   command = L"\"" + exe.wstring() + L"\" -game \"" + game.wstring() + L"\" -novid -condebug";
+		// -insecure: no vac. halfcraft's client.dll and server.dll are no game's own, so it never joins a vac-secured server
+		std::wstring   command = L"\"" + exe.wstring() + L"\" -game \"" + game.wstring() + L"\" -novid -condebug -insecure";
 		const wchar_t* extra = ::PathGetArgsW(::GetCommandLineW());
 		if (extra && *extra) {
 			command += L" ";

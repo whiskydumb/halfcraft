@@ -36,7 +36,8 @@ def main() -> None:
         raise ToolError(f"{game[1].name} already runs: source runs one game at a time")
     exe = engine.find_exe()
 
-    arguments = ["-game", engine.game, "-novid", "-condebug", "+con_enable", "1", "+developer", "1"]
+    # -insecure: no vac (halfcraft's dlls are no game's own; release's HalfCraft.exe starts it so too)
+    arguments = ["-game", engine.game, "-novid", "-condebug", "-insecure", "+con_enable", "1", "+developer", "1"]
     if not options.fullscreen:
         arguments += ["-windowed", "-w", str(options.width), "-h", str(options.height)]
     arguments += options.extra
