@@ -18,10 +18,9 @@
 # ENGINE: hl2 (half-life 2's own 32-bit engine), hl2dm (half-life 2: deathmatch's 64-bit one) or all
 # (default; `make run` takes hl2dm then). NOPROJECTS=1 skips vpc when no .vpc file changed.
 
-# 64-bit windows powershell even from a 32-bit make (ezwinports' is): a 32-bit one sees another
-# program files and can't read 64-bit processes' paths
-SHELL := $(or $(wildcard C:/Windows/Sysnative/WindowsPowerShell/v1.0/powershell.exe),powershell.exe)
-.SHELLFLAGS := -NoProfile -ExecutionPolicy Bypass -Command
+# windows powershell runs the recipes: python calls, with its quoting (make cmd C="'save a' 'load a'")
+SHELL := powershell.exe
+.SHELLFLAGS := -NoProfile -Command
 .DEFAULT_GOAL := help
 .PHONY: help setup build mc mc-run mc-test run cmd test-start test-stop patches package format lint tidy clean
 
@@ -35,7 +34,7 @@ help:
 	@Get-Content Makefile | Select-Object -First 20 | ForEach-Object { $$_ -replace '^# ?', '' }
 
 setup:
-	& ./tools/setup_sdk.ps1 -Engine $(ENGINE)
+	python tools/setup_sdk.py --engine $(ENGINE)
 
 build:
 	python tools/build_hl2.py --engine $(ENGINE) $(if $(NOPROJECTS),--no-projects)

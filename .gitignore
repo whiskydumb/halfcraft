@@ -1,4 +1,4 @@
-# the sdk checkouts (tools/setup_sdk.ps1 makes source-sdk-2013 and source-sdk-2013-sp; -valve is a local
+# the sdk checkouts (tools/setup_sdk.py makes source-sdk-2013 and source-sdk-2013-sp; -valve is a local
 # reference copy)
 source-sdk-2013/
 source-sdk-2013-sp/

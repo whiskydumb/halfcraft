@@ -79,7 +79,7 @@ Makefile         the tasks, wrapping tools/
 
 ## Build and run
 
-Needs Visual Studio 2022+ (C++ desktop workload with its x64 and x86 tools), Python 3, Git, GNU
+Needs Visual Studio 2022+ (C++ desktop workload with its x64 and x86 tools), Python 3.13+, Git, GNU
 make 4+ (`winget install ezwinports.make`), JDK 25, a Minecraft: Java Edition account, and on Steam:
 Half-Life 2 (plus Half-Life 2: Deathmatch for the `hl2dm` engine).
 

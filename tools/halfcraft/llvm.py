@@ -13,7 +13,7 @@ MAJOR = 22
 
 def find(tool: str, variable: str) -> Path:
     """clang-format or clang-tidy 22: $<variable> if set, else visual studio's (its c++ clang tools), else
-    the one on the path. ci sets the variable to the pinned wheel's (.github/scripts/pinned.ps1).
+    the one on the path. ci sets the variable to the pinned wheel's (.github/scripts/pinned.py).
     """
     candidates = [Path(value)] if (value := os.environ.get(variable)) else []
     if vs := visual_studio.installation():
