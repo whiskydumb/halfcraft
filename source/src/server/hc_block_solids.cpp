@@ -111,12 +111,9 @@ namespace
 	/// @param inside - a point inside the block
 	void push_bullet_hit(const Vector& inside, halfcraft::MapSlot slot)
 	{
-		static halfcraft::PushInputFn push_input = nullptr;
+		const halfcraft::PushInputFn push_input = halfcraft::client_push_input();
 		if (!push_input) {
-			push_input = reinterpret_cast<halfcraft::PushInputFn>(halfcraft::find_export("client.dll", halfcraft::HC_PUSH_INPUT_EXPORT));
-			if (!push_input) {
-				return;
-			}
+			return;
 		}
 		const halfcraft::McVec block = halfcraft::source_to_mc(inside.Base(), slot);
 		push_input(halfcraft::proto::kInBulletHit, 0, static_cast<int>(std::floor(block.x)), static_cast<int>(std::floor(block.y)),

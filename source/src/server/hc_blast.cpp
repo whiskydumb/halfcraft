@@ -18,7 +18,6 @@
 
 #include "halfcraft_protocol.h"
 #include "core/hc_log.h"
-#include "core/hc_module.h"
 #include "server/hc_blast.h"
 #include "server/hc_mobs.h"
 #include "shared/hc_bridge.h"
@@ -163,12 +162,9 @@ namespace halfcraft
 		if (g_running || !(info.GetDamageType() & DMG_BLAST) || info.GetDamage() <= 0.0f || radius <= 0.0f) {
 			return;
 		}
-		static PushInputFn push_input = nullptr;
+		const PushInputFn push_input = client_push_input();
 		if (!push_input) {
-			push_input = reinterpret_cast<PushInputFn>(find_export("client.dll", HC_PUSH_INPUT_EXPORT));
-			if (!push_input) {
-				return;
-			}
+			return;
 		}
 		const McVec  mc = source_to_mc(centre.Base(), g_slot);
 		const float  mc_at[3] = { static_cast<float>(mc.x), static_cast<float>(mc.y), static_cast<float>(mc.z) };

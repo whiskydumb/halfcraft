@@ -22,6 +22,8 @@
 
 #include <cstdint>
 
+#include "core/hc_module.h"
+
 namespace halfcraft
 {
 	/// one 16x16x16 section's solid blocks (plain layout: it crosses a dll boundary).
@@ -61,6 +63,17 @@ namespace halfcraft
 	using PushInputFn = void (*)(int type, int code, int a, int b, int c);
 
 	inline constexpr char HC_PUSH_INPUT_EXPORT[] = "HalfCraft_PushInput";
+
+	/// server.dll's way to client.dll's PushInputFn, looked up until client.dll has it.
+	/// @return nullptr while it doesn't: an event then goes nowhere
+	inline PushInputFn client_push_input()
+	{
+		static PushInputFn push_input = nullptr;
+		if (!push_input) {
+			push_input = reinterpret_cast<PushInputFn>(find_export("client.dll", HC_PUSH_INPUT_EXPORT));
+		}
+		return push_input;
+	}
 
 	/// server.dll -> client.dll, every frame: the player carries a prop (half-life's use pickup).
 	using SetHoldingFn = void (*)(int holding);

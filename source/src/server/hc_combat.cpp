@@ -156,11 +156,8 @@ namespace halfcraft
 		/// proto::kInHurtFrom, ahead of the hurt itself (both go through client.dll's queue, in order).
 		void push_hurt_from(CBasePlayer* player, const CTakeDamageInfo& info)
 		{
-			static PushInputFn push_input = nullptr;
-			if (!push_input) {
-				push_input = reinterpret_cast<PushInputFn>(find_export("client.dll", HC_PUSH_INPUT_EXPORT));
-			}
-			Vector origin;
+			const PushInputFn push_input = client_push_input();
+			Vector            origin;
 			if (!push_input || !hurt_origin(player, info, origin)) {
 				return;
 			}

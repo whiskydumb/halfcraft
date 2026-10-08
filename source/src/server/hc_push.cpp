@@ -9,7 +9,6 @@
 
 #include "core/hc_link.h"
 #include "core/hc_log.h"
-#include "core/hc_module.h"
 #include "core/hc_units.h"
 #include "server/hc_push.h"
 #include "shared/hc_bridge.h"
@@ -56,14 +55,9 @@ namespace halfcraft
 		/// server.dll -> client.dll, which owns the input ring (hc_bridge.h)
 		void send(proto::InputType type, const int push[3])
 		{
-			static PushInputFn push_input = nullptr;
-			if (!push_input) {
-				push_input = reinterpret_cast<PushInputFn>(find_export("client.dll", HC_PUSH_INPUT_EXPORT));
-				if (!push_input) {
-					return;
-				}
+			if (const PushInputFn push_input = client_push_input()) {
+				push_input(type, 0, push[0], push[1], push[2]);
 			}
-			push_input(type, 0, push[0], push[1], push[2]);
 		}
 	}
 

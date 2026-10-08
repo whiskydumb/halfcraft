@@ -11,7 +11,6 @@
 #include <cstdint>
 
 #include "core/hc_log.h"
-#include "core/hc_module.h"
 #include "server/hc_block_solids.h"
 #include "server/hc_held_blocks.h"
 #include "shared/hc_bridge.h"
@@ -188,18 +187,9 @@ SendPropInt(SENDINFO(m_iHeldSlot), 6, SPROP_UNSIGNED),
 		float                        g_last_take = -1.0f;
 		MapSlot                      g_slot;
 
-		PushInputFn input()
-		{
-			static PushInputFn push_input = nullptr;
-			if (!push_input) {
-				push_input = reinterpret_cast<PushInputFn>(find_export("client.dll", HC_PUSH_INPUT_EXPORT));
-			}
-			return push_input;
-		}
-
 		void push(proto::InputType type, int slot, const int cell[3])
 		{
-			if (PushInputFn push_input = input()) {
+			if (PushInputFn push_input = client_push_input()) {
 				push_input(type, slot, cell[0], cell[1], cell[2]);
 			}
 		}
@@ -304,7 +294,7 @@ SendPropInt(SENDINFO(m_iHeldSlot), 6, SPROP_UNSIGNED),
 		if (g_last_take >= 0.0f && now >= g_last_take && now - g_last_take < TAKE_INTERVAL) {
 			return nullptr;
 		}
-		if (!input()) {
+		if (!client_push_input()) {
 			return nullptr;
 		}
 		// a free held slot, or the oldest one's cube goes (leaving its block as an item)

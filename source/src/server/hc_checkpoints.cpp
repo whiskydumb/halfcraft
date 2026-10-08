@@ -66,19 +66,9 @@ DEFINE_FIELD(m_iLow, FIELD_INTEGER),
 			return (std::uint64_t(std::time(nullptr)) << 20) | (++counter & 0xFFFFFu);
 		}
 
-		/// client.dll's way onto minecraft's input ring, nullptr while it isn't there.
-		PushInputFn input()
-		{
-			static PushInputFn push_input = nullptr;
-			if (!push_input) {
-				push_input = reinterpret_cast<PushInputFn>(find_export("client.dll", HC_PUSH_INPUT_EXPORT));
-			}
-			return push_input;
-		}
-
 		void push(proto::InputType type, std::uint64_t id)
 		{
-			if (PushInputFn push_input = input()) {
+			if (PushInputFn push_input = client_push_input()) {
 				push_input(type, 0, static_cast<int>(id & 0xFFFFFFFFu), static_cast<int>(id >> 32), 0);
 			}
 		}
@@ -96,7 +86,7 @@ DEFINE_FIELD(m_iLow, FIELD_INTEGER),
 		/// proto::kInMapEntered for the map just loaded.
 		void push_entry(proto::MapEntry entry, MapSlot slot)
 		{
-			if (PushInputFn push_input = input()) {
+			if (PushInputFn push_input = client_push_input()) {
 				const double half = MAP_SLOT_BLOCKS / 2.0;
 				push_input(proto::kInMapEntered, entry, slot.index, static_cast<int>(slot.x_blocks() - half), static_cast<int>(slot.x_blocks() + half));
 			}

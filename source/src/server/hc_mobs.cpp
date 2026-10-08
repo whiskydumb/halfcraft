@@ -11,7 +11,6 @@
 #include <unordered_map>
 
 #include "core/hc_log.h"
-#include "core/hc_module.h"
 #include "core/hc_units.h"
 #include "server/hc_combat.h"
 #include "server/hc_mobs.h"
@@ -122,12 +121,9 @@ int CHalfCraftMob::OnTakeDamage(const CTakeDamageInfo& info)
 	if (attacker->IsWorld()) {
 		return 0;
 	}
-	static PushInputFn push_input = nullptr;
+	const PushInputFn push_input = client_push_input();
 	if (!push_input) {
-		push_input = reinterpret_cast<PushInputFn>(find_export("client.dll", HC_PUSH_INPUT_EXPORT));
-		if (!push_input) {
-			return 0;
-		}
+		return 0;
 	}
 	const std::uint32_t attacker_id = attacker->IsPlayer() ? proto::kMobAttackerPlayer : host_actor_id(attacker);
 	push_input(proto::kInHurtMob, hurt_kind(info.GetDamageType()), static_cast<int>(mc_id_), static_cast<int>(std::lround(info.GetDamage() * 100.0f)),
