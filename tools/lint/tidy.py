@@ -31,8 +31,11 @@ MSBUILD = {"m": "http://schemas.microsoft.com/developer/msbuild/2003"}
 OURS = ("source/src/", "source/launcher/", "protocol/", "tools/")
 # source's RESTRICT puts __restrict on member function definitions but not their declarations: msvc
 # lets that pass, clang calls them different functions. and its DEFINE_FIELD narrows a 32-bit sizeof
-# into an int in a braced list, which clang calls an error in every save-restore table that uses it
-CLANG_ONLY = ["-D__restrict=", "-Wno-c++11-narrowing"]
+# into an int in a braced list, which clang calls an error in every save-restore table that uses it.
+# the intrinsics come from msvc's headers, as cl.exe sees them: ssemath.h reads __m128's fields
+# (m128_f32), which only msvc's union has, not clang's vector type (the pip wheel's clang-tidy has
+# clang's own headers, visual studio's has none)
+CLANG_ONLY = ["-D__restrict=", "-Wno-c++11-narrowing", "/clang:-nobuiltininc"]
 
 
 @dataclass(frozen=True)
