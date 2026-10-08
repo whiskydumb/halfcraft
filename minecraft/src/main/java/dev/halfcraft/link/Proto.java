@@ -56,6 +56,7 @@ public final class Proto {
 	public static final int IN_TAKE_BLOCK = 17; // code = held slot, a/b/c = the block (HeldBlocks)
 	public static final int IN_HELD_BLOCK_LANDED = 18; // code = held slot, a/b/c = the cell it came to rest in
 	public static final int IN_HELD_BLOCK_LOST = 19; // code = held slot, a/b/c = the cell it was last in
+	public static final int IN_RENDER_LOST = 20; // Half-Life dropped render messages it couldn't read: send the world again
 	public static final int MAX_HELD_BLOCKS = 32;
 	public static final int IN_PUSH = 22; // a/b/c = blocks per second * 1000 (HostPush)
 	public static final int PUSH_REPEAT_MS = 200;
@@ -106,6 +107,7 @@ public final class Proto {
 	public static final int EV_SCREENSHOT = 5; // (#6) actorId = the request number (1+)
 	public static final int EV_COLLISION_WANTED = 16; // a/b/c = where a projectile waits for the collision under it
 	public static final int EV_HELD_BLOCK = 17; // actorId = held slot, flags = HELD_*, weapon = MAT_* with HELD_TAKEN
+	public static final int EV_COLLISION_LOST = 18; // collision messages dropped unread: Half-Life streams its collision afresh
 	public static final int HELD_TAKEN = 1, HELD_REFUSED = 2, HELD_PLACED = 3, HELD_DROPPED = 4;
 	public static final int MAT_STONE = 0, MAT_WOOD = 1, MAT_GLASS = 2, MAT_DIRT = 3, MAT_GRAVEL = 4, MAT_SAND = 5, MAT_GRASS = 6, MAT_METAL = 7,
 		MAT_WOOL = 8, MAT_SNOW = 9;
@@ -298,6 +300,7 @@ public final class Proto {
 	public static final long HD_LIGHT_EMITTERS = 0xC4;
 	public static final long HD_COLLISION_PENDING = 0xC8;
 	public static final long HD_RENDER_PENDING = 0xD0;
+	public static final long RING_OUT_OF_STEP = -1L; // a pending count (all ones) while that ring's indices disagree
 	public static final long HD_LIGHTS = 0xD8;
 	public static final long HD_SHADOWED_LIGHTS = 0xDC;
 	public static final long HD_GRID_Z = 0xE0;

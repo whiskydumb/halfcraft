@@ -64,6 +64,26 @@ namespace halfcraft
 			return descriptor;
 		}
 
+		/// a ring whose two indices disagree: its reader ahead of its writer, or further behind than the
+		/// ring holds. never in a normal run (minecraft's debug screen once showed a backlog bigger than
+		/// the ring): the end that meets it resyncs instead of reading garbage or writing over what's
+		/// unread.
+		bool out_of_step(std::uint64_t head, std::uint64_t tail, std::uint64_t capacity)
+		{
+			return tail > head || head - tail > capacity;
+		}
+
+		/// logs an out-of-step ring, at most once a minute for each place that meets it.
+		void log_out_of_step(std::uint64_t& logged_ms, const char* ring, std::uint64_t head, std::uint64_t tail)
+		{
+			const auto now = ::GetTickCount64();
+			if (logged_ms == 0 || now - logged_ms >= 60000) {
+				logged_ms = now;
+				log_error("%s ring out of step (written up to %llu, read up to %llu): resyncing", ring, static_cast<unsigned long long>(head),
+					static_cast<unsigned long long>(tail));
+			}
+		}
+
 		template <class T>
 		void seqlock_write(T* dst, const T& src)
 		{
@@ -267,16 +287,25 @@ namespace halfcraft
 		if (!base_) {
 			return backlog;
 		}
-		const auto behind = [this](std::uint64_t ring, std::uint64_t head_offset, std::uint64_t tail_offset) -> std::uint64_t {
-			const auto head = as_atomic(*at<std::uint64_t>(ring + head_offset)).load(std::memory_order_acquire);
-			const auto tail = as_atomic(*at<std::uint64_t>(ring + tail_offset)).load(std::memory_order_acquire);
-			return head > tail ? head - tail : 0;
+		const auto behind = [this](std::uint64_t ring, std::uint64_t head_offset, std::uint64_t tail_offset, std::uint64_t capacity) -> std::uint64_t {
+			// both indices are another's here: a head read while the tail stood still is a true picture
+			// of a ring in step (one read around a moving tail could look out of step)
+			const auto    load = [this](std::uint64_t offset) { return as_atomic(*at<std::uint64_t>(offset)).load(std::memory_order_acquire); };
+			std::uint64_t head = 0, tail = 0;
+			for (int attempt = 0; attempt < 4; ++attempt) {
+				tail = load(ring + tail_offset);
+				head = load(ring + head_offset);
+				if (load(ring + tail_offset) == tail) {
+					break;
+				}
+			}
+			return out_of_step(head, tail, capacity) ? proto::kRingOutOfStep : head - tail;
 		};
-		backlog.input = behind(proto::kOffInputRing, proto::kInputRingHeadOff, proto::kInputRingTailOff);
-		backlog.events = behind(proto::kOffEventRing, proto::kEventRingHeadOff, proto::kEventRingTailOff);
-		backlog.collision_bytes = behind(proto::kOffCollisionRing, proto::kColRingHeadOff, proto::kColRingTailOff);
+		backlog.input = behind(proto::kOffInputRing, proto::kInputRingHeadOff, proto::kInputRingTailOff, proto::kInputRingEntries);
+		backlog.events = behind(proto::kOffEventRing, proto::kEventRingHeadOff, proto::kEventRingTailOff, proto::kEventRingEntries);
+		backlog.collision_bytes = behind(proto::kOffCollisionRing, proto::kColRingHeadOff, proto::kColRingTailOff, proto::kColRingDataBytes);
 		if (maps(proto::kOffRenderRing + proto::kRenRingDataOff)) {
-			backlog.render_bytes = behind(proto::kOffRenderRing, proto::kRenRingHeadOff, proto::kRenRingTailOff);
+			backlog.render_bytes = behind(proto::kOffRenderRing, proto::kRenRingHeadOff, proto::kRenRingTailOff, proto::kRenRingDataBytes);
 		}
 		return backlog;
 	}
@@ -289,8 +318,14 @@ namespace halfcraft
 		auto*      ring = base_ + proto::kOffInputRing;
 		auto&      head_ref = *reinterpret_cast<std::uint64_t*>(ring + proto::kInputRingHeadOff);
 		auto&      tail_ref = *reinterpret_cast<std::uint64_t*>(ring + proto::kInputRingTailOff);
-		const auto head = as_atomic(head_ref).load(std::memory_order_relaxed);
+		auto       head = as_atomic(head_ref).load(std::memory_order_relaxed);
 		const auto tail = as_atomic(tail_ref).load(std::memory_order_acquire);
+		if (tail > head) {
+			// minecraft read past what was written: go on from where it is (it laps the other way itself)
+			static std::uint64_t logged = 0;
+			log_out_of_step(logged, "input", head, tail);
+			head = tail;
+		}
 		if (head - tail >= proto::kInputRingEntries) {
 			return;
 		}
@@ -309,7 +344,8 @@ namespace halfcraft
 		auto*      ring = base_ + proto::kOffInputRing;
 		const auto head = as_atomic(*reinterpret_cast<std::uint64_t*>(ring + proto::kInputRingHeadOff)).load(std::memory_order_relaxed);
 		const auto tail = as_atomic(*reinterpret_cast<std::uint64_t*>(ring + proto::kInputRingTailOff)).load(std::memory_order_acquire);
-		if (proto::kInputRingEntries - (head - tail) < pieces) {
+		const auto used = tail > head ? 0 : head - tail;  // push_input resyncs a ring read past its writer
+		if (used > proto::kInputRingEntries || proto::kInputRingEntries - used < pieces) {
 			return false;
 		}
 		for (std::size_t piece = 0; piece < pieces; ++piece) {
@@ -341,6 +377,14 @@ namespace halfcraft
 		}
 		auto       head = as_atomic(head_ref).load(std::memory_order_relaxed);
 		const auto tail = as_atomic(tail_ref).load(std::memory_order_acquire);
+		if (out_of_step(head, tail, size)) {
+			static std::uint64_t logged = 0;
+			log_out_of_step(logged, "collision", head, tail);
+			if (tail < head) {
+				return false;  // minecraft lost its place: it skips to the head, then there's room again
+			}
+			head = tail;  // minecraft read past what was written: go on from where it is
+		}
 		auto       pos = head % size;
 		const auto pad_bytes = (pos + msg_bytes > size) ? size - pos : 0;
 		if (size - (head - tail) < msg_bytes + pad_bytes) {
@@ -397,7 +441,14 @@ namespace halfcraft
 		auto&      tail_ref = *reinterpret_cast<std::uint64_t*>(ring + proto::kEventRingTailOff);
 		const auto head = as_atomic(head_ref).load(std::memory_order_acquire);
 		auto       tail = as_atomic(tail_ref).load(std::memory_order_relaxed);
-		if (tail >= head) {
+		if (tail > head) {
+			// read past what minecraft wrote: wait at its head from now on
+			static std::uint64_t logged = 0;
+			log_out_of_step(logged, "event", head, tail);
+			as_atomic(tail_ref).store(head, std::memory_order_release);
+			return false;
+		}
+		if (tail == head) {
 			return false;
 		}
 		if (head - tail > proto::kEventRingEntries) {
@@ -469,7 +520,15 @@ namespace halfcraft
 		auto           tail = as_atomic(tail_ref).load(std::memory_order_relaxed);
 		auto*          data = ring + proto::kRenRingDataOff;
 		constexpr auto size = proto::kRenRingDataBytes;
-		std::uint64_t  done = 0;
+		if (out_of_step(head, tail, size)) {
+			// what's between isn't minecraft's messages any more: drop it, and minecraft sends it all again
+			static std::uint64_t logged = 0;
+			log_out_of_step(logged, "render", head, tail);
+			as_atomic(tail_ref).store(head, std::memory_order_release);
+			push_input(proto::kInRenderLost, 0);
+			return;
+		}
+		std::uint64_t done = 0;
 		while (tail < head && done < max_bytes) {
 			const auto  pos = tail % size;
 			const auto* hdr = reinterpret_cast<const proto::ColMsgHeader*>(data + pos);
@@ -478,10 +537,12 @@ namespace halfcraft
 				continue;
 			}
 			if (size - pos < sizeof(proto::ColMsgHeader) || hdr->payloadBytes > size - pos - sizeof(proto::ColMsgHeader)) {
-				// not a message minecraft wrote (the ring lost its place): drop what's pending, it resends
+				// not a message minecraft wrote (the ring lost its place): drop what's pending, and minecraft
+				// sends it all again
 				log_error("render ring out of step at %llu (message of %u bytes): skipping to %llu", static_cast<unsigned long long>(tail), hdr->payloadBytes,
 					static_cast<unsigned long long>(head));
 				tail = head;
+				push_input(proto::kInRenderLost, 0);
 				break;
 			}
 			fn(hdr->type, data + pos + sizeof(proto::ColMsgHeader), hdr->payloadBytes);

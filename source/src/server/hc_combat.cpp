@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstring>
 #include <unordered_map>
+#include <utility>
 
 #include "core/hc_log.h"
 #include "core/hc_module.h"
@@ -232,10 +233,18 @@ namespace halfcraft
 			case proto::kEvHeldBlock:
 				held_block_news_.push_back(event);
 				break;
+			case proto::kEvCollisionLost:
+				collision_lost_ = true;
+				break;
 			default:
 				break;
 			}
 		}
+	}
+
+	bool Combat::take_collision_lost()
+	{
+		return std::exchange(collision_lost_, false);
 	}
 
 	std::vector<McVec> Combat::take_collision_wanted()

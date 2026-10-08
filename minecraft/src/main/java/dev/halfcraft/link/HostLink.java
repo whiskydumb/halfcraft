@@ -413,7 +413,10 @@ public final class HostLink {
 		long base = OFF_INPUT_RING;
 		long head = (long) LONG.getAcquire(s, base + IR_HEAD);
 		long tail = s.get(JAVA_LONG, base + IR_TAIL);
-		if (head - tail > INPUT_RING_ENTRIES) {
+		if (tail > head) {
+			HalfCraft.LOG.warn("HalfCraft: input ring out of step (written up to {}, read up to {}): resyncing", head, tail);
+			tail = head; // read past what was written: wait at Half-Life's head from now on
+		} else if (head - tail > INPUT_RING_ENTRIES) {
 			tail = head - INPUT_RING_ENTRIES; // producer lapped us; drop the oldest
 		}
 		while (tail < head) {

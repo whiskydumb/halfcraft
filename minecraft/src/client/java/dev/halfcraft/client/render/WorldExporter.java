@@ -74,6 +74,7 @@ public final class WorldExporter {
 	private static final long[] TAKE_BITS = new long[64]; // the solid ones Half-Life's gravity gun may tear out (HeldBlocks.takeable)
 	private static final ByteBuffer LIGHTS = ByteBuffer.allocate(16 * 16 * 16 * 8).order(ByteOrder.LITTLE_ENDIAN);
 	private static int sentGeneration = Integer.MIN_VALUE;
+	private static volatile boolean resendWanted; // Half-Life dropped render messages it couldn't read
 	private static int meshesSent;
 	private static ClientLevel sentLevel;
 	private static HostAtlas atlas;
@@ -95,6 +96,11 @@ public final class WorldExporter {
 		}
 	}
 
+	/** Half-Life lost what was in the render ring (Proto.IN_RENDER_LOST): send it the whole world again. */
+	public static void resendAll() {
+		resendWanted = true;
+	}
+
 	/** A block the player just placed or broke: re-mesh ahead of everything else. */
 	public static void markDirtyNow(int sx, int sy, int sz) {
 		synchronized (DIRTY) {
@@ -107,7 +113,8 @@ public final class WorldExporter {
 		if (level == null || minecraft.player == null || !HostLink.active()) {
 			return;
 		}
-		if (sentGeneration != HostLink.generation() || sentLevel != level || atlas == null || atlas.stale(minecraft)) {
+		if (resendWanted || sentGeneration != HostLink.generation() || sentLevel != level || atlas == null || atlas.stale(minecraft)) {
+			resendWanted = false;
 			resendEverything(minecraft, level);
 		}
 		meshDirtySections(level);

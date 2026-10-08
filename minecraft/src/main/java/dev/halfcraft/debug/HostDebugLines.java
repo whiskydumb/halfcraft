@@ -1,6 +1,7 @@
 package dev.halfcraft.debug;
 
 import dev.halfcraft.link.HostDebug;
+import dev.halfcraft.link.Proto;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -40,7 +41,8 @@ public final class HostDebugLines {
 		String driver = d.puppet() ? "Minecraft drives the player" : "Half-Life holds the player";
 		String input = d.minecraftInput() ? "Minecraft has the input" : "Half-Life has the input";
 		lines.add(format("Link: collision epoch %d, %s, %s", d.collisionEpoch, driver, input));
-		lines.add(format("Rings: input %d, events %d, collision %s, render %s", d.inputPending, d.eventPending, bytes(d.collisionPending), bytes(d.renderPending)));
+		lines.add(format("Rings: input %s, events %s, collision %s, render %s", entries(d.inputPending), entries(d.eventPending), bytes(d.collisionPending),
+			bytes(d.renderPending)));
 		lines.add(format("Block lights: %d emitters, %d lights, %d shadowed", d.lightEmitters, d.lights, d.shadowedLights));
 		if (d.serverCurrent()) {
 			lines.add(format("Edicts: %d", d.entityCount));
@@ -81,7 +83,15 @@ public final class HostDebugLines {
 		}
 	}
 
+	/** A ring's pending entries; all ones (-1 here) while its indices disagree (Proto.RING_OUT_OF_STEP). */
+	private static String entries(int count) {
+		return count == (int) Proto.RING_OUT_OF_STEP ? "out of step" : Integer.toString(count);
+	}
+
 	private static String bytes(long count) {
+		if (count == Proto.RING_OUT_OF_STEP) {
+			return "out of step";
+		}
 		if (count < 1024) {
 			return count + " B";
 		}

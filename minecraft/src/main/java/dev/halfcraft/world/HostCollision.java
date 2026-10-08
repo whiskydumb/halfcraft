@@ -37,6 +37,7 @@ public final class HostCollision {
 	private static volatile java.util.function.Predicate<net.minecraft.world.entity.Entity> smoothCollider = e -> false;
 	private static final Set<Long> KNOWN_REGIONS = ConcurrentHashMap.newKeySet();
 	private static volatile int epoch = -1;
+	private static long lostPlaceLogged; // when the ring's lost place was last logged (ms)
 	private static Thread consumer;
 
 	private HostCollision() {
@@ -257,7 +258,12 @@ public final class HostCollision {
 		}
 		long head = HostLink.collisionHead();
 		long tail = HostLink.collisionTail();
-		if (tail >= head) {
+		if (tail > head || head - tail > CR_DATA_BYTES) {
+			// the ring's indices disagree: what's between isn't Half-Life's messages
+			lostPlace(head, tail);
+			return false;
+		}
+		if (tail == head) {
 			return false;
 		}
 		long data = OFF_COLLISION_RING + CR_DATA;
@@ -268,6 +274,11 @@ public final class HostCollision {
 			if (type == COL_PAD) {
 				tail += CR_DATA_BYTES - pos;
 				continue;
+			}
+			if (CR_DATA_BYTES - pos < 8 || payloadBytes < 0 || payloadBytes > CR_DATA_BYTES - pos - 8) {
+				// not a message Half-Life wrote
+				lostPlace(head, tail);
+				return true;
 			}
 			long payload = data + pos + 8;
 			switch (type) {
@@ -284,6 +295,20 @@ public final class HostCollision {
 
 	private static long align8(long v) {
 		return (v + 7) & ~7L;
+	}
+
+	/**
+	 * The collision ring lost its place (never in a normal run): skip to what Half-Life wrote last and
+	 * have it stream its collision afresh, which clears what's here first.
+	 */
+	private static void lostPlace(long head, long tail) {
+		long now = System.currentTimeMillis();
+		if (now - lostPlaceLogged >= 60_000L) {
+			lostPlaceLogged = now;
+			HalfCraft.LOG.warn("HalfCraft: collision ring out of step (written up to {}, read up to {}): resyncing", head, tail);
+		}
+		HostLink.setCollisionTail(head);
+		HostLink.pushEvent(EV_COLLISION_LOST, 0, 0.0F, 0.0F, 0.0F, 0.0F, 0);
 	}
 
 	/** A freshly started client joins whatever collision epoch Half-Life is already on. */

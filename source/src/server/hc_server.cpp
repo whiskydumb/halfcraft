@@ -171,7 +171,9 @@ namespace halfcraft
 			if (!link_.read_host_state(host)) {
 				return;
 			}
-			if (host.collisionEpoch != epoch_) {
+			// a new level, or minecraft dropped collision it couldn't read: stream it all afresh
+			const bool lost = combat_.take_collision_lost();
+			if (host.collisionEpoch != epoch_ || lost) {
 				epoch_ = host.collisionEpoch;
 				streamer_->reset(epoch_);
 			}

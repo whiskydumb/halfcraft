@@ -75,6 +75,16 @@ class HostDebugLinesTest {
 	}
 
 	@Test
+	void ringsWhoseIndicesDisagreeSaySo() {
+		// all ones from the host: the ring's reader and writer disagree, its backlog means nothing
+		HostDebug d = inMap();
+		d.inputPending = (int) Proto.RING_OUT_OF_STEP;
+		d.renderPending = Proto.RING_OUT_OF_STEP;
+		d.collisionPending = 64;
+		assertEquals("Rings: input out of step, events 0, collision 64 B, render out of step", HostDebugLines.link(d).get(1));
+	}
+
+	@Test
 	void targetShowsAnNpcsHealthMoodAndSchedule() {
 		HostDebug d = inMap();
 		d.haveServer = true;

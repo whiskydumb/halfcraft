@@ -1,5 +1,6 @@
 package dev.halfcraft.client;
 
+import dev.halfcraft.client.render.WorldExporter;
 import dev.halfcraft.combat.HostCombat;
 import dev.halfcraft.combat.HostHurts;
 import dev.halfcraft.link.Proto;
@@ -92,6 +93,7 @@ public final class InputBridge {
 			case Proto.IN_STRING -> HostStrings.accept(code, a, b, c);
 			case Proto.IN_PUSH -> HostPush.INSTANCE.accept(a, b, c, System.currentTimeMillis());
 			case Proto.IN_IMPULSE -> HostPush.INSTANCE.impulse(a, b, c);
+			case Proto.IN_RENDER_LOST -> WorldExporter.resendAll();
 			case Proto.IN_OPEN_MENU -> {
 				if (minecraft.gui.screen() == null && minecraft.player != null) {
 					releaseAll();

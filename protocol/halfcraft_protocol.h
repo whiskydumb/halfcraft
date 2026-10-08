@@ -237,6 +237,8 @@ namespace halfcraft::proto
 								  // or drops it as an item without room, and answers kEvHeldBlock
 		kInHeldBlockLost = 19,    // held slot code went without coming to rest (a level change, dissolved): Minecraft drops the
 								  // block as an item in the cell a/b/c, where the body was last
+		kInRenderLost = 20,       // the host dropped render messages it couldn't read (the ring lost its place): Minecraft
+								  // sends its whole world again
 		kInPush = 22,       // the host pushes its player (a trigger_push, a conveyor, a point_push: Source's base velocity)
 							 // while Minecraft drives it: a/b/c = Minecraft blocks per second * 1000 along x/y/z, repeated
 							 // every kPushRepeatMs while it lasts. (0, 0, 0): it stopped, and the player keeps the last
@@ -357,6 +359,8 @@ namespace halfcraft::proto
 								  // the host streams its collision below there too
 		kEvHeldBlock = 17,        // news of a held slot (kInTakeBlock): actorId = the slot, flags = HeldBlockNews,
 								  // weapon = HeldMaterial with kHeldTaken
+		kEvCollisionLost = 18,    // Minecraft dropped collision messages it couldn't read (the ring lost its place): the
+								  // host streams its collision afresh
 	};
 
 	// What Minecraft did with a held slot (kEvHeldBlock).
@@ -491,11 +495,13 @@ namespace halfcraft::proto
 		std::uint32_t lightEmitters;      // Minecraft's light-emitting blocks the host knows of
 		std::uint64_t collisionPending;   // collision ring bytes Minecraft hasn't read yet
 		std::uint64_t renderPending;      // render ring bytes the host hasn't read yet
+		// (the four pendings are all ones, kRingOutOfStep, while that ring's two indices disagree)
 		std::uint32_t lights;             // lights made of those emitters around the player
 		std::uint32_t shadowedLights;     // of those, the shadowed point lights (the rest light only characters)
 		float         gridZ;              // the map's block grid: the source z of minecraft's y = 0 (whole units)
 	};
 	static_assert(sizeof(HostDebug) == 0xE8);
+	inline constexpr std::uint64_t kRingOutOfStep = ~0ull;
 
 	struct HostDebugServer
 	{
