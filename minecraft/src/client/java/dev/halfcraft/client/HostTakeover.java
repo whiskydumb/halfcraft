@@ -47,7 +47,7 @@ public final class HostTakeover {
 		HostPush.INSTANCE.takeReleased();
 		HostPush.INSTANCE.takeImpulse();
 		player.setDeltaMovement(Vec3.ZERO);
-		player.setPos(host.x, host.y, host.z);
+		player.setPos(host.posX, host.posY, host.posZ);
 		player.setOnGround(true);
 		player.resetFallDistance();
 		return true;

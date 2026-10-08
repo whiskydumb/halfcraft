@@ -28,6 +28,8 @@ source moves the player itself (a ladder, a lift or train, a vehicle, a scripted
 player stays at posX/Y/Z every tick, without falling or fall damage, until the hand-back's teleport""" }
 
 [structs.HostState]
+seqlock = true
+java_class = "class"
 size = 0x50
 java = "HS"
 note = "HostState's 0x40-0x7F: kept for the puppet group (A), 0x80-0xBF for the world group (C)."
@@ -50,6 +52,8 @@ was given divided alike, and the host scales it back up pixel for pixel. 0 (an o
 overlayPad = "u32"
 
 [structs.WaterGrid]
+seqlock = true
+java_class = "class"
 java = "WG"
 doc = """
 The host's water around the player, for Minecraft to treat as its own water: swimming,

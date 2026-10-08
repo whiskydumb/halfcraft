@@ -25,7 +25,11 @@ a schema file is one stretch of the mapping, a section of the generated files:
     [enums.HostFlags.items]
     kHostInGame = { bit = 0, doc = "..." }            value = n (or just n), or bit = n
 
-    [structs.HostState]                               doc, note, size (checked)
+    [structs.HostState]                               doc, note, size (checked); seqlock = true: its first
+                                                      field, seq, is a seqlock's (the code around a read
+                                                      or a write handles it); java_class = "class" or
+                                                      "record": ProtoStructs.java has it, to read and write
+                                                      whole (java_implements: interfaces a record takes on)
     [structs.HostState.fields]                        in order, laid out the way c lays them out
     seq = "u32"
     "posX, posY, posZ" = { type = "f64", doc = "..." }
@@ -112,7 +116,7 @@ HOLD_KEYS = {"type", "at"}
 CONSTANT_KEYS = {"type", "value", "bit", "hex", "doc", "java"}
 ENUM_KEYS = {"type", "doc", "note", "items"}
 ITEM_KEYS = {"value", "bit", "doc", "java"}
-STRUCT_KEYS = {"doc", "note", "size", "java", "java_size", "fields"}
+STRUCT_KEYS = {"doc", "note", "size", "java", "java_size", "seqlock", "java_class", "java_implements", "fields"}
 FIELD_KEYS = {"type", "doc", "java"}
 
 
@@ -203,6 +207,9 @@ class Struct:
     note: str
     java: str  # the prefix of its fields' java names
     java_size: str
+    seqlock: bool  # its first field, seq, is a seqlock's
+    java_class: str  # "class" or "record" when ProtoStructs.java has it, else ""
+    java_implements: list[str]
 
     def field(self, name: str) -> Field:
         found = next((each for each in self.fields if each.name == name), None)
@@ -549,9 +556,22 @@ class _Loader:
         if "size" in spec and spec["size"] != offset:
             raise ToolError(f"{here}: its fields take {offset:#x} bytes, not the {spec['size']:#x} its size says")
         self.working.pop()
-        made = Struct(name, fields, offset, align, spec.get("doc", ""), spec.get("note", ""), prefix, spec.get("java_size", f"{prefix}_BYTES"))
+        java_size = spec.get("java_size", f"{prefix}_BYTES")
+        made = Struct(name, fields, offset, align, spec.get("doc", ""), spec.get("note", ""), prefix, java_size, *self.uses(here, spec, fields))
         self.structs[name] = made
         return made
+
+    @staticmethod
+    def uses(here: str, spec: dict, fields: list[Field]) -> tuple[bool, str, list[str]]:
+        """a struct's seqlock, java_class and java_implements, checked."""
+        seqlock, java_class = bool(spec.get("seqlock")), spec.get("java_class", "")
+        if seqlock and (fields[0].name != "seq" or fields[0].type != "u32" or fields[0].dimensions):
+            raise ToolError(f"{here}: a seqlock's struct starts with u32 seq")
+        if java_class not in ("", "class", "record"):
+            raise ToolError(f"{here}: java_class is class or record, not {java_class!r}")
+        if spec.get("java_implements") and java_class != "record":
+            raise ToolError(f"{here}: java_implements is for a record")
+        return seqlock, java_class, list(spec.get("java_implements", []))
 
     # ---- regions
 

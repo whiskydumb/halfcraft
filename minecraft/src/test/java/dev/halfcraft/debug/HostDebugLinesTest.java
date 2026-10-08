@@ -71,7 +71,7 @@ class HostDebugLinesTest {
 		d.lights = 4;
 		d.shadowedLights = 3;
 		d.haveServer = true;
-		d.entityCount = 812;
+		d.server.entityCount = 812;
 		assertEquals(List.of(
 			"Link: collision epoch 5, Minecraft drives the player, Minecraft has the input",
 			"Rings: input 2, events 0, collision 1.5 MB, render 512 B",
@@ -94,15 +94,15 @@ class HostDebugLinesTest {
 	void targetShowsAnNpcsHealthMoodAndSchedule() {
 		HostDebug d = inMap();
 		d.haveServer = true;
-		d.targetClass = "npc_metropolice";
-		d.targetName = "cop_1";
-		d.targetIndex = 77;
-		d.health = 30;
-		d.maxHealth = 40;
-		d.relation = 1;
-		d.npcState = 3;
-		d.schedule = "SCHED_METROPOLICE_CHASE_ENEMY";
-		d.distance = 200.0F;
+		d.server.targetClass = "npc_metropolice";
+		d.server.targetName = "cop_1";
+		d.server.targetIndex = 77;
+		d.server.health = 30;
+		d.server.maxHealth = 40;
+		d.server.relation = 1;
+		d.server.npcState = 3;
+		d.server.schedule = "SCHED_METROPOLICE_CHASE_ENEMY";
+		d.server.distance = 200.0F;
 		assertEquals(List.of(
 			"Half-Life target: npc_metropolice #77 \"cop_1\"",
 			"Health: 30 / 40, hates you, combat",
@@ -115,9 +115,9 @@ class HostDebugLinesTest {
 	void targetOfAPropHasNoMoodOrSchedule() {
 		HostDebug d = inMap();
 		d.haveServer = true;
-		d.targetClass = "prop_physics";
-		d.health = 0;
-		d.distance = 80.0F;
+		d.server.targetClass = "prop_physics";
+		d.server.health = 0;
+		d.server.distance = 80.0F;
 		assertEquals(List.of("Half-Life target: prop_physics #0", "Health: 0 / 0", "Distance: 80 units (2.0 blocks)"), HostDebugLines.target(d));
 	}
 
@@ -130,8 +130,8 @@ class HostDebugLinesTest {
 	void serverPartLeftFromTheLastMapIsntShownInTheMenu() {
 		HostDebug d = new HostDebug();
 		d.haveServer = true;
-		d.targetClass = "npc_zombie";
-		d.entityCount = 900;
+		d.server.targetClass = "npc_zombie";
+		d.server.entityCount = 900;
 		assertEquals(List.of("Half-Life target: nothing"), HostDebugLines.target(d));
 		assertEquals(3, HostDebugLines.link(d).size(), "no edict count");
 	}

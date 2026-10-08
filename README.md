@@ -12,7 +12,7 @@ runs its world, NPCs and scripts around it. Build on Half-Life's maps, fight its
 diamond sword, light City 17 with torches.
 
 The two games talk over shared memory, laid out in `protocol/schema` (`make proto` writes
-`protocol/halfcraft_protocol.h` and the mod's `Proto.java` from it). Half-Life 2's game code
+`protocol/halfcraft_protocol.h` and the mod's `Proto.java` and `ProtoStructs.java` from it). Half-Life 2's game code
 is open source (Source SDK 2013), so the Half-Life side is a regular Source mod with a handful of
 hooks into Valve's code.
 
@@ -52,7 +52,8 @@ source/          the Source mod (C++)
   launcher/        HalfCraft.exe: a release's one click (finds Steam's games, starts Minecraft, then the mod)
   halfcraft_*.vpc  pulled into Valve's client/server projects
 protocol/        schema/: the shared memory layout, a TOML file per region, the one source of truth for both
-                 sides; halfcraft_protocol.h, written from it (make proto) like the mod's Proto.java
+                 sides; halfcraft_protocol.h, written from it (make proto) like the mod's Proto.java (offsets)
+                 and ProtoStructs.java (the structs it reads and writes whole)
 package/         what a release carries besides code: the Prism instance template, the players' README
 tools/           the Python tools: halfcraft/ (what they share), build/ (setup, build, packaging),
                  game/ (run, test sessions, console commands, logs), lint/, debug/ (link and crash-dump

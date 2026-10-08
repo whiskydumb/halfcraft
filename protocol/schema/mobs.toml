@@ -24,6 +24,7 @@ kMobPet = { bit = 1, doc = "tamed by the player: the host's characters see it as
 kMobUndead = { bit = 2, doc = "zombies, skeletons, ..." }
 
 [structs.MobRecord]
+java_class = "record"
 size = 48
 java = "MR"
 java_size = "MOB_RECORD_BYTES"
@@ -40,6 +41,7 @@ maxHealth = "f32"
 pad = "u32[2]"
 
 [structs.MobTable]
+seqlock = true
 java = "MT"
 
 [structs.MobTable.fields]

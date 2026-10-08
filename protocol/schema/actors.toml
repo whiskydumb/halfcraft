@@ -21,6 +21,8 @@ kActorEssential = { bit = 2 }
 kActorInCombat = { bit = 3 }
 
 [structs.ActorRecord]
+java_class = "record"
+java_implements = ["HostLink.Actor"]
 size = 64
 
 [structs.ActorRecord.fields]
@@ -36,6 +38,7 @@ pad = "u16"
 name = { type = "char[24]", doc = "display name, UTF-8, NUL-terminated (truncated)" }
 
 [structs.ActorTable]
+seqlock = true
 java = "AT"
 
 [structs.ActorTable.fields]

@@ -7,6 +7,7 @@ import dev.halfcraft.HalfCraft;
 import dev.halfcraft.combat.HostActorEntity;
 import dev.halfcraft.combat.HostCombat;
 import dev.halfcraft.link.HostLink;
+import dev.halfcraft.link.ProtoStructs;
 import dev.halfcraft.world.HostWater;
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.VarHandle;
@@ -124,17 +125,9 @@ public final class HostMobs {
 		s.set(JAVA_INT, b + MT_COUNT, count);
 		for (int i = 0; i < count; i++) {
 			Mob mob = mobs.get(i);
-			long r = b + MT_RECORDS + i * MOB_RECORD_BYTES;
-			s.set(JAVA_INT, r + MR_ID, mob.getId());
-			s.set(JAVA_INT, r + MR_FLAGS, flags(mob));
-			s.set(JAVA_FLOAT, r + MR_X, (float) mob.getX());
-			s.set(JAVA_FLOAT, r + MR_Y, (float) mob.getY());
-			s.set(JAVA_FLOAT, r + MR_Z, (float) mob.getZ());
-			s.set(JAVA_FLOAT, r + MR_YAW, mob.getYRot());
-			s.set(JAVA_FLOAT, r + MR_WIDTH, mob.getBbWidth());
-			s.set(JAVA_FLOAT, r + MR_HEIGHT, mob.getBbHeight());
-			s.set(JAVA_FLOAT, r + MR_HEALTH, mob.getHealth());
-			s.set(JAVA_FLOAT, r + MR_MAX_HEALTH, mob.getMaxHealth());
+			ProtoStructs.MobRecord record = new ProtoStructs.MobRecord(mob.getId(), flags(mob), (float) mob.getX(), (float) mob.getY(), (float) mob.getZ(), mob.getYRot(),
+				mob.getBbWidth(), mob.getBbHeight(), mob.getHealth(), mob.getMaxHealth());
+			record.write(s, b + MT_RECORDS + i * MOB_RECORD_BYTES);
 		}
 		INT.setRelease(s, b + MT_SEQ, seq + 2);
 		if (count != lastCount && (count % 5 == 0 || count < 5)) {

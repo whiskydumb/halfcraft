@@ -26,6 +26,8 @@ kDebugMinecraftInput = { bit = 1, doc = "keys and mouse go to Minecraft", java =
 kDebugMinecraftHud = { bit = 2, doc = "Minecraft's overlay is shown", java = "HD_MINECRAFT_HUD" }
 
 [structs.HostDebug]
+seqlock = true
+java_class = "class"
 size = 0xE8
 java = "HD"
 
@@ -53,6 +55,8 @@ gridZ = { type = "f32", doc = "the map's block grid: the source z of minecraft's
 pad = "u32"
 
 [structs.HostDebugServer]
+seqlock = true
+java_class = "class"
 size = 0xB0
 java = "HDS"
 

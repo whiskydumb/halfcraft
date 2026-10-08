@@ -269,25 +269,25 @@ public final class HostCollision {
 		long data = OFF_COLLISION_RING + CR_DATA;
 		while (tail < head) {
 			long pos = tail % CR_DATA_BYTES;
-			int type = s.get(JAVA_INT, data + pos);
-			int payloadBytes = s.get(JAVA_INT, data + pos + 4);
+			int type = s.get(JAVA_INT, data + pos + COL_MSG_HEADER_TYPE);
+			int payloadBytes = s.get(JAVA_INT, data + pos + COL_MSG_HEADER_PAYLOAD_BYTES);
 			if (type == COL_PAD) {
 				tail += CR_DATA_BYTES - pos;
 				continue;
 			}
-			if (CR_DATA_BYTES - pos < 8 || payloadBytes < 0 || payloadBytes > CR_DATA_BYTES - pos - 8) {
+			if (CR_DATA_BYTES - pos < COL_MSG_HEADER_BYTES || payloadBytes < 0 || payloadBytes > CR_DATA_BYTES - pos - COL_MSG_HEADER_BYTES) {
 				// not a message Half-Life wrote
 				lostPlace(head, tail);
 				return true;
 			}
-			long payload = data + pos + 8;
+			long payload = data + pos + COL_MSG_HEADER_BYTES;
 			switch (type) {
 				case COL_CLEAR -> clear(s.get(JAVA_INT, payload));
 				case COL_REGION -> readRegion(s, payload);
 				case COL_TRIS -> readTris(s, payload);
 				default -> HalfCraft.LOG.warn("HalfCraft: unknown collision message {}", type);
 			}
-			tail += align8(8 + payloadBytes);
+			tail += align8(COL_MSG_HEADER_BYTES + payloadBytes);
 		}
 		HostLink.setCollisionTail(tail);
 		return true;
@@ -332,14 +332,14 @@ public final class HostCollision {
 	}
 
 	private static void readRegion(MemorySegment s, long p) {
-		int minX = s.get(JAVA_INT, p);
-		int minY = s.get(JAVA_INT, p + 4);
-		int minZ = s.get(JAVA_INT, p + 8);
-		int maxX = s.get(JAVA_INT, p + 12);
-		int maxY = s.get(JAVA_INT, p + 16);
-		int maxZ = s.get(JAVA_INT, p + 20);
-		int msgEpoch = s.get(JAVA_INT, p + 24);
-		int count = s.get(JAVA_INT, p + 28);
+		int minX = s.get(JAVA_INT, p + COL_REGION_MIN_X);
+		int minY = s.get(JAVA_INT, p + COL_REGION_MIN_Y);
+		int minZ = s.get(JAVA_INT, p + COL_REGION_MIN_Z);
+		int maxX = s.get(JAVA_INT, p + COL_REGION_MAX_X);
+		int maxY = s.get(JAVA_INT, p + COL_REGION_MAX_Y);
+		int maxZ = s.get(JAVA_INT, p + COL_REGION_MAX_Z);
+		int msgEpoch = s.get(JAVA_INT, p + COL_REGION_EPOCH);
+		int count = s.get(JAVA_INT, p + COL_REGION_COUNT);
 		adoptEpochIfFresh(msgEpoch);
 		if (msgEpoch != epoch) {
 			return; // stale region from before a world change
@@ -351,11 +351,11 @@ public final class HostCollision {
 		java.util.HashMap<Long, long[]> freshLayers = new java.util.HashMap<>(count * 2);
 		long e = p + COL_REGION_HEADER_BYTES;
 		for (int i = 0; i < count; i++, e += COL_BLOCK_BYTES) {
-			int x = s.get(JAVA_INT, e);
-			int y = s.get(JAVA_INT, e + 4);
-			int z = s.get(JAVA_INT, e + 8);
+			int x = s.get(JAVA_INT, e + COL_BLOCK_X);
+			int y = s.get(JAVA_INT, e + COL_BLOCK_Y);
+			int z = s.get(JAVA_INT, e + COL_BLOCK_Z);
 			boolean sky = (s.get(JAVA_INT, e + COL_BLOCK_FLAGS) & COL_BLOCK_SKY) != 0;
-			long[] layers = readLayers(s, e + 16);
+			long[] layers = readLayers(s, e + COL_BLOCK_BITS);
 			VoxelShape shape = buildShape(layers);
 			if (shape != null) {
 				long key = BlockPos.asLong(x, y, z);
@@ -393,11 +393,11 @@ public final class HostCollision {
 	}
 
 	private static void readTris(MemorySegment s, long p) {
-		int minX = s.get(JAVA_INT, p);
-		int minY = s.get(JAVA_INT, p + 4);
-		int minZ = s.get(JAVA_INT, p + 8);
-		int msgEpoch = s.get(JAVA_INT, p + 24);
-		int count = s.get(JAVA_INT, p + 28);
+		int minX = s.get(JAVA_INT, p + COL_REGION_MIN_X);
+		int minY = s.get(JAVA_INT, p + COL_REGION_MIN_Y);
+		int minZ = s.get(JAVA_INT, p + COL_REGION_MIN_Z);
+		int msgEpoch = s.get(JAVA_INT, p + COL_REGION_EPOCH);
+		int count = s.get(JAVA_INT, p + COL_REGION_COUNT);
 		adoptEpochIfFresh(msgEpoch);
 		if (msgEpoch != epoch) {
 			return;
@@ -408,9 +408,9 @@ public final class HostCollision {
 		long e = p + COL_REGION_HEADER_BYTES;
 		for (int i = 0; i < count; i++, e += COL_TRI_BYTES) {
 			for (int k = 0; k < 9; k++) {
-				v[k] = s.get(JAVA_FLOAT, e + k * 4L);
+				v[k] = s.get(JAVA_FLOAT, e + COL_TRI_V + k * 4L);
 			}
-			HostTri t = new HostTri(v, 0, s.get(JAVA_INT, e + 36));
+			HostTri t = new HostTri(v, 0, s.get(JAVA_INT, e + COL_TRI_FLAGS));
 			if (!t.degenerate()) {
 				tris[kept++] = t;
 			}

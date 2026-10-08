@@ -25,24 +25,40 @@ public record WeaponTable(boolean live, int active, List<Weapon> weapons) {
 	private record Cached(int generation, int seq, WeaponTable table) {
 	}
 
-	/** One owned weapon. Counts are -1 where the weapon has no such ammo. */
-	public record Weapon(int id, int clip, int maxClip, int ammo, int maxAmmo, int ammo2, int maxAmmo2, int flags) {
-		public boolean supercharged() {
-			return (this.flags & WT_R_SUPERCHARGED) != 0;
+	/** One owned weapon (ProtoStructs.WeaponRecord, the table's records, is one). Counts are -1 where the weapon has no such ammo. */
+	public interface Weapon {
+		int id();
+
+		int clip();
+
+		int maxClip();
+
+		int ammo();
+
+		int maxAmmo();
+
+		int ammo2();
+
+		int maxAmmo2();
+
+		int flags();
+
+		default boolean supercharged() {
+			return (this.flags() & WT_R_SUPERCHARGED) != 0;
 		}
 
 		/** Rounds it can fire before reloading: its clip, or its reserve when it has no clip. -1: it uses no ammo. */
-		public int ready() {
-			return this.clip >= 0 ? this.clip : this.ammo;
+		default int ready() {
+			return this.clip() >= 0 ? this.clip() : this.ammo();
 		}
 
 		/** What {@link #ready()} holds when full. */
-		public int capacity() {
-			return this.clip >= 0 ? this.maxClip : this.maxAmmo;
+		default int capacity() {
+			return this.clip() >= 0 ? this.maxClip() : this.maxAmmo();
 		}
 
 		/** How full {@link #ready()} is, 0-1; -1 for a weapon without ammo. */
-		public float fill() {
+		default float fill() {
 			if (this.ready() < 0) {
 				return -1.0F;
 			}
@@ -51,16 +67,16 @@ public record WeaponTable(boolean live, int active, List<Weapon> weapons) {
 		}
 
 		/** Half-Life's ammo counter in a line ("18 | 150 | 3"), empty for a weapon without ammo. */
-		public String ammoLine() {
+		default String ammoLine() {
 			List<String> parts = new ArrayList<>();
-			if (this.clip >= 0) {
-				parts.add(Integer.toString(this.clip));
+			if (this.clip() >= 0) {
+				parts.add(Integer.toString(this.clip()));
 			}
-			if (this.ammo >= 0) {
-				parts.add(Integer.toString(this.ammo));
+			if (this.ammo() >= 0) {
+				parts.add(Integer.toString(this.ammo()));
 			}
-			if (this.ammo2 >= 0) {
-				parts.add(Integer.toString(this.ammo2));
+			if (this.ammo2() >= 0) {
+				parts.add(Integer.toString(this.ammo2()));
 			}
 			return String.join(" | ", parts);
 		}
@@ -112,12 +128,7 @@ public record WeaponTable(boolean live, int active, List<Weapon> weapons) {
 			int count = Math.clamp(s.get(JAVA_INT, base + WT_COUNT), 0, WT_MAX_WEAPONS);
 			List<Weapon> weapons = new ArrayList<>(count);
 			for (int i = 0; i < count; i++) {
-				long r = base + WT_RECORDS + i * WT_RECORD_BYTES;
-				weapons.add(new Weapon(
-					s.get(JAVA_INT, r + WT_R_ID), s.get(JAVA_INT, r + WT_R_CLIP), s.get(JAVA_INT, r + WT_R_MAX_CLIP),
-					s.get(JAVA_INT, r + WT_R_AMMO), s.get(JAVA_INT, r + WT_R_MAX_AMMO), s.get(JAVA_INT, r + WT_R_AMMO2),
-					s.get(JAVA_INT, r + WT_R_MAX_AMMO2), s.get(JAVA_INT, r + WT_R_FLAGS)
-				));
+				weapons.add(ProtoStructs.WeaponRecord.read(s, base + WT_RECORDS + i * WT_RECORD_BYTES));
 			}
 			VarHandle.loadLoadFence();
 			if ((int) INT.getAcquire(s, base + WT_SEQ) == seq1) {

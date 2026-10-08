@@ -45,6 +45,8 @@ type = "u32"
 kWeaponRecordSupercharged = { bit = 0, doc = "the gravity gun, supercharged (the Citadel)", java = "WT_R_SUPERCHARGED" }
 
 [structs.WeaponRecord]
+java_class = "record"
+java_implements = ["WeaponTable.Weapon"]
 size = 32
 java = "WT_R"
 java_size = "WT_RECORD_BYTES"
@@ -60,6 +62,7 @@ maxAmmo2 = "i32"
 flags = { type = "u32", doc = "WeaponRecordFlags" }
 
 [structs.WeaponTable]
+seqlock = true
 java = "WT"
 
 [structs.WeaponTable.fields]

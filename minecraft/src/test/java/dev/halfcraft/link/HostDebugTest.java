@@ -95,14 +95,14 @@ class HostDebugTest {
 		assertTrue(HostDebug.read(shm, out));
 		assertTrue(out.haveServer);
 		assertTrue(out.hasTarget());
-		assertEquals(812, out.entityCount);
-		assertEquals(123, out.targetIndex);
-		assertEquals(40, out.health);
-		assertEquals(50, out.maxHealth);
-		assertEquals(3, out.npcState);
-		assertEquals("npc_combine_s", out.targetClass);
-		assertEquals("", out.targetName);
-		assertEquals("SCHED_RANGE_ATTACK1", out.schedule);
+		assertEquals(812, out.server.entityCount);
+		assertEquals(123, out.server.targetIndex);
+		assertEquals(40, out.server.health);
+		assertEquals(50, out.server.maxHealth);
+		assertEquals(3, out.server.npcState);
+		assertEquals("npc_combine_s", out.server.targetClass);
+		assertEquals("", out.server.targetName);
+		assertEquals("SCHED_RANGE_ATTACK1", out.server.schedule);
 	}
 
 	@Test

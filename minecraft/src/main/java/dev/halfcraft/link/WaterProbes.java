@@ -48,7 +48,6 @@ public final class WaterProbes {
 			return null;
 		}
 		long b = OFF_WATER_PROBES + WP_ANSWERS;
-		int cells = WATER_PROBE_SIZE * WATER_PROBE_SIZE;
 		for (int attempt = 0; attempt < 16; attempt++) {
 			int seq1 = (int) INT.getAcquire(s, b + WP_SEQ);
 			if (seq1 == 0) {
@@ -61,13 +60,8 @@ public final class WaterProbes {
 			int count = Math.clamp(s.get(JAVA_INT, b + WP_COUNT), 0, MAX_WATER_PROBES);
 			List<WaterColumns.Grid> grids = new ArrayList<>(count);
 			for (int i = 0; i < count; i++) {
-				long p = b + WP_PROBES + i * WATER_PROBE_BYTES;
-				float[] surface = new float[cells];
-				for (int c = 0; c < cells; c++) {
-					surface[c] = s.get(JAVA_FLOAT, p + WP_SURFACE + c * 4L);
-				}
-				grids.add(new WaterColumns.Grid(s.get(JAVA_INT, p + WP_ORIGIN_X), s.get(JAVA_INT, p + WP_ORIGIN_Z), WATER_PROBE_SIZE, surface,
-					s.get(JAVA_FLOAT, p + WP_Y) - WATER_PROBE_DEPTH));
+				ProtoStructs.WaterProbe probe = ProtoStructs.WaterProbe.read(s, b + WP_PROBES + i * WATER_PROBE_BYTES);
+				grids.add(new WaterColumns.Grid(probe.originX(), probe.originZ(), WATER_PROBE_SIZE, probe.surface(), probe.y() - WATER_PROBE_DEPTH));
 			}
 			VarHandle.loadLoadFence();
 			if ((int) INT.getAcquire(s, b + WP_SEQ) == seq1) {

@@ -36,6 +36,7 @@ pad = "u32"
 framesPublished = "u64"
 
 [structs.OverlaySlotHdr]
+java_class = "record"
 size = 0x40
 java = "SH"
 java_size = "SLOT_HDR_SIZE"

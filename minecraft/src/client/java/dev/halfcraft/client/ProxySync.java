@@ -2,6 +2,7 @@ package dev.halfcraft.client;
 
 import dev.halfcraft.combat.HostActorEntity;
 import dev.halfcraft.link.HostLink;
+import dev.halfcraft.link.ProtoStructs;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -15,8 +16,8 @@ import net.minecraft.world.entity.Entity;
  * moves once per tick and reaches the client a tick or two later).
  */
 final class ProxySync {
-	private static final List<HostLink.Actor> ACTORS = new ArrayList<>();
-	private static final Map<Integer, HostLink.Actor> BY_ID = new HashMap<>();
+	private static final List<ProtoStructs.ActorRecord> ACTORS = new ArrayList<>();
+	private static final Map<Integer, ProtoStructs.ActorRecord> BY_ID = new HashMap<>();
 
 	private ProxySync() {
 	}
@@ -26,12 +27,12 @@ final class ProxySync {
 			return;
 		}
 		BY_ID.clear();
-		for (HostLink.Actor a : ACTORS) {
-			BY_ID.put(a.actorId(), a);
+		for (ProtoStructs.ActorRecord a : ACTORS) {
+			BY_ID.put(a.id(), a);
 		}
 		for (Entity entity : minecraft.level.entitiesForRendering()) {
 			if (entity instanceof HostActorEntity proxy) {
-				HostLink.Actor a = BY_ID.get(proxy.actorId());
+				ProtoStructs.ActorRecord a = BY_ID.get(proxy.actorId());
 				if (a == null) {
 					continue;
 				}

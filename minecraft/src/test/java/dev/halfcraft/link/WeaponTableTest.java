@@ -35,7 +35,7 @@ class WeaponTableTest {
 		WeaponTable table = WeaponTable.read(table(4, true, HOST_WEAPON_SMG1, new int[][] { smg, gravityGun }), 0);
 		assertTrue(table.live());
 		assertEquals(HOST_WEAPON_SMG1, table.active());
-		assertEquals(new WeaponTable.Weapon(HOST_WEAPON_SMG1, 30, 45, 150, 225, 2, 3, 0), table.find(HOST_WEAPON_SMG1));
+		assertEquals(new ProtoStructs.WeaponRecord(HOST_WEAPON_SMG1, 30, 45, 150, 225, 2, 3, 0), table.find(HOST_WEAPON_SMG1));
 		assertTrue(table.find(HOST_WEAPON_PHYSCANNON).supercharged());
 		assertNull(table.find(HOST_WEAPON_RPG));
 	}
@@ -57,14 +57,14 @@ class WeaponTableTest {
 
 	@Test
 	void clipWeaponsShowTheirClip() {
-		WeaponTable.Weapon pistol = new WeaponTable.Weapon(HOST_WEAPON_PISTOL, 9, 18, 150, 150, -1, -1, 0);
+		WeaponTable.Weapon pistol = new ProtoStructs.WeaponRecord(HOST_WEAPON_PISTOL, 9, 18, 150, 150, -1, -1, 0);
 		assertEquals(0.5F, pistol.fill());
 		assertEquals("9 | 150", pistol.ammoLine());
 	}
 
 	@Test
 	void weaponsWithoutAClipShowTheirReserve() {
-		WeaponTable.Weapon rpg = new WeaponTable.Weapon(HOST_WEAPON_RPG, -1, -1, 2, 3, -1, -1, 0);
+		WeaponTable.Weapon rpg = new ProtoStructs.WeaponRecord(HOST_WEAPON_RPG, -1, -1, 2, 3, -1, -1, 0);
 		assertEquals(2, rpg.ready());
 		assertEquals(2.0F / 3.0F, rpg.fill());
 		assertEquals("2", rpg.ammoLine());
@@ -72,21 +72,21 @@ class WeaponTableTest {
 
 	@Test
 	void anEmptyClipIsEmptyNotMissing() {
-		WeaponTable.Weapon shotgun = new WeaponTable.Weapon(HOST_WEAPON_SHOTGUN, 0, 6, 0, 30, -1, -1, 0);
+		WeaponTable.Weapon shotgun = new ProtoStructs.WeaponRecord(HOST_WEAPON_SHOTGUN, 0, 6, 0, 30, -1, -1, 0);
 		assertEquals(0.0F, shotgun.fill());
 		assertEquals("0 | 0", shotgun.ammoLine());
 	}
 
 	@Test
 	void weaponsWithoutAmmoShowNone() {
-		WeaponTable.Weapon crowbar = new WeaponTable.Weapon(HOST_WEAPON_CROWBAR, -1, -1, -1, -1, -1, -1, 0);
+		WeaponTable.Weapon crowbar = new ProtoStructs.WeaponRecord(HOST_WEAPON_CROWBAR, -1, -1, -1, -1, -1, -1, 0);
 		assertEquals(-1.0F, crowbar.fill());
 		assertEquals("", crowbar.ammoLine());
 	}
 
 	@Test
 	void secondaryAmmoComesLast() {
-		WeaponTable.Weapon ar2 = new WeaponTable.Weapon(HOST_WEAPON_AR2, 30, 30, 60, 60, 1, 3, 0);
+		WeaponTable.Weapon ar2 = new ProtoStructs.WeaponRecord(HOST_WEAPON_AR2, 30, 30, 60, 60, 1, 3, 0);
 		assertEquals("30 | 60 | 1", ar2.ammoLine());
 	}
 }

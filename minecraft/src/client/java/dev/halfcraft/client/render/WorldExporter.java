@@ -5,6 +5,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.halfcraft.HalfCraft;
 import dev.halfcraft.link.Proto;
 import dev.halfcraft.link.HostLink;
+import dev.halfcraft.link.ProtoStructs;
 import dev.halfcraft.world.HeldBlocks;
 import dev.halfcraft.world.HostClip;
 import dev.halfcraft.world.HostCollision;
@@ -81,7 +82,7 @@ public final class WorldExporter {
 	private static ModelBlockRenderer blockRenderer;
 	private static FluidRenderer fluidRenderer;
 	private static final MeshBuilder MESH = new MeshBuilder();
-	private static final List<HostLink.WorldEntity> ENTITIES = new ArrayList<>();
+	private static final List<ProtoStructs.WorldEntity> ENTITIES = new ArrayList<>();
 	private static final ItemStackRenderState ITEM_STATE = new ItemStackRenderState();
 	private static final java.util.Map<Item, float[]> ICONS = new java.util.HashMap<>();
 	private static final java.util.Map<BlockState, float[]> CUBE_FACES = new java.util.HashMap<>();
@@ -311,7 +312,7 @@ public final class WorldExporter {
 		HeldBlocks.forEachHeld((slot, state) -> {
 			float[] faces = cubeFaces(minecraft, state);
 			if (faces != null && ENTITIES.size() < Proto.MAX_WORLD_ENTITIES) {
-				ENTITIES.add(new HostLink.WorldEntity(Proto.WE_HELD_BLOCK, slot, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, null, faces, cubeTint(minecraft, state)));
+				ENTITIES.add(new ProtoStructs.WorldEntity(Proto.WE_HELD_BLOCK, slot, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, null, faces, cubeTint(minecraft, state)));
 			}
 		});
 		Vec3 eye = minecraft.player.getEyePosition(partialTick);
@@ -329,7 +330,7 @@ public final class WorldExporter {
 				float[] uv = trident ? ICONS.computeIfAbsent(Items.TRIDENT, i -> iconUv(minecraft, level, new ItemStack(i)))
 					: atlas.arrowUv(arrow instanceof SpectralArrow ? 2 : arrow instanceof Arrow tippable && tippable.getColor() > 0 ? 1 : 0);
 				if (uv != null) {
-					ENTITIES.add(new HostLink.WorldEntity(kind, e.getId(), (float) p.x, (float) p.y, (float) p.z, yaw, pitch, 1.0F, null, uv, 0));
+					ENTITIES.add(new ProtoStructs.WorldEntity(kind, e.getId(), (float) p.x, (float) p.y, (float) p.z, yaw, pitch, 1.0F, null, uv, 0));
 				}
 			} else if (e instanceof ItemEntity item) {
 				float bob = Mth.sin((item.getAge() + partialTick) / 10.0F + item.bobOffs) * 0.1F + 0.1F;
@@ -340,7 +341,7 @@ public final class WorldExporter {
 			} else if (e instanceof net.minecraft.world.entity.LivingEntity && !(e instanceof dev.halfcraft.combat.HostActorEntity) && !e.isInvisible()
 				&& (e != minecraft.player || minecraft.gameRenderer.mainCamera().isDetached())) {
 				// Players and mobs: Half-Life darkens the ground softly under their feet.
-				ENTITIES.add(new HostLink.WorldEntity(Proto.WE_SHADOW, e.getId(), (float) p.x, (float) p.y, (float) p.z, 0.0F, 0.0F, e.getBbWidth(), null, null, 0));
+				ENTITIES.add(new ProtoStructs.WorldEntity(Proto.WE_SHADOW, e.getId(), (float) p.x, (float) p.y, (float) p.z, 0.0F, 0.0F, e.getBbWidth(), null, null, 0));
 			}
 		}
 		addCracks(level);
@@ -360,7 +361,7 @@ public final class WorldExporter {
 				if (faces != null) {
 					float size = 0.25F;
 					int tint = cubeTint(minecraft, state);
-					ENTITIES.add(new HostLink.WorldEntity(
+					ENTITIES.add(new ProtoStructs.WorldEntity(
 						Proto.WE_BLOCK, e.getId(), (float) p.x, (float) (p.y + size * 0.5 + 0.02), (float) p.z, yaw, 0.0F, size, null, faces, tint
 					));
 					return;
@@ -369,7 +370,7 @@ public final class WorldExporter {
 		}
 		float[] uv = iconUv(minecraft, level, stack);
 		if (uv != null) {
-			ENTITIES.add(new HostLink.WorldEntity(Proto.WE_ITEM, e.getId(), (float) p.x, (float) p.y + 0.25F, (float) p.z, yaw, 0.0F, 0.5F, null, uv, 0));
+			ENTITIES.add(new ProtoStructs.WorldEntity(Proto.WE_ITEM, e.getId(), (float) p.x, (float) p.y + 0.25F, (float) p.z, yaw, 0.0F, 0.5F, null, uv, 0));
 		}
 	}
 
@@ -423,7 +424,7 @@ public final class WorldExporter {
 				continue;
 			}
 			AABB box = shape.bounds().move(pos).inflate(0.004);
-			ENTITIES.add(new HostLink.WorldEntity(
+			ENTITIES.add(new ProtoStructs.WorldEntity(
 				Proto.WE_CRACK, pos.hashCode(), (float) box.minX, (float) box.minY, (float) box.minZ, 0.0F, 0.0F, 1.0F,
 				new float[] { (float) box.getXsize(), (float) box.getYsize(), (float) box.getZsize() }, atlas.crackUv(stage), 0
 			));

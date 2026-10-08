@@ -129,6 +129,7 @@ type = "u32"
 kHurtPowerAttack = { bit = 1, doc = "shoves harder (Minecraft knockback)" }
 
 [structs.InputEvent]
+java_class = "record"
 size = 16
 
 [structs.InputEvent.fields]

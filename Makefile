@@ -11,7 +11,7 @@
 #   make cmd C="'save a' 'load a'" console commands into the running game
 #   make test-start [ENGINE=hl2]   set the game's saves and settings aside for tests; make test-stop: back
 #   make patches                   write sdk edits back into source\sdk\halfcraft-<engine>.patch
-#   make proto                     protocol\halfcraft_protocol.h and minecraft's Proto.java from protocol\schema
+#   make proto                     protocol\halfcraft_protocol.h, minecraft's Proto.java and ProtoStructs.java from protocol\schema
 #   make package                   dist\HalfCraft-<version>.zip (NOBUILD=1 packs what's built)
 #   make format                    clang-format the c++, ruff the python, eclipse's formatter the java; make lint: check
 #                                  (and that the protocol files are what the schema gives)

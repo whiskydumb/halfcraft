@@ -26,6 +26,7 @@ a block the host's gravity gun tore out (kInTakeBlock): id = its held slot, uv[0
 top, bottom, tint as kWeBlock's. The host draws it on its own physics body (x/y/z unused)""" }
 
 [structs.WorldEntity]
+java_class = "record"
 size = 96
 
 [structs.WorldEntity.fields]
@@ -39,6 +40,7 @@ uv = { type = "f32[3][4]", doc = "atlas rects {u0, v0, u1, v1}" }
 tint = { type = "u32", doc = "RGBA8 multiplier for the top face (grass, leaves); 0 = none" }
 
 [structs.WorldEntities]
+seqlock = true
 java = "WE"
 
 [structs.WorldEntities.fields]

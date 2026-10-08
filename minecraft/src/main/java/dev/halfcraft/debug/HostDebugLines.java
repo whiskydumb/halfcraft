@@ -55,7 +55,7 @@ public final class HostDebugLines {
 			bytes(d.renderPending)));
 		lines.add(format("Block lights: %d emitters, %d lights, %d shadowed", d.lightEmitters, d.lights, d.shadowedLights));
 		if (d.serverCurrent()) {
-			lines.add(format("Edicts: %d", d.entityCount));
+			lines.add(format("Edicts: %d", d.server.entityCount));
 		}
 		return lines;
 	}
@@ -67,16 +67,16 @@ public final class HostDebugLines {
 			lines.add("Half-Life target: nothing");
 			return lines;
 		}
-		String name = d.targetName.isEmpty() ? "" : " \"" + d.targetName + "\"";
-		lines.add(format("Half-Life target: %s #%d%s", d.targetClass, d.targetIndex, name));
-		StringBuilder state = new StringBuilder(format("Health: %d / %d", d.health, d.maxHealth));
-		appendName(state, RELATIONS, d.relation);
-		appendName(state, NPC_STATES, d.npcState);
+		String name = d.server.targetName.isEmpty() ? "" : " \"" + d.server.targetName + "\"";
+		lines.add(format("Half-Life target: %s #%d%s", d.server.targetClass, d.server.targetIndex, name));
+		StringBuilder state = new StringBuilder(format("Health: %d / %d", d.server.health, d.server.maxHealth));
+		appendName(state, RELATIONS, d.server.relation);
+		appendName(state, NPC_STATES, d.server.npcState);
 		lines.add(state.toString());
-		if (!d.schedule.isEmpty()) {
-			lines.add("Schedule: " + d.schedule);
+		if (!d.server.schedule.isEmpty()) {
+			lines.add("Schedule: " + d.server.schedule);
 		}
-		lines.add(format("Distance: %.0f units (%.1f blocks)", d.distance, d.distance / UNITS_PER_BLOCK));
+		lines.add(format("Distance: %.0f units (%.1f blocks)", d.server.distance, d.server.distance / UNITS_PER_BLOCK));
 		return lines;
 	}
 

@@ -31,6 +31,7 @@ kWaterProbeSize = { type = "u32", value = 8, doc = "block columns along each sid
 kWaterProbeDepth = { type = "f32", value = 6.0, doc = "blocks below a probe's y its search reaches" }
 
 [structs.WaterProbeRequests]
+seqlock = true
 java = "WPR"
 
 [structs.WaterProbeRequests.fields]
@@ -39,6 +40,7 @@ count = "u32"
 at = { type = "f32[kMaxWaterProbes][3]", doc = "MC coords: a grid centred on (x, z), probed around y" }
 
 [structs.WaterProbe]
+java_class = "record"
 size = 0x110
 java = "WP"
 java_size = "WATER_PROBE_BYTES"
@@ -50,6 +52,7 @@ pad = "u32"
 surface = { type = "f32[kWaterProbeSize * kWaterProbeSize]", doc = "[z * size + x]: MC y of the water surface; kNoWater: none" }
 
 [structs.WaterProbes]
+seqlock = true
 java = "WP"
 
 [structs.WaterProbes.fields]

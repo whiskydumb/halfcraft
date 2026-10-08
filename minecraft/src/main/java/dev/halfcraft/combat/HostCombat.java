@@ -3,6 +3,7 @@ package dev.halfcraft.combat;
 import dev.halfcraft.HalfCraft;
 import dev.halfcraft.link.Proto;
 import dev.halfcraft.link.HostLink;
+import dev.halfcraft.link.ProtoStructs;
 import dev.halfcraft.mixin.DamageSourceInvoker;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -61,7 +62,7 @@ public final class HostCombat {
 	private static final double DEFAULT_KNOCKBACK = 0.4;
 
 	private static final Map<Integer, HostActorEntity> PROXIES = new HashMap<>();
-	private static final List<HostLink.Actor> ACTORS = new ArrayList<>();
+	private static final List<ProtoStructs.ActorRecord> ACTORS = new ArrayList<>();
 	private static boolean missingTypeLogged;
 
 	private HostCombat() {
@@ -107,10 +108,10 @@ public final class HostCombat {
 	}
 
 	private static void sync(ServerLevel level) {
-		Map<Integer, HostLink.Actor> live = new HashMap<>();
-		for (HostLink.Actor a : ACTORS) {
+		Map<Integer, ProtoStructs.ActorRecord> live = new HashMap<>();
+		for (ProtoStructs.ActorRecord a : ACTORS) {
 			if (!a.dead()) {
-				live.put(a.actorId(), a);
+				live.put(a.id(), a);
 			}
 		}
 		for (Iterator<Map.Entry<Integer, HostActorEntity>> it = PROXIES.entrySet().iterator(); it.hasNext();) {
@@ -122,11 +123,11 @@ public final class HostCombat {
 			}
 		}
 		int before = PROXIES.size();
-		for (HostLink.Actor a : live.values()) {
-			HostActorEntity proxy = PROXIES.get(a.actorId());
+		for (ProtoStructs.ActorRecord a : live.values()) {
+			HostActorEntity proxy = PROXIES.get(a.id());
 			if (proxy == null) {
 				proxy = new HostActorEntity(HOST_ACTOR, level);
-				proxy.setActorId(a.actorId());
+				proxy.setActorId(a.id());
 				proxy.setSize(a.width(), a.height());
 				proxy.snapTo(a.x(), a.y(), a.z(), a.yaw(), 0.0F);
 				if (!a.name().isEmpty()) {
@@ -135,7 +136,7 @@ public final class HostCombat {
 				if (!level.addFreshEntity(proxy)) {
 					continue;
 				}
-				PROXIES.put(a.actorId(), proxy);
+				PROXIES.put(a.id(), proxy);
 				continue;
 			}
 			proxy.setSize(a.width(), a.height());

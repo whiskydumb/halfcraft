@@ -98,7 +98,6 @@ namespace halfcraft::proto
 		// was given divided alike, and the host scales it back up pixel for pixel. 0 (an older host): 1
 		std::uint32_t overlayDivisor;
 		std::uint32_t overlayPad;
-		// HostState's 0x40-0x7F: kept for the puppet group (A), 0x80-0xBF for the world group (C).
 	};
 	static_assert(sizeof(HostState) == 0x50);
 

@@ -86,6 +86,7 @@ kWeaponPierce = { value = 4, doc = "tridents, spears" }
 kWeaponArrow = { value = 5, doc = "arrows and other projectiles" }
 
 [structs.McEvent]
+java_class = "record"
 size = 48
 java_size = "EVENT_BYTES"
 

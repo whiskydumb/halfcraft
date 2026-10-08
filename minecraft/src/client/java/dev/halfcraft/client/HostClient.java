@@ -133,10 +133,10 @@ public final class HostClient {
 			teleportPending = true;
 		}
 		if (teleportPending && host.inGame() && !host.loading()) {
-			requestTeleport(minecraft, host.x, host.y, host.z, host.yaw, host.pitch);
+			requestTeleport(minecraft, host.posX, host.posY, host.posZ, host.yaw, host.pitch);
 			teleportAck = host.teleportSeq;
 			teleportPending = false;
-			holdPos = new Vec3(host.x, host.y, host.z);
+			holdPos = new Vec3(host.posX, host.posY, host.posZ);
 		}
 
 		// Look direction is driven by Half-Life (zero-latency camera); MC uses it for everything else.
@@ -245,9 +245,9 @@ public final class HostClient {
 			eyePlayer = player;
 			eyeSmoothed = player.getEyeHeight();
 		}
-		mc.eyeHeightO = eyeSmoothed;
+		mc.tickEyeO = eyeSmoothed;
 		eyeSmoothed += (player.getEyeHeight() - eyeSmoothed) * 0.5F;
-		mc.eyeHeightT = eyeSmoothed;
+		mc.tickEye = eyeSmoothed;
 		boolean bob = minecraft.options.bobView().get();
 		var avatar = player.avatarState();
 		mc.walkDistO = bob ? avatar.getInterpolatedWalkDistance(0.0F) : 0.0F;
@@ -385,7 +385,7 @@ public final class HostClient {
 			mc.eyeX = eye.x;
 			mc.eyeY = eye.y;
 			mc.eyeZ = eye.z;
-			mc.fov = camera.getFov();
+			mc.fovDeg = camera.getFov();
 			// Minecraft's F5 camera: Half-Life puts its camera where Minecraft's would be.
 			mc.cameraMode = minecraft.options.getCameraType().ordinal();
 			mc.cameraDistance = camera.isDetached() ? (float) camera.position().distanceTo(player.getEyePosition(partial)) : 0.0F;

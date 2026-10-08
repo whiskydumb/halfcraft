@@ -21,6 +21,8 @@ kMcFlying = { bit = 7 }
 kMcSleeping = { bit = 8, doc = "in a bed: yaw/pitch are the look Minecraft holds there, eyeX/Y/Z its camera" }
 
 [structs.McState]
+seqlock = true
+java_class = "class"
 size = 0xF0
 java = "MS"
 note = "0xF0-0xFF: kept for the world group (C)"
