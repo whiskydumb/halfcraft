@@ -6,6 +6,7 @@ import dev.halfcraft.link.Proto;
 import dev.halfcraft.link.HostLink;
 import dev.halfcraft.link.HostPush;
 import dev.halfcraft.link.HostStrings;
+import dev.halfcraft.world.HeldBlocks;
 import dev.halfcraft.world.HostBlockDamage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.PauseScreen;
@@ -85,6 +86,9 @@ public final class InputBridge {
 			case Proto.IN_CHECKPOINT -> rollback(minecraft, checkpointId(a, b), false);
 			case Proto.IN_RESTORE -> rollback(minecraft, checkpointId(a, b), true);
 			case Proto.IN_MAP_ENTERED -> mapEntered(minecraft, new int[] { code, a, b, c });
+			case Proto.IN_TAKE_BLOCK -> HeldBlocks.take(minecraft.getSingleplayerServer(), code, new BlockPos(a, b, c));
+			case Proto.IN_HELD_BLOCK_LANDED -> HeldBlocks.landed(minecraft.getSingleplayerServer(), code, new BlockPos(a, b, c));
+			case Proto.IN_HELD_BLOCK_LOST -> HeldBlocks.lost(minecraft.getSingleplayerServer(), code, new BlockPos(a, b, c));
 			case Proto.IN_STRING -> HostStrings.accept(code, a, b, c);
 			case Proto.IN_PUSH -> HostPush.INSTANCE.accept(a, b, c, System.currentTimeMillis());
 			case Proto.IN_IMPULSE -> HostPush.INSTANCE.impulse(a, b, c);

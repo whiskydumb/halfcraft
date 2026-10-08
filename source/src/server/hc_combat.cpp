@@ -187,6 +187,9 @@ namespace halfcraft
 				if (event.type == proto::kEvScreenshot) {
 					request_screenshot(event);  // a frame is a frame, whoever has the player
 				}
+				if (event.type == proto::kEvHeldBlock) {
+					held_block_news_.push_back(event);  // the gravity gun's blocks land whoever has the player
+				}
 				if (event.type == proto::kEvPlayerDied && player && player->IsAlive() && link.mc_alive()) {
 					g_killing_player = true;
 					player->TakeDamage(CTakeDamageInfo(GetWorldEntity(), GetWorldEntity(), player->GetHealth() + 100.0f, DMG_GENERIC));
@@ -229,6 +232,9 @@ namespace halfcraft
 			case proto::kEvCollisionWanted:
 				collision_wanted_.push_back({ event.a, event.b, event.c });
 				break;
+			case proto::kEvHeldBlock:
+				held_block_news_.push_back(event);
+				break;
 			default:
 				break;
 			}
@@ -239,6 +245,13 @@ namespace halfcraft
 	{
 		std::vector<McVec> out;
 		out.swap(collision_wanted_);
+		return out;
+	}
+
+	std::vector<proto::McEvent> Combat::take_held_block_news()
+	{
+		std::vector<proto::McEvent> out;
+		out.swap(held_block_news_);
 		return out;
 	}
 

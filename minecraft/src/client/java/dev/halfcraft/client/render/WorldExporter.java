@@ -5,6 +5,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.halfcraft.HalfCraft;
 import dev.halfcraft.link.Proto;
 import dev.halfcraft.link.HostLink;
+import dev.halfcraft.world.HeldBlocks;
 import dev.halfcraft.world.HostClip;
 import dev.halfcraft.world.HostCollision;
 import it.unimi.dsi.fastutil.longs.Long2FloatOpenHashMap;
@@ -70,6 +71,7 @@ public final class WorldExporter {
 	private static final LongOpenHashSet LIT = new LongOpenHashSet(); // sections Half-Life holds lights for
 	private static final LongOpenHashSet SOLID = new LongOpenHashSet(); // sections Half-Life holds NPC collision for
 	private static final long[] SOLID_BITS = new long[64]; // 4096 blocks: bit x + 16z + 256y
+	private static final long[] TAKE_BITS = new long[64]; // the solid ones Half-Life's gravity gun may tear out (HeldBlocks.takeable)
 	private static final ByteBuffer LIGHTS = ByteBuffer.allocate(16 * 16 * 16 * 8).order(ByteOrder.LITTLE_ENDIAN);
 	private static int sentGeneration = Integer.MIN_VALUE;
 	private static int meshesSent;
@@ -196,6 +198,7 @@ public final class WorldExporter {
 		LIGHTS.clear();
 		int lightCount = 0;
 		java.util.Arrays.fill(SOLID_BITS, 0L);
+		java.util.Arrays.fill(TAKE_BITS, 0L);
 		int solidCount = 0;
 		MESH.cardinal = level.cardinalLighting();
 		if (!empty) {
@@ -217,6 +220,9 @@ public final class WorldExporter {
 							int bit = x + 16 * z + 256 * y;
 							SOLID_BITS[bit >> 6] |= 1L << (bit & 63);
 							solidCount++;
+							if (HeldBlocks.takeable(state, level, pos)) {
+								TAKE_BITS[bit >> 6] |= 1L << (bit & 63);
+							}
 						}
 						// Light-emitting blocks (torches, lava, glowstone, ...) light Half-Life's world too.
 						int emission = state.getLightEmission();
@@ -266,9 +272,12 @@ public final class WorldExporter {
 			}
 			if (solidCount > 0 || SOLID.contains(key)) {
 				ByteBuffer solidHeader = ByteBuffer.allocate(16).order(ByteOrder.LITTLE_ENDIAN).putInt(sx).putInt(sy).putInt(sz).putInt(solidCount).flip();
-				ByteBuffer bits = ByteBuffer.allocate(solidCount > 0 ? 512 : 0).order(ByteOrder.LITTLE_ENDIAN);
+				ByteBuffer bits = ByteBuffer.allocate(solidCount > 0 ? 1024 : 0).order(ByteOrder.LITTLE_ENDIAN);
 				if (solidCount > 0) {
 					for (long word : SOLID_BITS) {
+						bits.putLong(word);
+					}
+					for (long word : TAKE_BITS) {
 						bits.putLong(word);
 					}
 				}
@@ -291,6 +300,13 @@ public final class WorldExporter {
 
 	private static void exportEntities(Minecraft minecraft, ClientLevel level, float partialTick) {
 		ENTITIES.clear();
+		// blocks Half-Life's gravity gun holds, first: Half-Life draws them on its own cubes, by held slot
+		HeldBlocks.forEachHeld((slot, state) -> {
+			float[] faces = cubeFaces(minecraft, state);
+			if (faces != null && ENTITIES.size() < Proto.MAX_WORLD_ENTITIES) {
+				ENTITIES.add(new HostLink.WorldEntity(Proto.WE_HELD_BLOCK, slot, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, null, faces, cubeTint(minecraft, state)));
+			}
+		});
 		Vec3 eye = minecraft.player.getEyePosition(partialTick);
 		for (Entity e : level.entitiesForRendering()) {
 			if (ENTITIES.size() >= Proto.MAX_WORLD_ENTITIES || e.distanceToSqr(eye) > ENTITY_RANGE * ENTITY_RANGE) {

@@ -34,7 +34,39 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-namespace halfcraft
+// a block the gravity gun tore out (server.dll's halfcraft_block_prop, hc_held_blocks.h). it has no
+// model, so source would neither interpolate nor draw it: it interpolates like a prop, and Things draws
+// the block's faces on it.
+class C_HalfCraftBlockProp : public C_BaseEntity
+{
+public:
+	DECLARE_CLASS(C_HalfCraftBlockProp, C_BaseEntity);
+	DECLARE_CLIENTCLASS();
+
+	C_HalfCraftBlockProp() { all().push_back(this); }
+	~C_HalfCraftBlockProp() override
+	{
+		auto& props = all();
+		props.erase(std::remove(props.begin(), props.end(), this), props.end());
+	}
+
+	bool ShouldInterpolate() override { return true; }
+
+	/// the cubes there are now.
+	static std::vector<C_HalfCraftBlockProp*>& all()
+	{
+		static std::vector<C_HalfCraftBlockProp*> props;
+		return props;
+	}
+
+	int m_iHeldSlot = -1;  // which of minecraft's held blocks it is (proto::kWeHeldBlock's id)
+};
+
+IMPLEMENT_CLIENTCLASS_DT(C_HalfCraftBlockProp, DT_HalfCraftBlockProp, CHalfCraftBlockProp)
+RecvPropInt(RECVINFO(m_iHeldSlot)),
+	END_RECV_TABLE()
+
+		namespace halfcraft
 {
 	namespace
 	{
@@ -143,20 +175,13 @@ namespace halfcraft
 			lit_color(base, shade, light, 0, out);
 		}
 
-		/// an axis-aligned box turned `yaw` radians about its vertical centre line, with one texture per
-		/// face group (sides, top, bottom). shaded: minecraft's face brightness.
-		void emit_box(Emitter& out, const float min[3], const float size[3], float yaw, const float side[4], const float top[4], const float bottom[4],
-			std::uint32_t top_tint, bool shaded, const Vector& light)
+		/// a box's six faces, one texture per face group (sides, top, bottom). corner(i, p) puts corner i
+		/// (bits: 1 = +x, 2 = +y, 4 = +z of the box's own axes) at p. shaded: minecraft's face brightness.
+		template <typename Corner>
+		void emit_faces(Emitter& out, const Corner& corner, const float side[4], const float top[4], const float bottom[4], std::uint32_t top_tint,
+			bool shaded, const Vector& light)
 		{
-			const float cx = min[0] + size[0] * 0.5f, cz = min[2] + size[2] * 0.5f;
-			const float c = std::cos(yaw), s = std::sin(yaw);
-			auto        corner = [&](int i, float p[3]) {
-				const float lx = ((i & 1) ? 0.5f : -0.5f) * size[0], lz = ((i & 4) ? 0.5f : -0.5f) * size[2];
-				p[0] = cx + lx * c - lz * s;
-				p[1] = min[1] + ((i & 2) ? size[1] : 0.0f);
-				p[2] = cz + lx * s + lz * c;
-			};
-			// corner bits: 1 = +x, 2 = +y, 4 = +z; each face TL, TR, BR, BL seen from outside
+			// each face TL, TR, BR, BL seen from outside
 			static constexpr int FACES[6][4] = {
 				{ 6, 7, 5, 4 },  // south (+z)
 				{ 3, 2, 0, 1 },  // north (-z)
@@ -178,6 +203,51 @@ namespace halfcraft
 												  : side,
 					color);
 			}
+		}
+
+		/// an axis-aligned box turned `yaw` radians about its vertical centre line, with one texture per
+		/// face group (sides, top, bottom). shaded: minecraft's face brightness.
+		void emit_box(Emitter& out, const float min[3], const float size[3], float yaw, const float side[4], const float top[4], const float bottom[4],
+			std::uint32_t top_tint, bool shaded, const Vector& light)
+		{
+			const float cx = min[0] + size[0] * 0.5f, cz = min[2] + size[2] * 0.5f;
+			const float c = std::cos(yaw), s = std::sin(yaw);
+			auto        corner = [&](int i, float p[3]) {
+				const float lx = ((i & 1) ? 0.5f : -0.5f) * size[0], lz = ((i & 4) ? 0.5f : -0.5f) * size[2];
+				p[0] = cx + lx * c - lz * s;
+				p[1] = min[1] + ((i & 2) ? size[1] : 0.0f);
+				p[2] = cz + lx * s + lz * c;
+			};
+			emit_faces(out, corner, side, top, bottom, top_tint, shaded, light);
+		}
+
+		/// a cube of side 2 * half (blocks) about the emitter's base, turned by source's angles.
+		void emit_turned_cube(Emitter& out, const QAngle& angles, float half, const float side[4], const float top[4], const float bottom[4],
+			std::uint32_t top_tint, const Vector& light)
+		{
+			matrix3x4_t turn;
+			AngleMatrix(angles, turn);
+			// source's axes to minecraft's: m = (x, z, -y), so the turn in minecraft's axes is M * turn * M^T
+			static constexpr float M[3][3] = { { 1, 0, 0 }, { 0, 0, 1 }, { 0, -1, 0 } };
+			float                  rot[3][3];
+			for (int r = 0; r < 3; ++r) {
+				for (int c = 0; c < 3; ++c) {
+					float sum = 0.0f;
+					for (int a = 0; a < 3; ++a) {
+						for (int b = 0; b < 3; ++b) {
+							sum += M[r][a] * turn[a][b] * M[c][b];
+						}
+					}
+					rot[r][c] = sum;
+				}
+			}
+			auto corner = [&](int i, float p[3]) {
+				const float l[3] = { (i & 1) ? half : -half, (i & 2) ? half : -half, (i & 4) ? half : -half };
+				for (int r = 0; r < 3; ++r) {
+					p[r] = rot[r][0] * l[0] + rot[r][1] * l[1] + rot[r][2] * l[2];
+				}
+			};
+			emit_faces(out, corner, side, top, bottom, top_tint, true, light);
 		}
 
 		/// minecraft's arrow (or a trident's icon) at the emitter's base, flying along d (unit length,
@@ -564,6 +634,8 @@ namespace halfcraft
 			void build_mesh(DrawList& list, const McMesh& mesh, const double origin[3], const AtlasView& atlas, LightCache& light, MapSlot slot,
 				const double eye[3]);
 			void emit_shadow(const proto::WorldEntity& e, MapSlot slot);
+			/// the gravity gun's blocks, each on its cube where source has it this frame.
+			void build_held_blocks(const AtlasView& atlas, LightCache& light, MapSlot slot);
 			void draw_outline();
 			void set_bounds(const Vector& lo, const Vector& hi);
 
@@ -584,6 +656,16 @@ namespace halfcraft
 			ITexture*  crack_texture_ = nullptr;  // the atlas the crack material samples
 			McTexture  shadow_texture_{ "shadow" };
 			IMaterial* shadow_material_ = nullptr;
+
+			// the faces of each block the gravity gun holds, by held slot (proto::kWeHeldBlock): kept after
+			// minecraft stops listing it, while its cube waits for the block to be back in the wall
+			struct HeldFaces
+			{
+				bool          known = false;
+				float         uv[3][4]{};
+				std::uint32_t tint = 0;
+			};
+			std::array<HeldFaces, proto::kMaxHeldBlocks> held_faces_{};
 
 			StuckArrows arrows_;
 			float       arrow_uv_[2][4]{};  // side view, back plate: from the last arrow minecraft showed
@@ -771,6 +853,7 @@ namespace halfcraft
 			const McVec   view_mc = source_to_mc(view_source, s.slot);
 			const double  eye[3] = { view_mc.x, view_mc.y, view_mc.z };
 			build_entities(atlas, light, s.slot);
+			build_held_blocks(atlas, light, s.slot);
 			if (std::chrono::steady_clock::now() - scene_time_ > SCENE_TIMEOUT) {
 				scene_list_.clear();
 			} else if (scene_fresh_) {
@@ -811,6 +894,15 @@ namespace halfcraft
 				if (e.kind == proto::kWeShadow) {
 					emit_shadow(e, slot);
 					continue;
+				}
+				if (e.kind == proto::kWeHeldBlock) {
+					if (e.id < held_faces_.size()) {
+						HeldFaces& faces = held_faces_[e.id];
+						faces.known = true;
+						std::memcpy(faces.uv, e.uv, sizeof(faces.uv));
+						faces.tint = e.tint;
+					}
+					continue;  // drawn on its cube (build_held_blocks)
 				}
 				Emitter out{ entity_list_, slot, { e.x, e.y, e.z }, atlas.u_scale, atlas.v_scale };
 				float   centre[3];
@@ -882,6 +974,34 @@ namespace halfcraft
 				for (int k = 0; k < 3; ++k) {
 					selection_lo_[k] = std::min(lo[k], hi[k]);
 					selection_hi_[k] = std::max(lo[k], hi[k]);
+				}
+			}
+		}
+
+		void Things::build_held_blocks(const AtlasView& atlas, LightCache& light, MapSlot slot)
+		{
+			std::array<bool, proto::kMaxHeldBlocks> live{};
+			for (C_HalfCraftBlockProp* prop : C_HalfCraftBlockProp::all()) {
+				const int held = prop->m_iHeldSlot;
+				if (held < 0 || held >= static_cast<int>(held_faces_.size()) || prop->IsDormant()) {
+					continue;
+				}
+				live[held] = true;
+				const HeldFaces& faces = held_faces_[held];
+				if (!faces.known) {
+					continue;  // minecraft hasn't listed the block yet (or keeps it: the cube goes)
+				}
+				const Vector origin = prop->GetRenderOrigin();
+				const float  where[3] = { origin.x, origin.y, origin.z };
+				const McVec  centre = source_to_mc(where, slot);
+				Emitter      out{ entity_list_, slot, { centre.x, centre.y, centre.z }, atlas.u_scale, atlas.v_scale };
+				entity_list_.use(atlas.cutout, false);
+				emit_turned_cube(out, prop->GetRenderAngles(), 0.5f, faces.uv[0], faces.uv[1], faces.uv[2], faces.tint, light.at(where));
+			}
+			// a held slot without a cube: its next block's faces come anew
+			for (std::size_t i = 0; i < live.size(); ++i) {
+				if (!live[i]) {
+					held_faces_[i].known = false;
 				}
 			}
 		}

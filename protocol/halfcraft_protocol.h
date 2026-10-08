@@ -231,7 +231,13 @@ namespace halfcraft::proto
 							 // Minecraft's world along x), b/c = the slot's west and east edges (Minecraft x, east exclusive).
 							 // A new game starts a playthrough, and each map the playthrough enters for the first time
 							 // goes back to how it was before anything was built there (saves keep rolling back as before)
-		kInPush = 22,        // the host pushes its player (a trigger_push, a conveyor, a point_push: Source's base velocity)
+		kInTakeBlock = 17,   // the host's gravity gun tore the block at a/b/c out into held slot code (< kMaxHeldBlocks): Minecraft
+							 // takes it out of its world and answers kEvHeldBlock; while it's held, kWeHeldBlock has its faces
+		kInHeldBlockLanded = 18,  // held slot code came to rest in the block cell a/b/c: Minecraft puts the block back there,
+								  // or drops it as an item without room, and answers kEvHeldBlock
+		kInHeldBlockLost = 19,    // held slot code went without coming to rest (a level change, dissolved): Minecraft drops the
+								  // block as an item in the cell a/b/c, where the body was last
+		kInPush = 22,       // the host pushes its player (a trigger_push, a conveyor, a point_push: Source's base velocity)
 							 // while Minecraft drives it: a/b/c = Minecraft blocks per second * 1000 along x/y/z, repeated
 							 // every kPushRepeatMs while it lasts. (0, 0, 0): it stopped, and the player keeps the last
 							 // push as momentum (as Source does); nothing for kPushStaleMs: it's over, without momentum
@@ -244,6 +250,9 @@ namespace halfcraft::proto
 	};
 	inline constexpr std::uint32_t kPushRepeatMs = 200;
 	inline constexpr std::uint32_t kPushStaleMs = 500;
+
+	// Blocks the host's gravity gun holds at once (kInTakeBlock's slots); taking one more drops the oldest.
+	inline constexpr std::uint32_t kMaxHeldBlocks = 32;
 
 	// How the host's player entered a map (kInMapEntered).
 	enum MapEntry : std::uint16_t
@@ -343,10 +352,35 @@ namespace halfcraft::proto
 							// flags = flight pitch (float bits), weapon = arrow texture (0 plain, 1 tipped, 2 spectral)
 		kEvScreenshot = 5,  // (#6) Minecraft's screenshot key: actorId = Minecraft's request number (1+); the host saves its
 							// own finished frame (its world, its hud and Minecraft's overlay) and answers on kStrScreenshot
-		// 6-7: kept for #12 (the host's weapons), 8-9 for #13 (Minecraft's mobs), 12-13 for the puppet group (A),
-		// 17 for the world group (C)
+		// 6-7: kept for #12 (the host's weapons), 8-9 for #13 (Minecraft's mobs), 12-13 for the puppet group (A)
 		kEvCollisionWanted = 16,  // a projectile waits at a/b/c (MC coords), under the space described around the player:
 								  // the host streams its collision below there too
+		kEvHeldBlock = 17,        // news of a held slot (kInTakeBlock): actorId = the slot, flags = HeldBlockNews,
+								  // weapon = HeldMaterial with kHeldTaken
+	};
+
+	// What Minecraft did with a held slot (kEvHeldBlock).
+	enum HeldBlockNews : std::uint32_t
+	{
+		kHeldTaken = 1,    // the block left Minecraft's world: the host's physics body is it now
+		kHeldRefused = 2,  // Minecraft kept the block (it changed since, or may not be taken): the host drops the body
+		kHeldPlaced = 3,   // the block is back in Minecraft's world where the body came to rest (kInHeldBlockLanded)
+		kHeldDropped = 4,  // no room there (or the body went without coming to rest): the block lies there as an item
+	};
+
+	// What a held block is made of, for the host's physics: it sounds, slides and weighs like that.
+	enum HeldMaterial : std::uint32_t
+	{
+		kMatStone = 0,
+		kMatWood = 1,
+		kMatGlass = 2,
+		kMatDirt = 3,
+		kMatGravel = 4,
+		kMatSand = 5,
+		kMatGrass = 6,  // grass blocks, leaves, moss
+		kMatMetal = 7,
+		kMatWool = 8,
+		kMatSnow = 9,
 	};
 
 	enum HitFlags : std::uint32_t
@@ -395,6 +429,8 @@ namespace halfcraft::proto
 		kWeBlock = 4,    // dropped block item: a spinning cube of side `scale`, uv[0..2] = side, top, bottom
 		kWeCrack = 5,    // block-breaking cracks over the box at (x, y, z) of size ext, uv[0] = crack stage
 		kWeShadow = 6,   // a player's or mob's feet at (x, y, z), `scale` wide: its soft contact shadow
+		kWeHeldBlock = 7,  // a block the host's gravity gun tore out (kInTakeBlock): id = its held slot, uv[0..2] = side,
+						   // top, bottom, tint as kWeBlock's. The host draws it on its own physics body (x/y/z unused)
 	};
 
 	struct WorldEntity
@@ -657,8 +693,10 @@ namespace halfcraft::proto
 							  // relative to the feet and facing +Z, split into its parts (RenBatch
 							  // flags bits 8-11: RagdollPart). Sent about once a second while alive,
 							  // for a host that hangs the parts on a ragdoll when the player dies.
-		kRenSolids = 10,      // RenSolids + 512-byte bitset (bit x + 16z + 256y): which blocks of a
-							  // section the host's characters collide with (sent after its kRenSection; 0 = none)
+		kRenSolids = 10,      // RenSolids + two 512-byte bitsets (bit x + 16z + 256y): which blocks of a
+							  // section the host's characters collide with, then which of those the host's gravity gun
+							  // may tear out (kInTakeBlock: whole cubes without a block entity, softer than obsidian).
+							  // Sent after its kRenSection; count 0: none, and no bitsets follow
 	};
 
 	struct RenSolids

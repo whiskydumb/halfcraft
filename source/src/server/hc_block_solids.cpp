@@ -3,6 +3,7 @@
 #include "cbase.h"
 #include "debugoverlay_shared.h"
 #include "physics_shared.h"
+#include "player_pickup.h"
 #include "vphysics_interface.h"
 
 #include "tier0/valve_minmax_off.h"
@@ -15,6 +16,9 @@
 #include "core/hc_module.h"
 #include "core/hc_units.h"
 #include "server/hc_block_solids.h"
+#include "server/hc_held_blocks.h"
+
+extern ConVar physcannon_tracelength;  // how far the gravity gun grabs and punts (weapon_physcannon.cpp)
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -24,6 +28,7 @@ namespace
 	constexpr int   SECTION_BLOCKS = 16;
 	constexpr float KEEP_SLOT_BLOCKS = 600.0f;  // sections further than this from the map's slot belong to another map
 	constexpr float BULLET_DEPTH = 1.0f;        // units behind the face a bullet hit: inside its block for sure
+	constexpr float PUNT_SPEED = 1200.0f;       // units a second a block the gravity gun punts out of a wall flies at
 
 	/// solid blocks merged into boxes (minecraft block coords within the section, inclusive).
 	struct BlockBox
@@ -119,11 +124,21 @@ namespace
 	}
 }
 
+namespace halfcraft
+{
+	void free_collide_later(CPhysCollide* collide)
+	{
+		if (collide) {
+			g_dead_collides.push_back({ collide, gpGlobals->framecount });
+		}
+	}
+}
+
 //-----------------------------------------------------------------------------
 // one section's solid blocks: invisible, never networked, never saved (minecraft keeps the blocks;
 // they come back from it after a load).
 //-----------------------------------------------------------------------------
-class CHalfCraftBlocks : public CBaseEntity
+class CHalfCraftBlocks : public CBaseEntity, public CDefaultPlayerPickupVPhysics
 {
 public:
 	DECLARE_CLASS(CHalfCraftBlocks, CBaseEntity);
@@ -138,6 +153,17 @@ public:
 		SetMoveType(MOVETYPE_NONE);
 		SetCollisionGroup(COLLISION_GROUP_NONE);
 		AddEffects(EF_NODRAW);
+		m_takedamage = DAMAGE_EVENTS_ONLY;  // the gravity gun's punt reaches TraceAttack (no health to lose)
+	}
+
+	/// the gravity gun can't lift the blocks: it tears out the one the player looks at instead (hc_held_blocks.h).
+	CBaseEntity* OnFailedPhysGunPickup(Vector) override
+	{
+		int cell[3];
+		if (!LookedAtBlock(cell)) {
+			return nullptr;  // the gun's "can't" sound
+		}
+		return halfcraft::take_block(cell, vec3_origin, this);
 	}
 
 	int UpdateTransmitState(void) override { return SetTransmitState(FL_EDICT_DONTSEND); }
@@ -169,11 +195,26 @@ public:
 			// the blocks are whole cubes here, whatever their shape in minecraft
 			push_bullet_hit(trace->endpos - trace->plane.normal * BULLET_DEPTH, m_slot);
 		}
+		// the gravity gun's punt knocks the block the player looks at clean out of the wall. its own
+		// trace is a swept box, which may stop short of the block
+		int cell[3];
+		if ((info.GetDamageType() & DMG_PHYSGUN) && LookedAtBlock(cell)) {
+			halfcraft::take_block(cell, dir * PUNT_SPEED, this);
+		}
 		BaseClass::TraceAttack(info, dir, trace, accumulator);
 	}
 
-	/// where the map sits in minecraft, for the blocks' coordinates.
-	void SetSlot(halfcraft::MapSlot slot) { m_slot = slot; }
+	/// which section it is and where the map sits in minecraft, for the blocks' coordinates.
+	void SetSection(std::int32_t sx, std::int32_t sy, std::int32_t sz, halfcraft::MapSlot slot)
+	{
+		m_section[0] = sx;
+		m_section[1] = sy;
+		m_section[2] = sz;
+		m_slot = slot;
+	}
+
+	/// which of the section's blocks the gravity gun may tear out (halfcraft::SolidSection::takeable).
+	void SetTakeable(const std::uint8_t takeable[512]) { std::memcpy(m_takeable, takeable, sizeof(m_takeable)); }
 
 	/// the section's blocks, as boxes in this entity's space (units).
 	void SetBoxes(const std::vector<Vector>& mins, const std::vector<Vector>& maxs, const Vector& bounds_mins, const Vector& bounds_maxs)
@@ -196,17 +237,46 @@ public:
 	}
 
 private:
+	/// the block of this section the player looks at, within the gravity gun's reach, if it may be torn out.
+	/// @param cell - its minecraft block coords
+	bool LookedAtBlock(int cell[3])
+	{
+		CBasePlayer* player = UTIL_GetLocalPlayer();
+		if (!player) {
+			return false;
+		}
+		Vector forward;
+		player->EyeVectors(&forward);
+		const Vector eye = player->EyePosition();
+		trace_t      tr;
+		UTIL_TraceLine(eye, eye + forward * physcannon_tracelength.GetFloat(), MASK_SHOT, player, COLLISION_GROUP_NONE, &tr);
+		if (tr.m_pEnt != this) {
+			return false;
+		}
+		const Vector           inside = tr.endpos - tr.plane.normal * BULLET_DEPTH;
+		const halfcraft::McVec mc = halfcraft::source_to_mc(inside.Base(), m_slot);
+		cell[0] = static_cast<int>(std::floor(mc.x));
+		cell[1] = static_cast<int>(std::floor(mc.y));
+		cell[2] = static_cast<int>(std::floor(mc.z));
+		const int x = cell[0] - m_section[0] * SECTION_BLOCKS, y = cell[1] - m_section[1] * SECTION_BLOCKS, z = cell[2] - m_section[2] * SECTION_BLOCKS;
+		if (x < 0 || x >= SECTION_BLOCKS || y < 0 || y >= SECTION_BLOCKS || z < 0 || z >= SECTION_BLOCKS) {
+			return false;
+		}
+		const int bit = x + SECTION_BLOCKS * z + SECTION_BLOCKS * SECTION_BLOCKS * y;
+		return (m_takeable[bit >> 3] >> (bit & 7)) & 1;
+	}
+
 	void ReleaseCollide(void)
 	{
 		VPhysicsDestroyObject();
-		if (m_pCollide) {
-			g_dead_collides.push_back({ m_pCollide, gpGlobals->framecount });
-			m_pCollide = nullptr;
-		}
+		halfcraft::free_collide_later(m_pCollide);
+		m_pCollide = nullptr;
 	}
 
 	CPhysCollide*      m_pCollide = nullptr;
 	halfcraft::MapSlot m_slot;
+	std::int32_t       m_section[3] = {};
+	std::uint8_t       m_takeable[512] = {};
 };
 
 LINK_ENTITY_TO_CLASS(halfcraft_blocks, CHalfCraftBlocks);
@@ -362,10 +432,11 @@ namespace halfcraft
 				return;
 			}
 			entity->SetAbsOrigin(origin);
-			entity->SetSlot(slot_);
+			entity->SetSection(section.sx, section.sy, section.sz, slot_);
 			DispatchSpawn(entity);
 			entities_[key] = entity;
 		}
 		entity->SetBoxes(mins, maxs, lo, hi);
+		entity->SetTakeable(section.takeable);
 	}
 }

@@ -184,12 +184,16 @@ public final class Rollback {
 	/** Half-Life saved: the tracked blocks and the player as they are now, under its id. */
 	public static void checkpoint(MinecraftServer from, long id, @Nullable ServerPlayer player) {
 		ServerLevel level = from.overworld();
+		// the gravity gun's blocks are where they were taken from as far as a save goes: its cubes aren't saved
+		Long2ObjectOpenHashMap<BlockState> held = new Long2ObjectOpenHashMap<>();
+		HeldBlocks.forEachOrigin((pos, state) -> held.put(pos.asLong(), state));
 		ListTag blocks = new ListTag();
 		for (long key : ORIGINALS.keySet()) {
 			LevelChunk chunk = loadedChunk(level, key);
 			Snapshot now = chunk != null ? capture(chunk, BlockPos.of(key)) : LATEST.getOrDefault(key, ORIGINALS.get(key));
 			LATEST.put(key, now);
-			blocks.add(writeSnapshot(key, now));
+			BlockState taken = held.get(key);
+			blocks.add(writeSnapshot(key, taken != null ? new Snapshot(taken, null) : now));
 		}
 		CompoundTag root = new CompoundTag();
 		root.put("blocks", blocks);
@@ -225,6 +229,7 @@ public final class Rollback {
 			return;
 		}
 		ServerLevel level = from.overworld();
+		HeldBlocks.forget();  // the gravity gun's cubes went with the level; the checkpoint has their blocks
 		Long2ObjectOpenHashMap<Snapshot> target = new Long2ObjectOpenHashMap<>();
 		readSnapshots(root.getListOrEmpty("blocks"), level.registryAccess().lookupOrThrow(Registries.BLOCK), target);
 

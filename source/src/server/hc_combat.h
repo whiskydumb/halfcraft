@@ -37,6 +37,8 @@ namespace halfcraft
 		/// where minecraft's projectiles wait for the collision under them (proto::kEvCollisionWanted)
 		/// since the last call.
 		std::vector<McVec> take_collision_wanted();
+		/// minecraft's news of the gravity gun's held blocks (proto::kEvHeldBlock) since the last call.
+		std::vector<proto::McEvent> take_held_block_news();
 
 	private:
 		void write_actors(Link& link, CBasePlayer* player, MapSlot slot);
@@ -48,6 +50,7 @@ namespace halfcraft
 		std::vector<proto::ActorRecord> records_;
 		bool                            actors_sent_ = false;
 		std::vector<McVec>              collision_wanted_;
+		std::vector<proto::McEvent>     held_block_news_;
 	};
 
 	/// the id minecraft knows a host actor by (proto::ActorRecord::id, and the attacker of its hurts).

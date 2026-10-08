@@ -28,8 +28,9 @@ namespace halfcraft
 	struct SolidSection
 	{
 		std::int32_t  sx, sy, sz;  // section coords (minecraft)
-		std::uint32_t count;       // solid blocks; 0: none (the section's collision is gone)
-		std::uint8_t  bits[512];   // bit (x + 16 z + 256 y), minecraft axes
+		std::uint32_t count;          // solid blocks; 0: none (the section's collision is gone)
+		std::uint8_t  bits[512];      // bit (x + 16 z + 256 y), minecraft axes
+		std::uint8_t  takeable[512];  // the solid blocks the gravity gun may tear out (proto::kRenSolids), same bits
 	};
 
 	/// sections whose solids changed after version since.

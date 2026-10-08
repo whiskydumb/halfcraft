@@ -46,6 +46,8 @@ $Project
 			$File	"$HALFCRAFTDIR\src\server\hc_debug_target.cpp"
 			$File	"$HALFCRAFTDIR\src\server\hc_hazards.h"
 			$File	"$HALFCRAFTDIR\src\server\hc_hazards.cpp"
+			$File	"$HALFCRAFTDIR\src\server\hc_held_blocks.h"
+			$File	"$HALFCRAFTDIR\src\server\hc_held_blocks.cpp"
 			$File	"$HALFCRAFTDIR\src\server\hc_mobs.h"
 			$File	"$HALFCRAFTDIR\src\server\hc_mobs.cpp"
 			$File	"$HALFCRAFTDIR\src\server\hc_push.h"

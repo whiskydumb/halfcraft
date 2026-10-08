@@ -21,6 +21,7 @@
 #include "server/hc_combat.h"
 #include "server/hc_debug_target.h"
 #include "server/hc_hazards.h"
+#include "server/hc_held_blocks.h"
 #include "server/hc_mobs.h"
 #include "server/hc_push.h"
 #include "server/hc_vitals.h"
@@ -82,6 +83,7 @@ namespace halfcraft
 				slot_ = { map_slot(STRING(gpGlobals->mapname)), map_grid_z(STRING(gpGlobals->mapname)) };
 				world_.reset(slot_, STRING(gpGlobals->mapname));
 				solids_.reset(slot_);
+				held_blocks_.reset(slot_);
 				combat_.reset(slot_);
 				half_life_blasts_reset(slot_);
 				vitals_.reset();
@@ -122,6 +124,7 @@ namespace halfcraft
 			std::unique_ptr<CollisionStreamer> streamer_;
 			WorldCollision                     world_;
 			BlockSolids                        solids_;
+			HeldBlocks                         held_blocks_;
 			Weapons                            weapons_;
 			Combat                             combat_;
 			Mobs                               mobs_;
@@ -152,6 +155,10 @@ namespace halfcraft
 			weapons_.update(link_, player, minecraft_owns_health());
 			// minecraft's weapons work on ladders, rides and in vehicles too: only the movement is source's
 			combat_.update(link_, player, slot_, minecraft_owns_health());
+			for (const proto::McEvent& news : combat_.take_held_block_news()) {
+				held_blocks_.on_news(news);
+			}
+			held_blocks_.update();  // the gravity gun's blocks land where they come to rest
 			push_.update(player, puppeted && link_.mc_alive());
 			mobs_.update(link_, slot_);
 			vitals_.update(link_, player);

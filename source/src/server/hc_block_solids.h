@@ -4,7 +4,8 @@
 // becomes an invisible halfcraft_blocks entity: traces (npc movement, bullets, line of sight) call
 // into it, and a static physics object stops props. minecraft's own player never sees these (it has
 // the real blocks), and they are left out of the collision streamed to minecraft. a bullet that goes
-// into a block goes to minecraft too (proto::kInBulletHit), which breaks glass, panes and ice.
+// into a block goes to minecraft too (proto::kInBulletHit), which breaks glass, panes and ice, and the
+// gravity gun tears blocks out of them (hc_held_blocks.h).
 
 #include <cstdint>
 #include <map>
@@ -14,9 +15,15 @@
 #include "core/hc_units.h"
 #include "shared/hc_bridge.h"
 
+class CPhysCollide;
+
 namespace halfcraft
 {
 	inline constexpr char BLOCKS_CLASSNAME[] = "halfcraft_blocks";
+
+	/// destroys a collision model a frame from now: the server deletes physics objects at the end of the
+	/// frame, and theirs still reads it until then. nullptr: nothing.
+	void free_collide_later(CPhysCollide* collide);
 
 	class BlockSolids
 	{

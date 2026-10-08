@@ -53,6 +53,10 @@ public final class Proto {
 	public static final int IN_MAP_ENTERED = 16; // code = ENTRY_*, a = the map's slot, b/c = its west and east edge x (Rollback)
 	public static final int ENTRY_NEW_GAME = 1;
 	public static final int ENTRY_TRANSITION = 2;
+	public static final int IN_TAKE_BLOCK = 17; // code = held slot, a/b/c = the block (HeldBlocks)
+	public static final int IN_HELD_BLOCK_LANDED = 18; // code = held slot, a/b/c = the cell it came to rest in
+	public static final int IN_HELD_BLOCK_LOST = 19; // code = held slot, a/b/c = the cell it was last in
+	public static final int MAX_HELD_BLOCKS = 32;
 	public static final int IN_PUSH = 22; // a/b/c = blocks per second * 1000 (HostPush)
 	public static final int PUSH_REPEAT_MS = 200;
 	public static final int PUSH_STALE_MS = 500;
@@ -101,7 +105,11 @@ public final class Proto {
 	public static final int EV_ARROW_STUCK = 4;
 	public static final int EV_SCREENSHOT = 5; // (#6) actorId = the request number (1+)
 	public static final int EV_COLLISION_WANTED = 16; // a/b/c = where a projectile waits for the collision under it
-	// 12-13: kept for the puppet group (A), 16-17 for the world group (C)
+	public static final int EV_HELD_BLOCK = 17; // actorId = held slot, flags = HELD_*, weapon = MAT_* with HELD_TAKEN
+	public static final int HELD_TAKEN = 1, HELD_REFUSED = 2, HELD_PLACED = 3, HELD_DROPPED = 4;
+	public static final int MAT_STONE = 0, MAT_WOOD = 1, MAT_GLASS = 2, MAT_DIRT = 3, MAT_GRAVEL = 4, MAT_SAND = 5, MAT_GRASS = 6, MAT_METAL = 7,
+		MAT_WOOL = 8, MAT_SNOW = 9;
+	// 12-13: kept for the puppet group (A)
 	// 6-7: kept for #12 (the host's weapons), 8-9 for #13 (Minecraft's mobs)
 	public static final int HIT_CRITICAL = 1;
 	public static final int HIT_PROJECTILE = 1 << 1;
@@ -129,6 +137,7 @@ public final class Proto {
 	public static final int WE_BLOCK = 4;
 	public static final int WE_CRACK = 5;
 	public static final int WE_SHADOW = 6;
+	public static final int WE_HELD_BLOCK = 7; // id = held slot (HeldBlocks), uv = side/top/bottom, tint
 
 	// Render ring (relative to OFF_RENDER_RING)
 	public static final long RR_HEAD = 0x00;

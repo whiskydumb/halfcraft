@@ -259,7 +259,8 @@ namespace halfcraft
 		HalfCraftBlocksSystem g_blocks_system;
 
 		/// one section's solids changed (count 0 / bits null: none left).
-		void set_solids(std::int32_t sx, std::int32_t sy, std::int32_t sz, std::uint32_t count, const std::uint8_t* bits)
+		/// @param takeable - which of them the gravity gun may tear out, null for none
+		void set_solids(std::int32_t sx, std::int32_t sy, std::int32_t sz, std::uint32_t count, const std::uint8_t* bits, const std::uint8_t* takeable)
 		{
 			auto&                       b = blocks();
 			std::lock_guard<std::mutex> lock(b.solids_lock);
@@ -276,13 +277,18 @@ namespace halfcraft
 			} else {
 				std::memset(entry.first.bits, 0, sizeof(entry.first.bits));
 			}
+			if (bits && takeable) {
+				std::memcpy(entry.first.takeable, takeable, sizeof(entry.first.takeable));
+			} else {
+				std::memset(entry.first.takeable, 0, sizeof(entry.first.takeable));
+			}
 			entry.second = ++b.solids_version;
 		}
 
 		void clear_solids(const std::vector<SectionKey>& keys)
 		{
 			for (const auto& key : keys) {
-				set_solids(std::get<0>(key), std::get<1>(key), std::get<2>(key), 0, nullptr);
+				set_solids(std::get<0>(key), std::get<1>(key), std::get<2>(key), 0, nullptr, nullptr);
 			}
 		}
 	}
@@ -352,7 +358,9 @@ namespace halfcraft
 			proto::RenSolids header;
 			std::memcpy(&header, payload, sizeof(header));
 			const bool has_bits = header.count > 0 && sizeof(header) + 512 <= bytes;
-			set_solids(header.sx, header.sy, header.sz, has_bits ? header.count : 0, has_bits ? payload + sizeof(header) : nullptr);
+			const bool has_takeable = has_bits && sizeof(header) + 1024 <= bytes;
+			set_solids(header.sx, header.sy, header.sz, has_bits ? header.count : 0, has_bits ? payload + sizeof(header) : nullptr,
+				has_takeable ? payload + sizeof(header) + 512 : nullptr);
 			return;
 		}
 		case proto::kRenClearAll:

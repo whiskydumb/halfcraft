@@ -28,6 +28,8 @@ public final class HalfCraft implements ModInitializer {
 		ServerLifecycleEvents.SERVER_STARTED.register(HalfCraft::configureServer);
 		// Half-Life's saves roll Minecraft's world and player back too
 		ServerLifecycleEvents.SERVER_STARTED.register(dev.halfcraft.world.Rollback::load);
+		// the gravity gun's blocks go back where they were taken from, before the rollback writes its log
+		ServerLifecycleEvents.SERVER_STOPPING.register(dev.halfcraft.world.HeldBlocks::putAllBack);
 		ServerLifecycleEvents.SERVER_STOPPING.register(dev.halfcraft.world.Rollback::unload);
 		net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents.CHUNK_UNLOAD.register(dev.halfcraft.world.Rollback::chunkUnloading);
 		// a map a new game's playthrough clears loses what lies about there too, once the player is in it
