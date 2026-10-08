@@ -98,7 +98,6 @@ public final class Proto {
 	// was given divided alike, and the host scales it back up pixel for pixel. 0 (an older host): 1
 	public static final long HS_OVERLAY_DIVISOR = 0x48;
 	public static final int HS_BYTES = 0x50;
-	// HostState's 0x40-0x7F: kept for the puppet group (A), 0x80-0xBF for the world group (C).
 
 	// WaterGrid: offsets in it (in OFF_WATER_GRID)
 	// The host's water around the player, for Minecraft to treat as its own water: swimming,

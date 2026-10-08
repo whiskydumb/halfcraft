@@ -32,7 +32,6 @@ seqlock = true
 java_class = "class"
 size = 0x50
 java = "HS"
-note = "HostState's 0x40-0x7F: kept for the puppet group (A), 0x80-0xBF for the world group (C)."
 
 [structs.HostState.fields]
 seq = "u32"
