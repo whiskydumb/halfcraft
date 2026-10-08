@@ -30,6 +30,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ExperienceOrb;
+import net.minecraft.world.entity.Leashable;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
@@ -38,6 +39,7 @@ import net.minecraft.world.entity.decoration.BlockAttachedEntity;
 import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.item.PrimedTnt;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import net.minecraft.world.entity.vehicle.VehicleEntity;
 import net.minecraft.world.item.ItemStack;
@@ -368,11 +370,13 @@ public final class Rollback {
 
 	/**
 	 * What a cleared map loses besides its blocks: what lies about, what was built of entities (frames,
-	 * paintings, armour stands, empty boats and minecarts, end crystals) and mobs. Pets stay.
+	 * paintings, armour stands, empty boats and minecarts, end crystals) and mobs. Pets stay, and so does
+	 * what the player leads (it came along with the player, PetsFollow).
 	 */
 	public static boolean isLeftBehind(Entity entity) {
 		return isTransient(entity) || entity instanceof BlockAttachedEntity || entity instanceof ArmorStand || entity instanceof EndCrystal
-			|| entity instanceof VehicleEntity && !entity.isVehicle() || entity instanceof Mob && !(entity instanceof TamableAnimal pet && pet.isTame());
+			|| entity instanceof VehicleEntity && !entity.isVehicle()
+			|| entity instanceof Mob && !(entity instanceof TamableAnimal pet && pet.isTame()) && !(entity instanceof Leashable leashed && leashed.getLeashHolder() instanceof Player);
 	}
 
 	/** A new game: the player comes in healthy and fed, with everything they carry. */
