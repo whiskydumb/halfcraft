@@ -10,6 +10,7 @@
 #include <cstring>
 #include <vector>
 
+#include "halfcraft_protocol.h"
 #include "core/hc_log.h"
 #include "core/hc_module.h"
 #include "core/hc_units.h"
@@ -22,6 +23,7 @@ namespace
 {
 	constexpr int   SECTION_BLOCKS = 16;
 	constexpr float KEEP_SLOT_BLOCKS = 600.0f;  // sections further than this from the map's slot belong to another map
+	constexpr float BULLET_DEPTH = 1.0f;        // units behind the face a bullet hit: inside its block for sure
 
 	/// solid blocks merged into boxes (minecraft block coords within the section, inclusive).
 	struct BlockBox
@@ -99,6 +101,22 @@ namespace
 			}
 		}
 	}
+
+	/// a half-life bullet went into one of minecraft's blocks: proto::kInBulletHit.
+	/// @param inside - a point inside the block
+	void push_bullet_hit(const Vector& inside, halfcraft::MapSlot slot)
+	{
+		static halfcraft::PushInputFn push_input = nullptr;
+		if (!push_input) {
+			push_input = reinterpret_cast<halfcraft::PushInputFn>(halfcraft::find_export("client.dll", halfcraft::HC_PUSH_INPUT_EXPORT));
+			if (!push_input) {
+				return;
+			}
+		}
+		const halfcraft::McVec block = halfcraft::source_to_mc(inside.Base(), slot);
+		push_input(halfcraft::proto::kInBulletHit, 0, static_cast<int>(std::floor(block.x)), static_cast<int>(std::floor(block.y)),
+			static_cast<int>(std::floor(block.z)));
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -144,6 +162,19 @@ public:
 		return true;
 	}
 
+	/// a bullet into the blocks: minecraft breaks the one it went into if a bullet would (glass, panes, ice).
+	void TraceAttack(const CTakeDamageInfo& info, const Vector& dir, trace_t* trace, CDmgAccumulator* accumulator) override
+	{
+		if (trace && (info.GetDamageType() & (DMG_BULLET | DMG_BUCKSHOT))) {
+			// the blocks are whole cubes here, whatever their shape in minecraft
+			push_bullet_hit(trace->endpos - trace->plane.normal * BULLET_DEPTH, m_slot);
+		}
+		BaseClass::TraceAttack(info, dir, trace, accumulator);
+	}
+
+	/// where the map sits in minecraft, for the blocks' coordinates.
+	void SetSlot(halfcraft::MapSlot slot) { m_slot = slot; }
+
 	/// the section's blocks, as boxes in this entity's space (units).
 	void SetBoxes(const std::vector<Vector>& mins, const std::vector<Vector>& maxs, const Vector& bounds_mins, const Vector& bounds_maxs)
 	{
@@ -174,7 +205,8 @@ private:
 		}
 	}
 
-	CPhysCollide* m_pCollide = nullptr;
+	CPhysCollide*      m_pCollide = nullptr;
+	halfcraft::MapSlot m_slot;
 };
 
 LINK_ENTITY_TO_CLASS(halfcraft_blocks, CHalfCraftBlocks);
@@ -330,6 +362,7 @@ namespace halfcraft
 				return;
 			}
 			entity->SetAbsOrigin(origin);
+			entity->SetSlot(slot_);
 			DispatchSpawn(entity);
 			entities_[key] = entity;
 		}

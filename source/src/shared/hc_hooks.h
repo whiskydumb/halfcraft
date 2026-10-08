@@ -135,6 +135,10 @@ namespace halfcraft
 	/// @return true when the hit went to minecraft's health instead (source must not apply it)
 	bool server_player_damage(CBasePlayer* player, const CTakeDamageInfo& info);
 
+	/// CGameRules::RadiusDamage, before half-life's own: a blast breaks minecraft's blocks too (hc_blast.h).
+	/// @param centre, radius - source units
+	void server_radius_damage(const CTakeDamageInfo& info, const Vector& centre, float radius);
+
 	/// CBasePlayer::Weapon_Equip and BumpWeapon (a weapon picked up) and CHL2_Player::GiveAmmo (ammo
 	/// for a dry one), where source would take a weapon out by itself (hc_weapons.cpp).
 	/// @return true when minecraft's hand picks the player's weapon instead: that one stays away

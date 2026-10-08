@@ -223,7 +223,11 @@ namespace halfcraft::proto
 							 // (little-endian, a's low byte first)
 		kInHurtMob = 13,     // (#13) the host hurt a Minecraft mob: code = HurtKind, a = its Minecraft entity id,
 							 // b = host damage * 100, c = the attacker's actor id (0: none, kMobAttackerPlayer: the host's player)
-		kInPush = 22,        // the host pushes its player (a trigger_push, a conveyor, a point_push: Source's base velocity)
+		kInBlast = 14,       // a host blast (a grenade, a rocket, a barrel): code = its radius (blocks * 100), a/b/c = its centre
+							 // (Minecraft x/y/z, float bits). Minecraft breaks its blocks there the way TNT would; the host
+							 // already hurt Minecraft's player and the mobs it has stand-ins for (kInHurt, kInHurtMob)
+		kInBulletHit = 15,   // a host bullet went into a Minecraft block: a/b/c = the block's x/y/z. Glass, panes and ice break
+		kInPush = 22,       // the host pushes its player (a trigger_push, a conveyor, a point_push: Source's base velocity)
 							 // while Minecraft drives it: a/b/c = Minecraft blocks per second * 1000 along x/y/z, repeated
 							 // every kPushRepeatMs while it lasts. (0, 0, 0): it stopped, and the player keeps the last
 							 // push as momentum (as Source does); nothing for kPushStaleMs: it's over, without momentum

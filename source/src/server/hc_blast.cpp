@@ -1,19 +1,28 @@
-// server.dll: minecraft's explosions in half-life (see hc_blast.h).
+// server.dll: explosions across the two games (see hc_blast.h).
 
 #include "cbase.h"
 #include "ai_basenpc.h"
 #include "entityoutput.h"
 #include "explode.h"
 #include "player.h"
+#include "takedamageinfo.h"
 #include "world.h"
 
 #include "tier0/valve_minmax_off.h"
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
 #include <utility>
 #include <vector>
 
+#include "halfcraft_protocol.h"
 #include "core/hc_log.h"
+#include "core/hc_module.h"
 #include "server/hc_blast.h"
 #include "server/hc_mobs.h"
+#include "shared/hc_bridge.h"
+#include "shared/hc_hooks.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -26,7 +35,11 @@ namespace halfcraft
 		constexpr float QUERY_SLACK = 16.0f;  // half-life's own sphere query may reach a little further than ours
 		constexpr int   LOGGED_NAMES = 6;
 
-		bool g_running = false;  // inside minecraft_blast's own ExplosionCreate
+		bool    g_running = false;  // inside minecraft_blast's own ExplosionCreate
+		MapSlot g_slot;             // where the map sits in minecraft (half-life's blasts go off there)
+
+		// proto::kInBlast's code holds the radius in hundredths of a block
+		constexpr float MAX_SENT_RADIUS = 65535.0f / 100.0f;
 
 		enum class Spared
 		{
@@ -136,5 +149,35 @@ namespace halfcraft
 	bool minecraft_blast_running()
 	{
 		return g_running;
+	}
+
+	void half_life_blasts_reset(MapSlot slot)
+	{
+		g_slot = slot;
+	}
+
+	void server_radius_damage(const CTakeDamageInfo& info, const Vector& centre, float radius)
+	{
+		// only blasts that hurt break blocks: not a fire's or a point_hurt's radius damage, nor the echo of
+		// a minecraft explosion (minecraft broke its blocks itself)
+		if (g_running || !(info.GetDamageType() & DMG_BLAST) || info.GetDamage() <= 0.0f || radius <= 0.0f) {
+			return;
+		}
+		static PushInputFn push_input = nullptr;
+		if (!push_input) {
+			push_input = reinterpret_cast<PushInputFn>(find_export("client.dll", HC_PUSH_INPUT_EXPORT));
+			if (!push_input) {
+				return;
+			}
+		}
+		const McVec  mc = source_to_mc(centre.Base(), g_slot);
+		const float  mc_at[3] = { static_cast<float>(mc.x), static_cast<float>(mc.y), static_cast<float>(mc.z) };
+		std::int32_t bits[3];
+		std::memcpy(bits, mc_at, sizeof(bits));
+		const float blocks = std::min(radius / static_cast<float>(UNITS_PER_BLOCK), MAX_SENT_RADIUS);
+		push_input(proto::kInBlast, static_cast<int>(std::lround(blocks * 100.0f)), bits[0], bits[1], bits[2]);
+		CBaseEntity* inflictor = info.GetInflictor();
+		log_info("half-life's blast at (%.0f %.0f %.0f), radius %.0f, damage %.0f, from %s: minecraft breaks its blocks there", centre.x, centre.y, centre.z,
+			radius, info.GetDamage(), inflictor ? inflictor->GetClassname() : "nothing");
 	}
 }

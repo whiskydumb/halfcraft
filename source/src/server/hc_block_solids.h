@@ -3,7 +3,8 @@
 // server.dll: minecraft's blocks as half-life collision. every 16x16x16 section with solid blocks
 // becomes an invisible halfcraft_blocks entity: traces (npc movement, bullets, line of sight) call
 // into it, and a static physics object stops props. minecraft's own player never sees these (it has
-// the real blocks), and they are left out of the collision streamed to minecraft.
+// the real blocks), and they are left out of the collision streamed to minecraft. a bullet that goes
+// into a block goes to minecraft too (proto::kInBulletHit), which breaks glass, panes and ice.
 
 #include <cstdint>
 #include <map>

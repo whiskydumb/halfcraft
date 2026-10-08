@@ -8,6 +8,7 @@ import dev.halfcraft.link.HostLink;
 import dev.halfcraft.link.Proto;
 import dev.halfcraft.mobs.HostNav;
 import dev.halfcraft.world.BlastRays;
+import dev.halfcraft.world.HostBlockDamage;
 import dev.halfcraft.world.HostCollision;
 import dev.halfcraft.world.HostTri;
 import java.util.ArrayList;
@@ -116,7 +117,8 @@ public abstract class ServerExplosionMixin {
 	@Inject(method = "explode", at = @At("RETURN"))
 	private void halfcraft$tellHost(CallbackInfoReturnable<Integer> cir) {
 		ServerExplosion self = (ServerExplosion) (Object) this;
-		if (!HostLink.active() || HostBlasts.isWindBurst(self) || !HostNav.inMirror(self.level())) {
+		// one of Half-Life's own blasts, here only to break Minecraft's blocks (HostBlockDamage)
+		if (!HostLink.active() || HostBlasts.isWindBurst(self) || HostBlockDamage.blasting() || !HostNav.inMirror(self.level())) {
 			return;
 		}
 		var center = self.center();

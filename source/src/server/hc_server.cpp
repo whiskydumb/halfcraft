@@ -15,6 +15,7 @@
 #include "core/hc_link.h"
 #include "core/hc_log.h"
 #include "core/hc_module.h"
+#include "server/hc_blast.h"
 #include "server/hc_block_solids.h"
 #include "server/hc_checkpoints.h"
 #include "server/hc_combat.h"
@@ -82,6 +83,7 @@ namespace halfcraft
 				world_.reset(slot_, STRING(gpGlobals->mapname));
 				solids_.reset(slot_);
 				combat_.reset(slot_);
+				half_life_blasts_reset(slot_);
 				vitals_.reset();
 				checkpoints_.on_level_loaded();
 				g_last_puppet_move = -1.0f;  // the clock starts over with the map

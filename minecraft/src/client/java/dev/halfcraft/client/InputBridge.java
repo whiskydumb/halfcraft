@@ -6,11 +6,13 @@ import dev.halfcraft.link.Proto;
 import dev.halfcraft.link.HostLink;
 import dev.halfcraft.link.HostPush;
 import dev.halfcraft.link.HostStrings;
+import dev.halfcraft.world.HostBlockDamage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonInfo;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 import org.lwjgl.sdl.SDLKeyboard;
 
@@ -74,6 +76,9 @@ public final class InputBridge {
 			case Proto.IN_HURT -> hurt(minecraft, code, a / 100.0F, b, c);
 			case Proto.IN_HEAL -> heal(minecraft, code, a / 100.0F);
 			case Proto.IN_HURT_MOB -> dev.halfcraft.mobs.HostMobs.hurtFromHost(minecraft.getSingleplayerServer(), code, a, b / 100.0F, c);
+			case Proto.IN_BLAST -> HostBlockDamage.blast(minecraft.getSingleplayerServer(), HostHurts.coordinate(a), HostHurts.coordinate(b),
+				HostHurts.coordinate(c), code / 100.0F);
+			case Proto.IN_BULLET_HIT -> HostBlockDamage.bulletHit(minecraft.getSingleplayerServer(), new BlockPos(a, b, c));
 			case Proto.IN_CHECKPOINT -> rollback(minecraft, checkpointId(a, b), false);
 			case Proto.IN_RESTORE -> rollback(minecraft, checkpointId(a, b), true);
 			case Proto.IN_STRING -> HostStrings.accept(code, a, b, c);

@@ -22,6 +22,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.EntityTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.entity.monster.Enemy;
@@ -80,6 +81,12 @@ public final class HostMobs {
 			collect(players.getFirst());
 		}
 		writeTable(NEARBY);
+	}
+
+	/** Whether Half-Life has a stand-in for this mob (it's in the mob table), through which Half-Life's hits reach it. Server thread. */
+	public static boolean standsIn(Entity entity) {
+		int index = entity instanceof Mob mob ? NEARBY.indexOf(mob) : -1;
+		return index >= 0 && index < MAX_MOBS;
 	}
 
 	/** What Half-Life's characters see a mob as (MOB_* flags); 0: nothing they care about. */

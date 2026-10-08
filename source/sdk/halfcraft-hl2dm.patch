@@ -522,6 +522,28 @@ index 8c9b7d9a..262b7988 100644
  	virtual void	CheckParameters( void );
  
  	virtual	void	ReduceTimers( void );
+diff --git a/src/game/shared/gamerules.cpp b/src/game/shared/gamerules.cpp
+index 069dc162..a7cf5161 100644
+--- a/src/game/shared/gamerules.cpp
++++ b/src/game/shared/gamerules.cpp
+@@ -11,6 +11,7 @@
+ #include "KeyValues.h"
+ #include "iachievementmgr.h"
+ #include "gamestringpool.h"
++#include "shared/hc_hooks.h"
+ 
+ #ifdef CLIENT_DLL
+ 
+@@ -322,6 +323,9 @@ bool IsExplosionTraceBlocked( trace_t *ptr )
+ #define ROBUST_RADIUS_PROBE_DIST 16.0f // If a solid surface blocks the explosion, this is how far to creep along the surface looking for another way to the target
+ void CGameRules::RadiusDamage( const CTakeDamageInfo &info, const Vector &vecSrcIn, float flRadius, int iClassIgnore, CBaseEntity *pEntityIgnore )
+ {
++	// halfcraft: half-life's blasts break minecraft's blocks too
++	halfcraft::server_radius_damage( info, vecSrcIn, flRadius );
++
+ 	const int MASK_RADIUS_DAMAGE = MASK_SHOT&(~CONTENTS_HITBOX);
+ 	CBaseEntity *pEntity = NULL;
+ 	trace_t		tr;
 diff --git a/src/game/shared/hl2/hl2_gamerules.cpp b/src/game/shared/hl2/hl2_gamerules.cpp
 index f301bbf3..7c4d784e 100644
 --- a/src/game/shared/hl2/hl2_gamerules.cpp
