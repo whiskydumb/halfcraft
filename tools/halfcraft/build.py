@@ -178,8 +178,7 @@ def build(engines: list[Engine], *, projects: bool = True, launcher: bool = True
 
     # the dev game folders: laid out like a release's, plus the symbols
     for engine in engines:
-        game = REPO / f"build/game-{engine.name}"
-        game_folder.copy_game_folder(engine, game, symbols=True)
-        print(f"built {engine.name} with {chain.toolset}; game folder: {game}")
+        game_folder.copy_game_folder(engine, engine.game, symbols=True)
+        print(f"built {engine.name} with {chain.toolset}; game folder: {engine.game}")
     if launcher:
         print(f"launcher: {build_launcher(chain.vs)}")

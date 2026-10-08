@@ -31,12 +31,6 @@ MAP ?=
 ARGS ?=
 C ?=
 
-# ARGS as a powershell list: +sv_cheats 1 -> '+sv_cheats','1'
-comma := ,
-empty :=
-space := $(empty) $(empty)
-ARGS_LIST := $(subst $(space),$(comma),$(foreach a,$(ARGS),'$(a)'))
-
 help:
 	@Get-Content Makefile | Select-Object -First 20 | ForEach-Object { $$_ -replace '^# ?', '' }
 
@@ -50,22 +44,22 @@ mc:
 	python tools/gradle.py build
 
 mc-run:
-	& ./tools/test_session.ps1 dev-client
+	python tools/test_session.py dev-client
 
 mc-test:
-	& ./tools/test_session.ps1 minecraft
+	python tools/test_session.py minecraft
 
 run:
-	& ./tools/run_hl2.ps1 -Engine $(RUN_ENGINE) $(if $(MAP),-Map $(MAP)) $(if $(ARGS),-Extra $(ARGS_LIST))
+	python tools/run_hl2.py --engine $(RUN_ENGINE) $(if $(MAP),--map $(MAP)) $(if $(ARGS),-- $(ARGS))
 
 cmd:
-	& ./tools/hl2_command.ps1 $(C)
+	python tools/hl2_command.py -- $(C)
 
 test-start:
-	& ./tools/test_session.ps1 start -Engine $(ENGINE)
+	python tools/test_session.py start --engine $(ENGINE)
 
 test-stop:
-	& ./tools/test_session.ps1 stop -Engine $(ENGINE)
+	python tools/test_session.py stop --engine $(ENGINE)
 
 patches:
 	python tools/update_patches.py --engine $(ENGINE)

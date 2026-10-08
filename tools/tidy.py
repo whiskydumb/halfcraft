@@ -48,7 +48,7 @@ PROJECTS = [
     Project("hl2", REPO / "source-sdk-2013-sp/sp/src/game/client/client_episodic.vcxproj", "Release|Win32", "i686-pc-windows-msvc"),
     Project("hl2", REPO / "source-sdk-2013-sp/sp/src/game/server/server_episodic.vcxproj", "Release|Win32", "i686-pc-windows-msvc"),
 ]
-# built by plain cl lines (tools/halfcraft/build.py, tools/collision_check.ps1), 64-bit
+# built by plain cl lines (tools/halfcraft/build.py, tools/collision_check.py), 64-bit
 PLAIN = {
     "source/launcher/": ["-DUNICODE", "-D_UNICODE", f"-I{REPO / 'source/src'}", f"-I{REPO / 'protocol'}"],
     "tools/": [f"-I{REPO / 'source/src'}"],

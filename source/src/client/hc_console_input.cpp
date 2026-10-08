@@ -1,6 +1,6 @@
 // client.dll: console commands that drive minecraft. hc_key and hc_hold press its keys and mouse
 // buttons the way hc_input's hooks do, and hc_use holds source's own use (G); they're for test
-// scripts (tools/hl2_command.ps1), since typed into the console they're let go again as it closes
+// scripts (tools/hl2_command.py), since typed into the console they're let go again as it closes
 // (an open console hands input back to source, and minecraft lets go of everything). hc_mc runs a
 // minecraft command as the player (string channel kStrCommand; minecraft's HostCommand logs what it
 // answers), from scripts and players alike.
