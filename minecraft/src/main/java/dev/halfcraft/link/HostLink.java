@@ -194,9 +194,10 @@ public final class HostLink {
 			}
 			MemorySegment seg = view.reinterpret(MAPPING_BYTES);
 			int magic = seg.get(JAVA_INT, OFF_HEADER + H_MAGIC);
-			int version = seg.get(JAVA_INT, OFF_HEADER + H_VERSION);
-			if (magic != MAGIC || version != VERSION) {
-				HalfCraft.LOG.error("HalfCraft: protocol mismatch (magic {} version {}); expected version {}", Integer.toHexString(magic), version, VERSION);
+			int layout = seg.get(JAVA_INT, OFF_HEADER + H_LAYOUT);
+			if (magic != MAGIC || layout != LAYOUT) {
+				HalfCraft.LOG.error("HalfCraft: Half-Life's shared memory has another layout ({}, magic {}) than this mod's ({}): build both from the same commit",
+					Integer.toHexString(layout), Integer.toHexString(magic), Integer.toHexString(LAYOUT));
 				return;
 			}
 			seg.set(JAVA_INT, OFF_HEADER + H_MC_PID, (int) GET_CURRENT_PROCESS_ID.invokeExact());

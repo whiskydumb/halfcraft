@@ -1,0 +1,148 @@
+title = "render ring"
+doc = """
+MC produces, the host consumes. Byte ring like the collision ring. Minecraft ships its own block meshes
+(built by Minecraft's block renderer: models, tint, AO, lighting) and its block atlas; the host draws them
+in its own frame so blocks stay locked to the world and are hidden by the host's geometry."""
+
+[regions.RenderRing]
+after = "OverlayPixels"
+bytes = "64 << 20"
+doc = "MC -> host, a byte ring"
+
+[constants]
+kRenRingHeadOff = { type = "u64", value = 0x00, java = "RR_HEAD" }
+kRenRingTailOff = { type = "u64", value = 0x40, java = "RR_TAIL" }
+kRenRingDataOff = { type = "u64", value = 0x80, java = "RR_DATA" }
+kRenRingDataBytes = { type = "u64", value = "kRenderRingBytes - kRenRingDataOff", java = "RR_DATA_BYTES" }
+
+[enums.RenType]
+type = "u32"
+
+[enums.RenType.items]
+kRenPad = 0
+kRenAtlas = { value = 1, doc = "RenAtlas + RGBA8 pixels (w * h * 4), top row first" }
+kRenSection = { value = 2, doc = "RenSection + RenVertex[vertexCount] (triangle list); 0 vertices = remove" }
+kRenClearAll = { value = 3, doc = "drop every section (world change)" }
+kRenTexture = { value = 4, doc = "RenTexture + RGBA8 pixels: an entity texture (player skin, armour, ...)" }
+kRenAvatar = { value = 5, doc = """
+RenAvatar + RenBatch[batchCount] + RenVertex[vertexCount]: the player's
+model this frame; 0 batches = not shown (first person)""" }
+kRenScene = { value = 6, doc = """
+RenScene + RenBatch[batchCount] + RenVertex[vertexCount]: every other
+entity and all particles this frame, relative to RenScene's origin""" }
+kRenAtlasRegion = { value = 7, doc = "RenAtlasRegion + RGBA8 pixels: an animated sprite's current frame" }
+kRenLights = { value = 8, doc = """
+RenLights + RenLight[count]: a section's light-emitting blocks (sent
+after its kRenSection; 0 = none)""" }
+kRenRagdoll = { value = 9, doc = """
+RenAvatar + RenBatch[] + RenVertex[]: the player's body standing still,
+relative to the feet and facing +Z, split into its parts (RenBatch
+flags bits 8-11: RagdollPart). Sent about once a second while alive,
+for a host that hangs the parts on a ragdoll when the player dies.""" }
+kRenSolids = { value = 10, doc = """
+RenSolids + two 512-byte bitsets (bit x + 16z + 256y): which blocks of a
+section the host's characters collide with, then which of those the host's gravity gun
+may tear out (kInTakeBlock: whole cubes without a block entity, softer than obsidian).
+Sent after its kRenSection; count 0: none, and no bitsets follow""" }
+
+[enums.RagdollPart]
+type = "u32"
+
+[enums.RagdollPart.items]
+kPartNone = 0
+kPartHead = 1
+kPartBody = 2
+kPartRightArm = 3
+kPartLeftArm = 4
+kPartRightLeg = 5
+kPartLeftLeg = 6
+kPartCount = 7
+
+[enums.LightKind]
+type = "u8"
+
+[enums.LightKind.items]
+kLightSteady = 0
+kLightFlame = { value = 1, doc = "torches, fire, campfires, candles: flicker" }
+kLightLava = { value = 2, doc = "lava, magma: a slow glow" }
+
+[enums.BlockHazard]
+type = "u8"
+
+[enums.BlockHazard.items]
+kHazardNone = 0
+kHazardFire = { value = 1, doc = "fire, soul fire, campfires: burns what stands in it" }
+kHazardLava = { value = 2, doc = "lava: burns hard" }
+kHazardMagma = { value = 3, doc = "magma block: hurts what stands on top of it" }
+
+[structs.RenSolids]
+[structs.RenSolids.fields]
+"sx, sy, sz" = { type = "i32", doc = "section coords, as in RenSection" }
+count = { type = "u32", doc = "solid blocks (0: none, and no bitset follows)" }
+
+[structs.RenLights]
+[structs.RenLights.fields]
+"sx, sy, sz" = { type = "i32", doc = "section coords, as in RenSection" }
+count = "u32"
+
+[structs.RenLight]
+size = 8
+
+[structs.RenLight.fields]
+"x, y, z" = { type = "u8", doc = "block within the section" }
+level = { type = "u8", doc = "Minecraft light emission, 1-15" }
+color = { type = "u32", doc = "RGB8 (r low byte); top byte: LightKind in bits 0-3, BlockHazard in 4-7" }
+
+[structs.RenAtlasRegion]
+[structs.RenAtlasRegion.fields]
+"x, y, width, height" = { type = "u32", doc = "pixels in the combined atlas (kRenAtlas)" }
+
+[structs.RenScene]
+[structs.RenScene.fields]
+"originX, originY, originZ" = { type = "f64", doc = "MC block the positions are relative to" }
+batchCount = "u32"
+vertexCount = "u32"
+
+[structs.RenTexture]
+[structs.RenTexture.fields]
+id = { type = "u32", doc = "1+, referenced by RenBatch::texture" }
+"width, height" = "u32"
+pad = "u32"
+
+[structs.RenAvatar]
+doc = """
+The player as Minecraft's own entity renderer draws it (skin, armour, held items, cape),
+posed and animated, with positions in blocks relative to the player's feet: the host puts
+it at its own interpolated feet position, the one its camera follows."""
+
+[structs.RenAvatar.fields]
+batchCount = "u32"
+vertexCount = "u32"
+
+[structs.RenBatch]
+[structs.RenBatch.fields]
+texture = { type = "u32", doc = "0: the block/item atlas, else a RenTexture id" }
+first = { type = "u32", doc = "first vertex" }
+count = { type = "u32", doc = "vertices (multiple of 3)" }
+flags = { type = "u32", doc = "bit0: translucent (blended, after the solid pass)" }
+
+[structs.RenAtlas]
+[structs.RenAtlas.fields]
+"width, height" = "u32"
+
+[structs.RenSection]
+[structs.RenSection.fields]
+"sx, sy, sz" = { type = "i32", doc = "section coords (16-block cubes)" }
+vertexCount = { type = "u32", doc = "multiple of 3" }
+
+[structs.RenVertex]
+size = 32
+
+[structs.RenVertex.fields]
+"x, y, z" = { type = "f32", doc = "MC coords relative to the section origin (sx*16, sy*16, sz*16)" }
+"u, v" = { type = "f32", doc = "atlas UV" }
+color = { type = "u32", doc = "RGBA8 (tint * ambient occlusion; Minecraft's fixed face shading is left out)" }
+light = { type = "u32", doc = "low byte: block light 0-15, next byte: sky light 0-15" }
+flags = { type = "u32", doc = """
+bit0: cutout (alpha test), bit1: translucent,
+bits 4-6: face normal as MC Direction ordinal + 1 (0 = none: lit without a normal)""" }

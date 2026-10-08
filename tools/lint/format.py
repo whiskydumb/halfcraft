@@ -1,7 +1,7 @@
 """formats halfcraft's own code, or checks that it is: make format, make lint.
 
-    c++      clang-format (.clang-format says how): source\\src, source\\launcher, protocol and tools\\debug\\*.cpp,
-             tracked or new; never the sdk trees
+    c++      clang-format (.clang-format says how): source\\src, source\\launcher and tools\\debug\\*.cpp, tracked
+             or new; never the sdk trees, nor protocol\\halfcraft_protocol.h (tools\\build\\protocol.py writes it)
     python   ruff (pyproject.toml says how, and which version): its formatter and its linter over tools\\ and
              .github\\scripts; make format also applies the fixes ruff calls safe
 
@@ -25,7 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools\, where the halfcraft package is
 from halfcraft import REPO, ToolError, commands, llvm
 
-PATTERNS = ("source/src/*.cpp", "source/src/*.h", "source/launcher/*.cpp", "source/launcher/*.h", "protocol/*.h", "tools/debug/*.cpp")
+PATTERNS = ("source/src/*.cpp", "source/src/*.h", "source/launcher/*.cpp", "source/launcher/*.h", "tools/debug/*.cpp")
 PYTHON = ("tools", ".github/scripts")
 SECONDS = 300
 # --dry-run warns once for every line that would change

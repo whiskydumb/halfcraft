@@ -1,0 +1,72 @@
+title = "collision ring"
+doc = """
+The host produces, MC consumes. Byte ring. Every message starts 8-byte aligned with {u32 type, u32 payloadBytes}.
+A kColPad message means "skip to the start of the ring"."""
+
+[regions.CollisionRing]
+at = 0x40000
+bytes = "32 << 20"
+doc = "host -> MC, a byte ring"
+
+[constants]
+kColRingHeadOff = { type = "u64", value = 0x00, doc = "u64 total bytes written", java = "CR_HEAD" }
+kColRingTailOff = { type = "u64", value = 0x40, doc = "u64 total bytes consumed", java = "CR_TAIL" }
+kColRingDataOff = { type = "u64", value = 0x80, java = "CR_DATA" }
+kColRingDataBytes = { type = "u64", value = "kCollisionRingBytes - kColRingDataOff", java = "CR_DATA_BYTES" }
+
+[enums.ColType]
+type = "u32"
+
+[enums.ColType.items]
+kColPad = 0
+kColClear = { value = 1, doc = "payload: u32 epoch" }
+kColRegion = { value = 2, doc = "payload: ColRegion + ColBlock[count]" }
+kColTris = { value = 3, doc = "payload: ColRegion (count = triangles) + ColTri[count]; sent before kColRegion" }
+
+[enums.ColTriFlags]
+type = "u32"
+
+[enums.ColTriFlags.items]
+kTriStairHelper = { bit = 0, doc = "an invisible stair ramp: walkable, never a wall" }
+kTriSky = { bit = 1, doc = "a brush of the map's sky (its skybox ceiling): what's under it is out in the open" }
+
+[enums.ColBlockFlags]
+type = "u32"
+
+[enums.ColBlockFlags.items]
+kColBlockSky = { bit = 0, doc = "all of it is the map's sky (kTriSky): no roof over what's under it" }
+
+[structs.ColTri]
+size = 40
+doc = "Exact host collision triangle (MC space) for the player's smooth collider."
+
+[structs.ColTri.fields]
+v = "f32[9]"
+flags = { type = "u32", doc = "ColTriFlags" }
+
+[structs.ColMsgHeader]
+[structs.ColMsgHeader.fields]
+type = { type = "u32", doc = "ColType" }
+payloadBytes = "u32"
+
+[structs.ColRegion]
+size = 32
+doc = "Replaces all host collision inside the inclusive block box [min, max]."
+java_size = "COL_REGION_HEADER_BYTES"
+
+[structs.ColRegion.fields]
+"minX, minY, minZ" = "i32"
+"maxX, maxY, maxZ" = "i32"
+epoch = "u32"
+count = "u32"
+
+[structs.ColBlock]
+size = 80
+doc = """
+One block's worth of host collision as an 8x8x8 occupancy mask.
+bits[y] bit (z * 8 + x) is sub-voxel (x, y, z), each 1/8 block, in MC axes."""
+
+[structs.ColBlock.fields]
+"x, y, z" = "i32"
+flags = { type = "u32", doc = "ColBlockFlags" }
+bits = "u64[8]"

@@ -11,8 +11,10 @@
 #   make cmd C="'save a' 'load a'" console commands into the running game
 #   make test-start [ENGINE=hl2]   set the game's saves and settings aside for tests; make test-stop: back
 #   make patches                   write sdk edits back into source\sdk\halfcraft-<engine>.patch
+#   make proto                     protocol\halfcraft_protocol.h and minecraft's Proto.java from protocol\schema
 #   make package                   dist\HalfCraft-<version>.zip (NOBUILD=1 packs what's built)
 #   make format                    clang-format the c++, ruff the python, eclipse's formatter the java; make lint: check
+#                                  (and that the protocol files are what the schema gives)
 #   make tidy                      clang-tidy over halfcraft's c++, both engines (after make build)
 #
 # ENGINE: hl2 (half-life 2's own 32-bit engine), hl2dm (half-life 2: deathmatch's 64-bit one) or all
@@ -22,7 +24,7 @@
 SHELL := powershell.exe
 .SHELLFLAGS := -NoProfile -Command
 .DEFAULT_GOAL := help
-.PHONY: help setup build mc mc-run mc-test run cmd test-start test-stop patches package format lint tidy clean
+.PHONY: help setup build mc mc-run mc-test run cmd test-start test-stop patches proto package format lint tidy clean
 
 ENGINE ?= all
 RUN_ENGINE := $(if $(filter all,$(ENGINE)),hl2dm,$(ENGINE))
@@ -31,7 +33,7 @@ ARGS ?=
 C ?=
 
 help:
-	@Get-Content Makefile | Select-Object -First 20 | ForEach-Object { $$_ -replace '^# ?', '' }
+	@Get-Content Makefile | Select-Object -First 22 | ForEach-Object { $$_ -replace '^# ?', '' }
 
 setup:
 	python tools/build/setup_sdk.py --engine $(ENGINE)
@@ -63,6 +65,9 @@ test-stop:
 patches:
 	python tools/build/update_patches.py --engine $(ENGINE)
 
+proto:
+	python tools/build/protocol.py
+
 package:
 	python tools/build/package.py $(if $(NOBUILD),--no-build)
 
@@ -71,6 +76,7 @@ format:
 	python tools/build/gradle.py spotlessApply
 
 lint:
+	python tools/build/protocol.py --check
 	python tools/lint/format.py --check
 	python tools/build/gradle.py spotlessCheck
 

@@ -1,0 +1,45 @@
+title = "actor table"
+doc = """
+Nearby host characters (and breakable things), mirrored in Minecraft as invisible hittable
+stand-in entities."""
+
+[regions.ActorTable]
+at = 0x12000
+type = "ActorTable"
+doc = "host -> MC, seqlock"
+
+[constants]
+kMaxActors = { type = "u32", value = 256 }
+
+[enums.ActorFlags]
+type = "u32"
+
+[enums.ActorFlags.items]
+kActorHostile = { bit = 0, doc = "hostile to the player right now" }
+kActorDead = { bit = 1 }
+kActorEssential = { bit = 2 }
+kActorInCombat = { bit = 3 }
+
+[structs.ActorRecord]
+size = 64
+
+[structs.ActorRecord.fields]
+id = { type = "u32", doc = "the host's handle for it, stable while it exists" }
+flags = { type = "u32", doc = "ActorFlags" }
+"x, y, z" = { type = "f32", doc = "feet, MC coords" }
+yaw = { type = "f32", doc = "MC degrees" }
+width = { type = "f32", doc = "blocks" }
+height = { type = "f32", doc = "blocks" }
+healthFrac = { type = "f32", doc = "0..1" }
+level = "u16"
+pad = "u16"
+name = { type = "char[24]", doc = "display name, UTF-8, NUL-terminated (truncated)" }
+
+[structs.ActorTable]
+java = "AT"
+
+[structs.ActorTable.fields]
+seq = "u32"
+count = "u32"
+pad = "u8[0x40 - 8]"
+actors = { type = "ActorRecord[kMaxActors]", java = "AT_RECORDS" }

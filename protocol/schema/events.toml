@@ -1,0 +1,101 @@
+title = "event ring"
+doc = "MC produces, the host consumes: McEvent[kEventRingEntries] after the two indices."
+
+[regions.EventRing]
+at = 0x17000
+bytes = "kEventRingDataOff + sizeof(McEvent) * kEventRingEntries"
+doc = "MC -> host, see McEvent"
+
+[constants]
+kEventRingEntries = { type = "u32", value = 512, doc = "power of two" }
+kEventRingHeadOff = { type = "u64", value = 0x00, doc = "u64, written by MC", java = "ER_HEAD" }
+kEventRingTailOff = { type = "u64", value = 0x40, doc = "u64, written by the host", java = "ER_TAIL" }
+kEventRingDataOff = { type = "u64", value = 0x80, java = "ER_DATA" }
+
+[enums.McEventType]
+type = "u32"
+note = "6-7: kept for #12 (the host's weapons), 8-9 for #13 (Minecraft's mobs), 12-13 for the puppet group (A)"
+
+[enums.McEventType.items]
+kEvHitActor = { value = 1, doc = "actorId, a = MC damage (after MC's own modifiers), b/c = knockback dir x/z (MC), d = knockback strength" }
+kEvPlayerDied = { value = 2, doc = "the Minecraft player died: kill the host's player" }
+kEvExplosion = { value = 3, doc = """
+a Minecraft explosion (TNT, creeper, ...): a/b/c = centre (MC coords), d = radius (blocks),
+attackerId = the Minecraft entity id of the mob that set it off (a creeper); 0: nobody (TNT)""" }
+kEvArrowStuck = { value = 4, doc = """
+an arrow stuck in a host actor: actorId, a/b/c = where it hit (MC coords), d = flight yaw,
+flags = flight pitch (float bits), weapon = arrow texture (0 plain, 1 tipped, 2 spectral)""" }
+kEvScreenshot = { value = 5, doc = """
+(#6) Minecraft's screenshot key: actorId = Minecraft's request number (1+); the host saves its
+own finished frame (its world, its hud and Minecraft's overlay) and answers on kStrScreenshot""" }
+kEvCollisionWanted = { value = 16, doc = """
+a projectile waits at a/b/c (MC coords), under the space described around the player:
+the host streams its collision below there too""" }
+kEvHeldBlock = { value = 17, doc = """
+news of a held slot (kInTakeBlock): actorId = the slot, flags = HeldBlockNews,
+weapon = HeldMaterial with kHeldTaken""" }
+kEvCollisionLost = { value = 18, doc = """
+Minecraft dropped collision messages it couldn't read (the ring lost its place): the
+host streams its collision afresh""" }
+
+[enums.HeldBlockNews]
+type = "u32"
+doc = "What Minecraft did with a held slot (kEvHeldBlock)."
+
+[enums.HeldBlockNews.items]
+kHeldTaken = { value = 1, doc = "the block left Minecraft's world: the host's physics body is it now" }
+kHeldRefused = { value = 2, doc = "Minecraft kept the block (it changed since, or may not be taken): the host drops the body" }
+kHeldPlaced = { value = 3, doc = "the block is back in Minecraft's world where the body came to rest (kInHeldBlockLanded)" }
+kHeldDropped = { value = 4, doc = "no room there (or the body went without coming to rest): the block lies there as an item" }
+
+[enums.HeldMaterial]
+type = "u32"
+doc = "What a held block is made of, for the host's physics: it sounds, slides and weighs like that."
+
+[enums.HeldMaterial.items]
+kMatStone = 0
+kMatWood = 1
+kMatGlass = 2
+kMatDirt = 3
+kMatGravel = 4
+kMatSand = 5
+kMatGrass = { value = 6, doc = "grass blocks, leaves, moss" }
+kMatMetal = 7
+kMatWool = 8
+kMatSnow = 9
+
+[enums.HitFlags]
+type = "u32"
+
+[enums.HitFlags.items]
+kHitCritical = { bit = 0 }
+kHitProjectile = { bit = 1 }
+kHitSweep = { bit = 2 }
+kHitFire = { bit = 3 }
+
+[enums.HitWeapon]
+type = "u32"
+doc = "What landed a kEvHitActor (the host picks the damage type and impact effects by it)."
+
+[enums.HitWeapon.items]
+kWeaponUnarmed = 0
+kWeaponBlade = { value = 1, doc = "swords" }
+kWeaponAxe = 2
+kWeaponBlunt = { value = 3, doc = "maces, pickaxes, shovels, hoes, anything else held" }
+kWeaponPierce = { value = 4, doc = "tridents, spears" }
+kWeaponArrow = { value = 5, doc = "arrows and other projectiles" }
+
+[structs.McEvent]
+size = 48
+java_size = "EVENT_BYTES"
+
+[structs.McEvent.fields]
+type = { type = "u32", doc = "McEventType" }
+actorId = "u32"
+"a, b, c, d" = "f32"
+flags = "u32"
+weapon = { type = "u32", doc = "HitWeapon for kEvHitActor" }
+attackerId = { type = "u32", doc = """
+(#13) kEvHitActor: the Minecraft entity id of the mob that landed it; 0: the player.
+kEvExplosion: the mob that set it off""" }
+reserved = "u32[3]"

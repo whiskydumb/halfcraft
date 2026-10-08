@@ -1,0 +1,49 @@
+title = "overlay triple buffer"
+doc = """
+state: bits 0-1 = index of the "middle" slot, bit 2 = middle holds an unread frame.
+Writer (MC) renders into its private back slot, then xchg(state, back | kOverlayDirty) and keeps
+the returned index as its new back slot. Reader (the host) does xchg(state, front) only when
+the dirty bit is set and keeps the returned index as its new front slot."""
+
+[regions.OverlayCtl]
+at = 0x300
+type = "OverlayCtl"
+
+[regions.OverlaySlotHdr]
+at = 0x340
+type = "OverlaySlotHdr"
+count = "kOverlaySlots"
+doc = "one per slot"
+
+[regions.OverlayPixels]
+after = "CollisionRing"
+bytes = "kOverlaySlotBytes * kOverlaySlots"
+doc = "MC -> host: the slots' RGBA8 pixels"
+
+[constants]
+kMaxOverlayW = { type = "u32", value = 3840 }
+kMaxOverlayH = { type = "u32", value = 2160 }
+kOverlaySlotBytes = { type = "u64", value = "kMaxOverlayW * kMaxOverlayH * 4" }
+kOverlaySlots = { type = "u32", value = 3 }
+kOverlayDirty = { type = "u32", bit = 2 }
+
+[structs.OverlayCtl]
+java = "OC"
+
+[structs.OverlayCtl.fields]
+state = "u32"
+pad = "u32"
+framesPublished = "u64"
+
+[structs.OverlaySlotHdr]
+size = 0x40
+java = "SH"
+java_size = "SLOT_HDR_SIZE"
+
+[structs.OverlaySlotHdr.fields]
+width = "u32"
+height = "u32"
+flags = { type = "u32", doc = "bit0: rows are bottom-up" }
+pad = "u32"
+frameId = "u64"
+reserved = "u8[0x40 - 0x18]"

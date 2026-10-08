@@ -197,7 +197,7 @@ namespace halfcraft
 		std::memset(base_ + proto::kOffWaterProbes + proto::kWaterProbesAnswerOff, 0, sizeof(proto::WaterProbes));
 		skip_pending(proto::kOffRenderRing + proto::kRenRingHeadOff, proto::kOffRenderRing + proto::kRenRingTailOff);
 		skip_pending(proto::kOffEventRing + proto::kEventRingHeadOff, proto::kOffEventRing + proto::kEventRingTailOff);
-		header->version = proto::kVersion;
+		header->layout = proto::kLayout;
 		header->hostPid = ::GetCurrentProcessId();
 		header->hostHeartbeatMs = ::GetTickCount64();
 		// the performance counter only grows, so no two runs on this machine share a session

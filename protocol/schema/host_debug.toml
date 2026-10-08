@@ -1,0 +1,74 @@
+title = "host debug"
+doc = """
+(#7) what Minecraft's debug screen (F3) shows about the host, a few times a second. Two
+seqlocked parts, one per writer: client.dll's HostDebug at the region's start and server.dll's
+HostDebugServer at kHostDebugServerOff (what's under the crosshair: npc health isn't networked
+to the client). Strings are UTF-8, NUL-terminated (truncated)."""
+
+[regions.HostDebug]
+at = 0x22000
+bytes = 0x1000
+type = "HostDebug"
+holds = [{ type = "HostDebugServer", at = "kHostDebugServerOff" }]
+doc = "host -> MC, seqlock"
+
+[constants]
+kHostDebugServerOff = { type = "u64", value = 0x800, doc = "from kOffHostDebug", java = "HD_SERVER" }
+kHostDebugTextBytes = { type = "u32", value = 48, doc = "HostDebugServer's strings", java = "HDS_TEXT_BYTES" }
+kRingOutOfStep = { type = "u64", value = "~0", doc = "HostDebug's four pendings while that ring's two indices disagree" }
+
+[enums.HostDebugFlags]
+type = "u32"
+
+[enums.HostDebugFlags.items]
+kDebugPuppet = { bit = 0, doc = "Minecraft drives the host's player", java = "HD_PUPPET" }
+kDebugMinecraftInput = { bit = 1, doc = "keys and mouse go to Minecraft", java = "HD_MINECRAFT_INPUT" }
+kDebugMinecraftHud = { bit = 2, doc = "Minecraft's overlay is shown", java = "HD_MINECRAFT_HUD" }
+
+[structs.HostDebug]
+size = 0xE8
+java = "HD"
+
+[structs.HostDebug.fields]
+seq = "u32"
+flags = { type = "u32", doc = "HostDebugFlags" }
+map = { type = "char[64]", doc = "the host's map; empty: none loaded" }
+chapter = { type = "char[8]", doc = "the map's chapter (\"9a\"), from the game's cfg/chapter*.cfg; empty: none" }
+chapterTitle = { type = "char[64]", doc = "the chapter's title in the player's language" }
+origin = { type = "f32[3]", doc = "the player's feet, host units (Source: z up)" }
+angles = { type = "f32[3]", doc = "the player's view: pitch, yaw, roll (host degrees)" }
+fps = { type = "f32", doc = "the host's frames over the last second" }
+worstFrameMs = { type = "f32", doc = "the longest of them" }
+overlayMs = { type = "f32", doc = "what drawing Minecraft's overlay cost a frame, on average over them" }
+slot = { type = "i32", doc = "the map's slot in Minecraft's world (1024 blocks along x each)" }
+collisionEpoch = { type = "u32", doc = "as in HostState" }
+inputPending = { type = "u32", doc = "input ring entries Minecraft hasn't read yet" }
+eventPending = { type = "u32", doc = "event ring entries the host hasn't read yet" }
+lightEmitters = { type = "u32", doc = "Minecraft's light-emitting blocks the host knows of" }
+collisionPending = { type = "u64", doc = "collision ring bytes Minecraft hasn't read yet" }
+renderPending = { type = "u64", doc = "render ring bytes the host hasn't read yet" }
+lights = { type = "u32", doc = "lights made of those emitters around the player" }
+shadowedLights = { type = "u32", doc = "of those, the shadowed point lights (the rest light only characters)" }
+gridZ = { type = "f32", doc = "the map's block grid: the source z of minecraft's y = 0 (whole units)" }
+pad = "u32"
+
+[structs.HostDebugServer]
+size = 0xB0
+java = "HDS"
+
+[structs.HostDebugServer.fields]
+seq = "u32"
+entityCount = { type = "u32", doc = "the host's edicts in use" }
+targetIndex = { type = "i32", doc = "the entity under the crosshair: its entity index (0: it has none)" }
+health = { type = "i32", doc = "its health and maximum health" }
+maxHealth = "i32"
+distance = { type = "f32", doc = "from the player's eye, host units" }
+relation = { type = "i32", doc = """
+how a character feels about the player: Source's Disposition_t (1 hate, 2 fear, 3 like,
+4 neutral); 0: not a character""" }
+npcState = { type = "i32", doc = """
+Source's NPC_STATE (1 idle, 2 alert, 3 combat, 4 script, 5 play dead, 6 held by a barnacle,
+7 dead); 0: not an npc""" }
+targetClass = { type = "char[kHostDebugTextBytes]", doc = "empty: nothing under the crosshair (the world doesn't count)" }
+targetName = { type = "char[kHostDebugTextBytes]", doc = "its map name; empty: none" }
+schedule = { type = "char[kHostDebugTextBytes]", doc = "what an npc is doing (its AI schedule)" }

@@ -1,0 +1,62 @@
+title = "host -> MC state"
+
+[regions.HostState]
+at = 0x100
+type = "HostState"
+doc = "host -> MC, seqlock: seq odd while writing"
+
+[regions.WaterGrid]
+at = 0x400
+type = "WaterGrid"
+doc = "host -> MC, see WaterGrid"
+
+[constants]
+kWaterGridSize = { type = "u32", value = 16 }
+kNoWater = { type = "f32", value = -1.0e30 }
+
+[enums.HostFlags]
+type = "u32"
+note = "bit 8: kept for the puppet group (A), 9-10 for the world group (C)"
+
+[enums.HostFlags.items]
+kHostInGame = { bit = 0, doc = "a map is loaded and the player exists" }
+kHostMenuOpen = { bit = 1, doc = "a host menu (or console) owns input; MC should drop held keys" }
+kHostLoading = { bit = 2, doc = "loading screen / level transition in progress" }
+kHostSeated = { bit = 3, doc = "in a vehicle's seat (with kHostTakeover): Minecraft's body sits, facing seatYaw" }
+kHostTakeover = { bit = 7, doc = """
+source moves the player itself (a ladder, a lift or train, a vehicle, a scripted scene): Minecraft's
+player stays at posX/Y/Z every tick, without falling or fall damage, until the hand-back's teleport""" }
+
+[structs.HostState]
+size = 0x50
+java = "HS"
+note = "HostState's 0x40-0x7F: kept for the puppet group (A), 0x80-0xBF for the world group (C)."
+
+[structs.HostState.fields]
+seq = "u32"
+flags = { type = "u32", doc = "HostFlags" }
+worldId = { type = "u32", doc = "the host's map (a hash of its name); never 0 in game" }
+collisionEpoch = { type = "u32", doc = "bumps on every level load; MC drops all collision data" }
+"posX, posY, posZ" = { type = "f64", doc = "the host player's feet, MC coords" }
+"yaw, pitch" = { type = "f32", doc = "authoritative look (MC degrees)" }
+teleportSeq = { type = "u32", doc = "MC teleports its player to pos when this changes" }
+"viewportW, viewportH" = "u32"
+gameHour = "f32"
+seatYaw = { type = "f32", doc = "the way the vehicle's seat faces (MC degrees), with kHostSeated" }
+speedFactor = { type = "f32", doc = "how fast source lets its player move (player_speedmod): 1 normal, 0.5 half speed" }
+overlayDivisor = { type = "u32", doc = """
+minecraft draws its overlay at the viewport's size over this (hc_overlay_scale), a gui scale it
+was given divided alike, and the host scales it back up pixel for pixel. 0 (an older host): 1""" }
+overlayPad = "u32"
+
+[structs.WaterGrid]
+java = "WG"
+doc = """
+The host's water around the player, for Minecraft to treat as its own water: swimming,
+floating, drowning. Seqlock like HostState."""
+
+[structs.WaterGrid.fields]
+seq = "u32"
+"originX, originZ" = { type = "i32", doc = "Minecraft block column of surface[0]" }
+worldId = { type = "u32", doc = "as in HostState" }
+surface = { type = "f32[kWaterGridSize * kWaterGridSize]", doc = "[z * size + x]: MC y of the water surface; kNoWater: none" }

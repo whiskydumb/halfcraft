@@ -1,0 +1,31 @@
+title = "header"
+doc = """
+Derived from SkyCraft's protocol (see the README). All multi-byte values are little-endian. The host
+creates the mapping; Minecraft opens it. Coordinates in this protocol are always Minecraft space
+(blocks, Y up, Z south) unless noted."""
+
+[regions.Header]
+at = 0x0
+type = "Header"
+
+[constants]
+kMagic = { type = "u32", value = 0x464C4148, hex = true, doc = '"HALF"' }
+kMappingName = { type = "wstring", value = 'Local\HalfCraft_v1' }
+kFrameEventName = { type = "wstring", value = 'Local\HalfCraft_v1_frame', doc = """
+an auto-reset event the host sets after each frame's HostState: minecraft waits on it to draw once
+per host frame, asleep in between""" }
+
+[structs.Header]
+size = 0x28
+java = "H"
+
+[structs.Header.fields]
+magic = "u32"
+layout = { type = "u32", doc = "kLayout: Minecraft links only with a host built from the same schema" }
+hostPid = "u32"
+mcPid = "u32"
+hostHeartbeatMs = { type = "u64", doc = "GetTickCount64() at the host's last frame", java = "H_HOST_HEARTBEAT" }
+mcHeartbeatMs = { type = "u64", doc = "GetTickCount64() at MC's last frame", java = "H_MC_HEARTBEAT" }
+hostSession = { type = "u64", doc = """
+a new value each time a host sets the link up; Minecraft starts its side over when it changes.
+the pid alone can't tell: a restarted game may get the pid of the one before it""" }

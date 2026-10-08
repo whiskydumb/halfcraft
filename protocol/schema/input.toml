@@ -1,0 +1,139 @@
+title = "input ring"
+doc = "The host produces, MC consumes: InputEvent[kInputRingEntries] after the two indices."
+
+[regions.InputRing]
+at = 0x1000
+bytes = "kInputRingDataOff + sizeof(InputEvent) * kInputRingEntries"
+doc = "host -> MC, see InputEvent"
+
+[constants]
+kInputRingEntries = { type = "u32", value = 4096, doc = "power of two" }
+kInputRingHeadOff = { type = "u64", value = 0x00, doc = "u64, written by the host", java = "IR_HEAD" }
+kInputRingTailOff = { type = "u64", value = 0x40, doc = "u64, written by MC", java = "IR_TAIL" }
+kInputRingDataOff = { type = "u64", value = 0x80, java = "IR_DATA" }
+kPushRepeatMs = { type = "u32", value = 200, doc = "kInPush" }
+kPushStaleMs = { type = "u32", value = 500, doc = "kInPush" }
+kMaxHeldBlocks = { type = "u32", value = 32, doc = """
+Blocks the host's gravity gun holds at once (kInTakeBlock's slots); taking one more drops the oldest.
+""" }
+kStringChannelMask = { type = "u16", value = 0xFF, hex = true, doc = "kInString's code: its StringChannel" }
+kStringBytesShift = { type = "u16", value = 8, doc = "4 bits: 0-12 bytes" }
+kStringEnd = { type = "u16", bit = 15 }
+kStringPieceBytes = { type = "u32", value = 12 }
+
+[enums.InputType]
+type = "u16"
+note = "26-27: kept for the world group (C)"
+
+[enums.InputType.items]
+kInKey = { value = 1, doc = "code = SDL scancode, a = 1 press / 0 release" }
+kInMouseButton = { value = 2, doc = "code = SDL button (1 L, 2 M, 3 R, 4 X1, 5 X2), a = 1 press / 0 release" }
+kInScroll = { value = 3, doc = "a = wheel notches * 120 (positive = up)" }
+kInCursor = { value = 4, doc = "a, b = absolute cursor position in overlay pixels" }
+kInText = { value = 5, doc = "a = unicode code point" }
+kInReleaseAll = { value = 6, doc = "release every held key/button (input focus left MC)" }
+kInHurt = { value = 7, doc = "the host hit the player: code = HurtKind, a = host damage * 100, b = attacker actor id, c = HurtFlags" }
+kInOpenMenu = { value = 8, doc = "open Minecraft's pause/options menu" }
+kInHeal = { value = 9, doc = "the host healed the player: code = HealKind, a = host points * 100 (Minecraft divides by 5, like damage)" }
+kInCheckpoint = { value = 10, doc = """
+the host saved its game: a/b = the save's checkpoint id (low/high 32 bits); Minecraft
+keeps its world's changed blocks and its player as they are now under that id""" }
+kInRestore = { value = 11, doc = "the host loaded a save: a/b = its checkpoint id; Minecraft goes back to that checkpoint" }
+kInString = { value = 12, doc = """
+a piece of a UTF-8 string for one of Minecraft's StringChannels: code = channel
+| (bytes in this piece << 8) | kStringEnd on the last piece, a/b/c = up to 12 bytes
+(little-endian, a's low byte first)""" }
+kInHurtMob = { value = 13, doc = """
+(#13) the host hurt a Minecraft mob: code = HurtKind, a = its Minecraft entity id,
+b = host damage * 100, c = the attacker's actor id (0: none, kMobAttackerPlayer: the host's player)""" }
+kInBlast = { value = 14, doc = """
+a host blast (a grenade, a rocket, a barrel): code = its radius (blocks * 100), a/b/c = its centre
+(Minecraft x/y/z, float bits). Minecraft breaks its blocks there the way TNT would; the host
+already hurt Minecraft's player and the mobs it has stand-ins for (kInHurt, kInHurtMob)""" }
+kInBulletHit = { value = 15, doc = "a host bullet went into a Minecraft block: a/b/c = the block's x/y/z. Glass, panes and ice break" }
+kInMapEntered = { value = 16, doc = """
+the host's player entered a map afresh: code = MapEntry, a = the map's slot (its stretch of
+Minecraft's world along x), b/c = the slot's west and east edges (Minecraft x, east exclusive).
+A new game starts a playthrough, and each map the playthrough enters for the first time
+goes back to how it was before anything was built there (saves keep rolling back as before)""" }
+kInTakeBlock = { value = 17, doc = """
+the host's gravity gun tore the block at a/b/c out into held slot code (< kMaxHeldBlocks): Minecraft
+takes it out of its world and answers kEvHeldBlock; while it's held, kWeHeldBlock has its faces""" }
+kInHeldBlockLanded = { value = 18, doc = """
+held slot code came to rest in the block cell a/b/c: Minecraft puts the block back there,
+or drops it as an item without room, and answers kEvHeldBlock""" }
+kInHeldBlockLost = { value = 19, doc = """
+held slot code went without coming to rest (a level change, dissolved): Minecraft drops the
+block as an item in the cell a/b/c, where the body was last""" }
+kInRenderLost = { value = 20, doc = """
+the host dropped render messages it couldn't read (the ring lost its place): Minecraft
+sends its whole world again""" }
+kInPush = { value = 22, doc = """
+the host pushes its player (a trigger_push, a conveyor, a point_push: Source's base velocity)
+while Minecraft drives it: a/b/c = Minecraft blocks per second * 1000 along x/y/z, repeated
+every kPushRepeatMs while it lasts. (0, 0, 0): it stopped, and the player keeps the last
+push as momentum (as Source does); nothing for kPushStaleMs: it's over, without momentum""" }
+kInImpulse = { value = 23, doc = """
+the host shoved its player while Minecraft drives it, a shove that's over at once (a
+trigger_push that pushes once, an antlion guard: Source's velocity impulses): a/b/c =
+Minecraft blocks per second * 1000 along x/y/z, which the player takes as momentum""" }
+kInHurtFrom = { value = 24, doc = """
+where the next kInHurt came from, for Minecraft's shield: a/b/c = Minecraft x/y/z (float bits)
+of the blast's centre or of what dealt it; only that one kInHurt uses it""" }
+
+[enums.MapEntry]
+type = "u16"
+doc = "How the host's player entered a map (kInMapEntered)."
+
+[enums.MapEntry.items]
+kEntryNewGame = { value = 1, doc = "a new game from the host's menu (its chapter list): a new playthrough begins here" }
+kEntryTransition = { value = 2, doc = "a level transition: the map is the playthrough's own the first time it comes up" }
+
+[enums.StringChannel]
+type = "u16"
+doc = "What a kInString is for; Minecraft collects the pieces of each channel until kStringEnd."
+note = "6: kept for the puppet group (A), 8 for the world group (C)"
+
+[enums.StringChannel.items]
+kStrCommand = { value = 1, doc = "(#11) run as the player, like a command typed into chat (without the '/')" }
+kStrScreenshot = { value = 2, doc = """
+(#6) the answer to Minecraft's kEvScreenshot, or the host's own (request 0), as text:
+  "ok <request> <width> <height> <path>": the frame in a temporary file named
+  halfcraft-screenshot-*.rgb, width * height RGB8 pixels, top row first, nothing else;
+  Minecraft saves it as its own screenshot and deletes the file
+  "fail <request> <reason>": the host had no frame to give (loading, ...)""" }
+
+[enums.HealKind]
+type = "u16"
+
+[enums.HealKind.items]
+kHealHealth = 0
+kHealArmor = { value = 1, doc = "the host's armour (Half-Life's suit): Minecraft absorption" }
+
+[enums.HurtKind]
+type = "u16"
+
+[enums.HurtKind.items]
+kHurtMelee = 0
+kHurtProjectile = 1
+kHurtMagic = 2
+kHurtOther = 3
+kHurtBlast = { value = 4, doc = "grenades, rockets, barrels: Minecraft's explosion damage (blast protection; a shield facing kInHurtFrom)" }
+kHurtFire = { value = 5, doc = "burning: Minecraft's fire damage (fire protection)" }
+kHurtCrush = { value = 6, doc = "physics props, vehicles, crushers: damage armour takes" }
+
+[enums.HurtFlags]
+type = "u32"
+
+[enums.HurtFlags.items]
+kHurtPowerAttack = { bit = 1, doc = "shoves harder (Minecraft knockback)" }
+
+[structs.InputEvent]
+size = 16
+
+[structs.InputEvent.fields]
+type = { type = "u16", doc = "InputType" }
+code = "u16"
+a = "i32"
+b = "i32"
+c = "i32"

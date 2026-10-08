@@ -1,0 +1,73 @@
+title = "MC -> host state"
+
+[regions.McState]
+at = 0x200
+type = "McState"
+doc = "MC -> host, seqlock"
+
+[enums.McFlags]
+type = "u32"
+note = "bits 12-13: kept for the puppet group (A), 14-15 for the world group (C)"
+
+[enums.McFlags.items]
+kMcInWorld = { bit = 0 }
+kMcScreenOpen = { bit = 1, doc = "an MC GUI screen (inventory, chat, ...) is open" }
+kMcOnGround = { bit = 2 }
+kMcSneaking = { bit = 3 }
+kMcSprinting = { bit = 4 }
+kMcDead = { bit = 5 }
+kMcSwimming = { bit = 6 }
+kMcFlying = { bit = 7 }
+kMcSleeping = { bit = 8, doc = "in a bed: yaw/pitch are the look Minecraft holds there, eyeX/Y/Z its camera" }
+
+[structs.McState]
+size = 0xF0
+java = "MS"
+note = "0xF0-0xFF: kept for the world group (C)"
+
+[structs.McState.fields]
+seq = "u32"
+flags = { type = "u32", doc = "McFlags" }
+"x, y, z" = { type = "f64", doc = "interpolated feet position (MC coords)" }
+"yaw, pitch" = { type = "f32", doc = "MC rotation (degrees); asleep in first person its camera's, along the bed" }
+eyeHeight = { type = "f32", doc = "blocks above feet" }
+sensitivity = { type = "f32", doc = "MC mouse sensitivity option (0..1)" }
+teleportAck = { type = "u32", doc = "last HostState::teleportSeq applied" }
+guiScale = "u32"
+frameCounter = "u64"
+fovDeg = { type = "f32", doc = "effective vertical FOV (includes sprint / fluid modifiers)", java = "MS_FOV" }
+bobPhase = { type = "f32", doc = "MC walk-bob phase (interpolated walk distance); 0 if bobbing is off" }
+bobAmount = { type = "f32", doc = "MC walk-bob amplitude" }
+pad4C = "u32"
+"eyeX, eyeY, eyeZ" = { type = "f64", doc = "MC camera position (interpolated, includes sneak eye lerp)" }
+tickQpc = { type = "i64", doc = """
+Raw 20 Hz physics ticks, so the host can interpolate on its own frame clock exactly like
+Minecraft's renderer does with partial ticks (no judder from the two games' frame phase).
+tickQpc: QueryPerformanceCounter at the (remainder-corrected) tick""" }
+"prevX, prevY, prevZ" = { type = "f64", doc = "feet at the previous tick" }
+"curX, curY, curZ" = { type = "f64", doc = "feet at the latest tick" }
+"tickEyeO, tickEye" = { type = "f32", doc = "Camera's smoothed eye height, previous/latest tick", java = ["MS_EYE_HEIGHT_O", "MS_EYE_HEIGHT_T"] }
+"walkDistO, walkDist" = { type = "f32", doc = "walk-bob phase inputs", java = ["MS_WALK_O", "MS_WALK"] }
+"bobO, bob" = { type = "f32", doc = "walk-bob amplitude inputs" }
+tickMs = { type = "f32", doc = "milliseconds per tick (50 unless /tick rate changed)" }
+tickPad = "u32"
+cameraMode = { type = "u32", doc = """
+Minecraft's camera (F5): 0 first person, 1 third person behind, 2 third person in front
+(looking back at the player). cameraDistance is how far Minecraft's camera sits from
+the eye, after its own zoom collision (Minecraft blocks and the host's triangles).""" }
+cameraDistance = "f32"
+health = { type = "f32", doc = """
+The player's health and absorption (golden hearts), in Minecraft points (20 = 10 hearts).
+""" }
+maxHealth = "f32"
+absorption = "f32"
+healthPad = "u32"
+heldWeapon = { type = "u32", doc = """
+(#12) the host's weapon the player holds as a Minecraft item (see WeaponTable); 0: none
+""" }
+heldWeaponPad = "u32"
+teleportCount = { type = "u32", doc = """
+Bumps each time Minecraft moved its player by itself (an ender pearl, chorus fruit, /tp; not the
+host's own teleports), in the same tick as curX/Y/Z: the host takes the jump that follows wherever
+the player fits, and resyncs Minecraft where it doesn't.""" }
+teleportPad = "u32[3]"

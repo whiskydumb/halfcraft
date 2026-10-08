@@ -1,0 +1,59 @@
+title = "water probes"
+doc = """
+The host's water around Minecraft's boats and fishing bobbers, and its mobs and dropped items off
+the player's WaterGrid, which that grid doesn't reach: a boat left behind, a bobber cast far out or
+down into a canal, a zombie wading in one. Minecraft lists where they are (WaterProbeRequests: boats
+and bobbers first, then mobs, then items, the nearest to the player first of each, at most
+kMaxWaterProbes); client.dll probes a small grid of block columns
+around each, the way it probes the WaterGrid, and answers in WaterProbes at kWaterProbesAnswerOff.
+An answer's slot follows its request's, a frame or two behind; each is probed again when its
+thing nears the edge of its grid or moves up or down, else a few times a second. A probe looks
+for the surface from 3 blocks above its y down to kWaterProbeDepth below it: under that it
+knows nothing, so Minecraft takes no water from it there."""
+
+[regions.WaterProbes]
+at = 0x29000
+bytes = 0x1000
+type = "WaterProbeRequests"
+holds = [{ type = "WaterProbes", at = "kWaterProbesAnswerOff" }]
+doc = "seqlocks: Minecraft writes the requests, client.dll the answers"
+
+[regions.WorldGroup]
+at = 0x2A000
+bytes = 0x7000
+reserved = true
+doc = "kept for the world group (C)"
+
+[constants]
+kWaterProbesAnswerOff = { type = "u64", value = 0x100, doc = "from kOffWaterProbes", java = "WP_ANSWERS" }
+kMaxWaterProbes = { type = "u32", value = 12, doc = "a boat waits for the probe chosen for it (HostWater)" }
+kWaterProbeSize = { type = "u32", value = 8, doc = "block columns along each side of a probe's grid" }
+kWaterProbeDepth = { type = "f32", value = 6.0, doc = "blocks below a probe's y its search reaches" }
+
+[structs.WaterProbeRequests]
+java = "WPR"
+
+[structs.WaterProbeRequests.fields]
+seq = "u32"
+count = "u32"
+at = { type = "f32[kMaxWaterProbes][3]", doc = "MC coords: a grid centred on (x, z), probed around y" }
+
+[structs.WaterProbe]
+size = 0x110
+java = "WP"
+java_size = "WATER_PROBE_BYTES"
+
+[structs.WaterProbe.fields]
+"originX, originZ" = { type = "i32", doc = "Minecraft block column of surface[0]" }
+y = { type = "f32", doc = "the height it was probed around" }
+pad = "u32"
+surface = { type = "f32[kWaterProbeSize * kWaterProbeSize]", doc = "[z * size + x]: MC y of the water surface; kNoWater: none" }
+
+[structs.WaterProbes]
+java = "WP"
+
+[structs.WaterProbes.fields]
+seq = "u32"
+count = "u32"
+pad = "u32[2]"
+probes = "WaterProbe[kMaxWaterProbes]"

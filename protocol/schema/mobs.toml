@@ -1,0 +1,49 @@
+title = "mob table"
+doc = """
+(#13) Minecraft's mobs near the player, which the host's characters see and fight: its monsters
+and the player's pets (no animals or villagers), nearest first. Written once per Minecraft tick."""
+
+[regions.MobTable]
+at = 0x24000
+bytes = 0x5000
+type = "MobTable"
+doc = "MC -> host, seqlock"
+
+[constants]
+kMaxMobs = { type = "u32", value = 256 }
+kMobAttackerPlayer = { type = "u32", value = 0xFFFFFFFF, hex = true, doc = """
+kInHurtMob's attacker when the host's own player landed the hit (an actor id is never this).
+""" }
+
+[enums.MobFlags]
+type = "u32"
+
+[enums.MobFlags.items]
+kMobHostile = { bit = 0, doc = "a monster: the host's enemies of monsters fight it" }
+kMobPet = { bit = 1, doc = "tamed by the player: the host's characters see it as the player's ally" }
+kMobUndead = { bit = 2, doc = "zombies, skeletons, ..." }
+
+[structs.MobRecord]
+size = 48
+java = "MR"
+java_size = "MOB_RECORD_BYTES"
+
+[structs.MobRecord.fields]
+id = { type = "u32", doc = "the Minecraft entity id, stable while the mob exists" }
+flags = { type = "u32", doc = "MobFlags" }
+"x, y, z" = { type = "f32", doc = "feet, MC coords" }
+yaw = { type = "f32", doc = "MC degrees" }
+width = { type = "f32", doc = "blocks" }
+height = { type = "f32", doc = "blocks" }
+health = { type = "f32", doc = "Minecraft points" }
+maxHealth = "f32"
+pad = "u32[2]"
+
+[structs.MobTable]
+java = "MT"
+
+[structs.MobTable.fields]
+seq = "u32"
+count = "u32"
+pad = "u8[0x40 - 8]"
+mobs = { type = "MobRecord[kMaxMobs]", java = "MT_RECORDS" }

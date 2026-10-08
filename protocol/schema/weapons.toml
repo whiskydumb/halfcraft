@@ -1,0 +1,71 @@
+title = "weapon table"
+doc = """
+(#12) the host's weapons the player owns, which Minecraft shows as items (McState::heldWeapon).
+The host's inventory is the authority: Minecraft adds the items it lacks and removes the ones
+the host no longer lists, and the host's player has out whichever weapon Minecraft's hand holds."""
+
+[regions.WeaponTable]
+at = 0x23000
+bytes = 0x1000
+type = "WeaponTable"
+doc = "host -> MC, seqlock"
+
+[constants]
+kMaxHostWeapons = { type = "u32", value = 48, doc = "Source's MAX_WEAPONS", java = "WT_MAX_WEAPONS" }
+
+[enums.WeaponId]
+type = "u32"
+doc = "Which weapon (Half-Life 2 and its episodes give the player these; Minecraft has one item each)."
+
+[enums.WeaponId.items]
+kHostWeaponNone = 0
+kHostWeaponCrowbar = { value = 1, doc = "weapon_crowbar" }
+kHostWeaponPhyscannon = { value = 2, doc = "weapon_physcannon (the gravity gun, also supercharged)" }
+kHostWeaponPistol = { value = 3, doc = "weapon_pistol" }
+kHostWeapon357 = { value = 4, doc = "weapon_357", java = "HOST_WEAPON_357" }
+kHostWeaponSmg1 = { value = 5, doc = "weapon_smg1" }
+kHostWeaponAr2 = { value = 6, doc = "weapon_ar2" }
+kHostWeaponShotgun = { value = 7, doc = "weapon_shotgun" }
+kHostWeaponCrossbow = { value = 8, doc = "weapon_crossbow" }
+kHostWeaponFrag = { value = 9, doc = "weapon_frag" }
+kHostWeaponRpg = { value = 10, doc = "weapon_rpg" }
+kHostWeaponBugbait = { value = 11, doc = "weapon_bugbait" }
+
+[enums.WeaponTableFlags]
+type = "u32"
+
+[enums.WeaponTableFlags.items]
+kWeaponTableLive = { bit = 0, doc = "the host's player is in a map and alive: the list is its inventory", java = "WT_LIVE" }
+kWeaponTableSuppressed = { bit = 1, doc = "the host keeps the weapons away (player_speedmod): none comes out", java = "WT_SUPPRESSED" }
+
+[enums.WeaponRecordFlags]
+type = "u32"
+
+[enums.WeaponRecordFlags.items]
+kWeaponRecordSupercharged = { bit = 0, doc = "the gravity gun, supercharged (the Citadel)", java = "WT_R_SUPERCHARGED" }
+
+[structs.WeaponRecord]
+size = 32
+java = "WT_R"
+java_size = "WT_RECORD_BYTES"
+
+[structs.WeaponRecord.fields]
+id = { type = "u32", doc = "WeaponId" }
+clip = { type = "i32", doc = "rounds in the clip; -1: no clip (it fires from the reserve, or uses no ammo)" }
+maxClip = { type = "i32", doc = "the clip's size; -1: no clip" }
+ammo = { type = "i32", doc = "primary rounds in reserve; -1: it uses no ammo (crowbar, gravity gun)" }
+maxAmmo = { type = "i32", doc = "the most primary rounds the player can carry" }
+ammo2 = { type = "i32", doc = "secondary rounds (SMG grenades, AR2 balls); -1: none" }
+maxAmmo2 = "i32"
+flags = { type = "u32", doc = "WeaponRecordFlags" }
+
+[structs.WeaponTable]
+java = "WT"
+
+[structs.WeaponTable.fields]
+seq = "u32"
+flags = { type = "u32", doc = "WeaponTableFlags" }
+count = "u32"
+active = { type = "u32", doc = "WeaponId the host's player has out right now (0: none)" }
+pad = "u8[0x40 - 16]"
+weapons = { type = "WeaponRecord[kMaxHostWeapons]", java = "WT_RECORDS" }

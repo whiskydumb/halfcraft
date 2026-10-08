@@ -11,7 +11,8 @@ hidden and does the player's physics, inventory, blocks and combat math; Half-Li
 runs its world, NPCs and scripts around it. Build on Half-Life's maps, fight its NPCs with a
 diamond sword, light City 17 with torches.
 
-The two games talk over shared memory (`protocol/halfcraft_protocol.h`). Half-Life 2's game code
+The two games talk over shared memory, laid out in `protocol/schema` (`make proto` writes
+`protocol/halfcraft_protocol.h` and the mod's `Proto.java` from it). Half-Life 2's game code
 is open source (Source SDK 2013), so the Half-Life side is a regular Source mod with a handful of
 hooks into Valve's code.
 
@@ -50,7 +51,8 @@ source/          the Source mod (C++)
   mod/             files laid over the game folders: common/ (cfg), hl2/ and hl2dm/ (gameinfo.txt)
   launcher/        HalfCraft.exe: a release's one click (finds Steam's games, starts Minecraft, then the mod)
   halfcraft_*.vpc  pulled into Valve's client/server projects
-protocol/        the shared memory layout, the one source of truth for both sides
+protocol/        schema/: the shared memory layout, a TOML file per region, the one source of truth for both
+                 sides; halfcraft_protocol.h, written from it (make proto) like the mod's Proto.java
 package/         what a release carries besides code: the Prism instance template, the players' README
 tools/           the Python tools: halfcraft/ (what they share), build/ (setup, build, packaging),
                  game/ (run, test sessions, console commands, logs), lint/, debug/ (link and crash-dump
@@ -97,7 +99,9 @@ make run ENGINE=hl2 MAP=d1_trainstation_02
 `pip install ruff` or uv's `uvx` runs it) and the Java with Eclipse's formatter (Spotless,
 `minecraft/eclipse-formatter.prefs`), and `make lint` checks all three, ruff's lints included; `make tidy` (after
 `make build`, a minute or two) runs clang-tidy 22 over it on both engines with the checks in
-`.clang-tidy`. A compiler warning in HalfCraft's own C++ or Java fails its build.
+`.clang-tidy`. A compiler warning in HalfCraft's own C++ or Java fails its build. A change to the shared
+memory goes into `protocol/schema`; `make proto` writes both sides' files from it (`make lint` checks they're
+current), and its hash in them keeps a Minecraft and a Half-Life built from different schemas from linking.
 
 `make` alone lists the tasks; `ENGINE=hl2` or `ENGINE=hl2dm` limits one to an engine (`make run`
 defaults to `hl2dm`; the `hl2` build takes its shaders and campaign files from `source-sdk-2013` too,
@@ -124,7 +128,7 @@ it's doing until it connects. Prism Launcher and Fabric API downloads are pinned
 
 Versions come from git tags: a commit tagged `vX.Y.Z` is release X.Y.Z, and the N commits after it are
 `X.(Y+1).0-dev.N+<commit>` (`tools/build/version.py`; the mod, `HalfCraft.exe` and the zip all carry it). CI
-(`.github/workflows`) checks every push: clang-format, ruff, the Java's formatting, the Minecraft mod's
+(`.github/workflows`) checks every push: the protocol files, clang-format, ruff, the Java's formatting, the Minecraft mod's
 build and tests, both engines' build, clang-tidy and the zip. Each push to `main` replaces the `dev`
 pre-release on GitHub, and a pushed tag `vX.Y.Z` publishes that release.
 
