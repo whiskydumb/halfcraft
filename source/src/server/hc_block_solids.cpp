@@ -108,36 +108,36 @@ namespace
 class CHalfCraftBlocks : public CBaseEntity
 {
 public:
-	DECLARE_CLASS( CHalfCraftBlocks, CBaseEntity );
+	DECLARE_CLASS(CHalfCraftBlocks, CBaseEntity);
 
-	void Spawn( void ) override
+	void Spawn(void) override
 	{
 		BaseClass::Spawn();
 		// the section's box puts it in the spatial partition; the custom tests send every ray and
 		// swept box that reaches it to TestCollision, against the blocks themselves
-		SetSolid( SOLID_BBOX );
-		AddSolidFlags( FSOLID_CUSTOMRAYTEST | FSOLID_CUSTOMBOXTEST );
-		SetMoveType( MOVETYPE_NONE );
-		SetCollisionGroup( COLLISION_GROUP_NONE );
-		AddEffects( EF_NODRAW );
+		SetSolid(SOLID_BBOX);
+		AddSolidFlags(FSOLID_CUSTOMRAYTEST | FSOLID_CUSTOMBOXTEST);
+		SetMoveType(MOVETYPE_NONE);
+		SetCollisionGroup(COLLISION_GROUP_NONE);
+		AddEffects(EF_NODRAW);
 	}
 
-	int UpdateTransmitState( void ) override { return SetTransmitState( FL_EDICT_DONTSEND ); }
-	int ObjectCaps( void ) override { return BaseClass::ObjectCaps() | FCAP_DONT_SAVE; }
+	int UpdateTransmitState(void) override { return SetTransmitState(FL_EDICT_DONTSEND); }
+	int ObjectCaps(void) override { return BaseClass::ObjectCaps() | FCAP_DONT_SAVE; }
 
-	void UpdateOnRemove( void ) override
+	void UpdateOnRemove(void) override
 	{
 		ReleaseCollide();
 		BaseClass::UpdateOnRemove();
 	}
 
-	bool TestCollision( const Ray_t &ray, unsigned int mask, trace_t &trace ) override
+	bool TestCollision(const Ray_t& ray, unsigned int mask, trace_t& trace) override
 	{
-		if ( !m_pCollide || !( mask & CONTENTS_SOLID ) )
+		if (!m_pCollide || !(mask & CONTENTS_SOLID))
 			return false;
-		UTIL_ClearTrace( trace );
-		physcollision->TraceBox( ray, m_pCollide, GetAbsOrigin(), vec3_angle, &trace );
-		if ( !trace.DidHit() )
+		UTIL_ClearTrace(trace);
+		physcollision->TraceBox(ray, m_pCollide, GetAbsOrigin(), vec3_angle, &trace);
+		if (!trace.DidHit())
 			return false;
 		trace.m_pEnt = this;
 		trace.contents = CONTENTS_SOLID;
@@ -145,42 +145,39 @@ public:
 	}
 
 	/// the section's blocks, as boxes in this entity's space (units).
-	void SetBoxes( const std::vector<Vector> &mins, const std::vector<Vector> &maxs, const Vector &bounds_mins, const Vector &bounds_maxs )
+	void SetBoxes(const std::vector<Vector>& mins, const std::vector<Vector>& maxs, const Vector& bounds_mins, const Vector& bounds_maxs)
 	{
 		ReleaseCollide();
-		std::vector<CPhysConvex *> convexes;
-		convexes.reserve( mins.size() );
-		for ( size_t i = 0; i < mins.size(); ++i )
-		{
-			if ( CPhysConvex *convex = physcollision->BBoxToConvex( mins[i], maxs[i] ) )
-				convexes.push_back( convex );
+		std::vector<CPhysConvex*> convexes;
+		convexes.reserve(mins.size());
+		for (size_t i = 0; i < mins.size(); ++i) {
+			if (CPhysConvex* convex = physcollision->BBoxToConvex(mins[i], maxs[i]))
+				convexes.push_back(convex);
 		}
-		if ( convexes.empty() )
+		if (convexes.empty())
 			return;
-		m_pCollide = physcollision->ConvertConvexToCollide( convexes.data(), static_cast<int>( convexes.size() ) );
-		SetCollisionBounds( bounds_mins, bounds_maxs );
-		if ( m_pCollide )
-		{
-			IPhysicsObject *pObject = PhysModelCreateCustom( this, m_pCollide, GetAbsOrigin(), vec3_angle, halfcraft::BLOCKS_CLASSNAME, true );
-			VPhysicsSetObject( pObject );
+		m_pCollide = physcollision->ConvertConvexToCollide(convexes.data(), static_cast<int>(convexes.size()));
+		SetCollisionBounds(bounds_mins, bounds_maxs);
+		if (m_pCollide) {
+			IPhysicsObject* pObject = PhysModelCreateCustom(this, m_pCollide, GetAbsOrigin(), vec3_angle, halfcraft::BLOCKS_CLASSNAME, true);
+			VPhysicsSetObject(pObject);
 		}
 	}
 
 private:
-	void ReleaseCollide( void )
+	void ReleaseCollide(void)
 	{
 		VPhysicsDestroyObject();
-		if ( m_pCollide )
-		{
-			g_dead_collides.push_back( { m_pCollide, gpGlobals->framecount } );
+		if (m_pCollide) {
+			g_dead_collides.push_back({ m_pCollide, gpGlobals->framecount });
 			m_pCollide = nullptr;
 		}
 	}
 
-	CPhysCollide *m_pCollide = nullptr;
+	CPhysCollide* m_pCollide = nullptr;
 };
 
-LINK_ENTITY_TO_CLASS( halfcraft_blocks, CHalfCraftBlocks );
+LINK_ENTITY_TO_CLASS(halfcraft_blocks, CHalfCraftBlocks);
 
 namespace halfcraft
 {
@@ -291,7 +288,7 @@ namespace halfcraft
 
 	void BlockSolids::apply(const SolidSection& section)
 	{
-		const Key key{ section.sx, section.sy, section.sz };
+		const Key   key{ section.sx, section.sy, section.sz };
 		const float centre = static_cast<float>(slot_.x_blocks());
 		const bool  this_map = std::fabs(static_cast<float>(section.sx * SECTION_BLOCKS) - centre) <= KEEP_SLOT_BLOCKS;
 		auto        it = entities_.find(key);

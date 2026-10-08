@@ -38,7 +38,7 @@ namespace halfcraft
 		/// before each move, and takes the flag off again)
 		Vector current_push(CBasePlayer* player)
 		{
-			Vector push = (player->GetFlags() & FL_BASEVELOCITY) ? player->GetBaseVelocity() : vec3_origin;
+			Vector       push = (player->GetFlags() & FL_BASEVELOCITY) ? player->GetBaseVelocity() : vec3_origin;
 			CBaseEntity* ground = player->GetGroundEntity();
 			if (ground && (ground->GetFlags() & FL_CONVEYOR)) {
 				Vector belt;

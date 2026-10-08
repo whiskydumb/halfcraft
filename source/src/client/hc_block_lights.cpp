@@ -69,12 +69,12 @@ namespace halfcraft
 		constexpr float SHADOW_SLOPE_BIAS = 16.0f;  // source's flashlight's
 		constexpr float WALL_CLEARANCE = FACE_NEAR + 6.0f;  // units (clear_of_walls)
 
-		ConVar hc_torch_light("hc_torch_light", "1", FCVAR_ARCHIVE, "halfcraft: brightness of minecraft's torches, lava and glowstone (0 = off)");
-		ConVar hc_torch_light_wrap("hc_torch_light_wrap", "0.35", FCVAR_ARCHIVE,
+		ConVar          hc_torch_light("hc_torch_light", "1", FCVAR_ARCHIVE, "halfcraft: brightness of minecraft's torches, lava and glowstone (0 = off)");
+		ConVar          hc_torch_light_wrap("hc_torch_light_wrap", "0.35", FCVAR_ARCHIVE,
 			"halfcraft: the part of the nearest lights' brightness that half-life's walls don't stop (0 = hard shadows, 1 = none; above 0 doubles their cost)");
-		ConVar hc_torch_light_pvs("hc_torch_light_pvs", "1", 0, "halfcraft: only lights in the camera's potentially visible set get shadowed point lights");
+		ConVar          hc_torch_light_pvs("hc_torch_light_pvs", "1", 0, "halfcraft: only lights in the camera's potentially visible set get shadowed point lights");
 		constexpr float PVS_EXTENT = 24.0f;  // units around a light's origin that have to be in the camera's pvs
-		ConVar hc_torch_light_count("hc_torch_light_count", "4", FCVAR_ARCHIVE,
+		ConVar          hc_torch_light_count("hc_torch_light_count", "4", FCVAR_ARCHIVE,
 			"halfcraft: how many of the nearest minecraft lights light half-life's world per pixel, with shadows (up to 4; each renders up to twelve shadow maps a frame)");
 
 		struct LightSource
@@ -281,10 +281,10 @@ namespace halfcraft
 					return;
 				}
 				static const Vector FORWARD[6] = { Vector(1, 0, 0), Vector(-1, 0, 0), Vector(0, 1, 0), Vector(0, -1, 0), Vector(0, 0, 1), Vector(0, 0, -1) };
-				const Vector& forward = FORWARD[face];
-				const Vector  up = forward.z != 0.0f ? Vector(1, 0, 0) : Vector(0, 0, 1);
-				const Vector  right = CrossProduct(forward, up);
-				FlashlightState_t state;
+				const Vector&       forward = FORWARD[face];
+				const Vector        up = forward.z != 0.0f ? Vector(1, 0, 0) : Vector(0, 0, 1);
+				const Vector        right = CrossProduct(forward, up);
+				FlashlightState_t   state;
 				state.m_vecLightOrigin = origin;
 				BasisToQuaternion(forward, right, up, state.m_quatOrientation);
 				state.m_fHorizontalFOVDegrees = 2.0f * FACE_HALF_FOV;
@@ -338,8 +338,8 @@ namespace halfcraft
 				}
 				proto::RenLights header;
 				std::memcpy(&header, payload, sizeof(header));
-				const auto key = pack(header.sx, header.sy, header.sz);
-				const auto count = std::min<std::uint64_t>(header.count, (bytes - sizeof(header)) / sizeof(proto::RenLight));
+				const auto                  key = pack(header.sx, header.sy, header.sz);
+				const auto                  count = std::min<std::uint64_t>(header.count, (bytes - sizeof(header)) / sizeof(proto::RenLight));
 				std::lock_guard<std::mutex> lock(hazards_lock_);
 				if (const auto it = by_section_.find(key); it != by_section_.end()) {
 					for (const auto& e : it->second) {
@@ -360,7 +360,7 @@ namespace halfcraft
 					const auto&        l = lights[i];
 					const std::uint8_t top = static_cast<std::uint8_t>(l.color >> 24);
 					const LightSource  e{ header.sx * 16 + l.x, header.sy * 16 + l.y, header.sz * 16 + l.z, l.level, static_cast<std::uint8_t>(top & 0x0F),
-						 static_cast<std::uint8_t>(top >> 4), l.color & 0xFFFFFF };
+						static_cast<std::uint8_t>(top >> 4), l.color & 0xFFFFFF };
 					list.push_back(e);
 					if (e.hazard) {
 						hazards_[pack(e.x, e.y, e.z)] = e.hazard;
@@ -381,7 +381,7 @@ namespace halfcraft
 			int hazard_at(std::int32_t x, std::int32_t y, std::int32_t z)
 			{
 				std::lock_guard<std::mutex> lock(hazards_lock_);
-				const auto it = hazards_.find(pack(x, y, z));
+				const auto                  it = hazards_.find(pack(x, y, z));
 				return it != hazards_.end() ? it->second : proto::kHazardNone;
 			}
 
@@ -444,14 +444,14 @@ namespace halfcraft
 			void refresh(float now);
 
 			std::unordered_map<std::uint64_t, std::vector<LightSource>> by_section_;
-			std::mutex                                                   hazards_lock_;
+			std::mutex                                                  hazards_lock_;
 			std::unordered_map<std::uint64_t, std::uint8_t>             hazards_;  // block -> proto::BlockHazard
-			std::vector<Cluster>                                         debug_;
-			std::vector<Cluster>                                         chosen_;  // nearest first
-			std::array<PointLight, MAX_POINT_LIGHTS>                     points_;
-			std::vector<std::uint64_t>                                   placed_;  // the cluster each point light shows, by slot
-			float                                                        rebuild_in_ = 0.0f;
-			float                                                        clock_ = 0.0f;
+			std::vector<Cluster>                                        debug_;
+			std::vector<Cluster>                                        chosen_;  // nearest first
+			std::array<PointLight, MAX_POINT_LIGHTS>                    points_;
+			std::vector<std::uint64_t>                                  placed_;  // the cluster each point light shows, by slot
+			float                                                       rebuild_in_ = 0.0f;
+			float                                                       clock_ = 0.0f;
 		};
 
 		/// where a light can shine from: minecraft's blocks sink into half-life's walls and floors, so a
@@ -496,7 +496,7 @@ namespace halfcraft
 				for (const float step : { 1.0f, 2.0f, 4.0f }) {
 					const Vector candidates[6] = { origin + AXES[2] * step, origin - AXES[2] * step, origin + AXES[0] * step, origin - AXES[0] * step,
 						origin + AXES[1] * step, origin - AXES[1] * step };
-					const auto clear = std::find_if(std::begin(candidates), std::end(candidates), [](const Vector& p) { return wall_distance(p, AXES[2], 1.0f) > 0.0f; });
+					const auto   clear = std::find_if(std::begin(candidates), std::end(candidates), [](const Vector& p) { return wall_distance(p, AXES[2], 1.0f) > 0.0f; });
 					if (clear != std::end(candidates)) {
 						origin = *clear;
 						break;
@@ -549,8 +549,8 @@ namespace halfcraft
 		{
 			std::unordered_map<std::uint64_t, Cluster> cells;
 			if (with_minecraft) {
-				float eye_mc_source[3] = { eye.x, eye.y, eye.z };
-				const auto player = source_to_mc(eye_mc_source, slot);
+				float        eye_mc_source[3] = { eye.x, eye.y, eye.z };
+				const auto   player = source_to_mc(eye_mc_source, slot);
 				const double range2 = double(RANGE_BLOCKS) * RANGE_BLOCKS;
 				for (const auto& entry : by_section_) {
 					for (const auto& e : entry.second) {
@@ -764,9 +764,9 @@ namespace halfcraft
 		}
 		Vector forward, right, up;
 		AngleVectors(view.angles, &forward, &right, &up);
-		const float  distance = view.zFar * SHADOW_CAP_FRACTION;
-		const float  half = distance * std::tan(DEG2RAD(view.fov * 0.5f)) * 1.1f;  // a bit past the frustum's edges
-		const Vector centre = view.origin + forward * distance;
+		const float          distance = view.zFar * SHADOW_CAP_FRACTION;
+		const float          half = distance * std::tan(DEG2RAD(view.fov * 0.5f)) * 1.1f;  // a bit past the frustum's edges
+		const Vector         centre = view.origin + forward * distance;
 		CMatRenderContextPtr context(materials);
 		// world space: whatever was drawn last may have left its own model matrix behind
 		context->MatrixMode(MATERIAL_MODEL);

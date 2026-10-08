@@ -137,13 +137,13 @@ namespace halfcraft::proto
 
 		// Raw 20 Hz physics ticks, so the host can interpolate on its own frame clock exactly like
 		// Minecraft's renderer does with partial ticks (no judder from the two games' frame phase).
-		std::int64_t tickQpc;             // QueryPerformanceCounter at the (remainder-corrected) tick
-		double       prevX, prevY, prevZ;  // feet at the previous tick
-		double       curX, curY, curZ;     // feet at the latest tick
-		float        tickEyeO, tickEye;      // Camera's smoothed eye height, previous/latest tick
-		float        walkDistO, walkDist;    // walk-bob phase inputs
-		float        bobO, bob;              // walk-bob amplitude inputs
-		float        tickMs;                 // milliseconds per tick (50 unless /tick rate changed)
+		std::int64_t  tickQpc;             // QueryPerformanceCounter at the (remainder-corrected) tick
+		double        prevX, prevY, prevZ;  // feet at the previous tick
+		double        curX, curY, curZ;     // feet at the latest tick
+		float         tickEyeO, tickEye;      // Camera's smoothed eye height, previous/latest tick
+		float         walkDistO, walkDist;    // walk-bob phase inputs
+		float         bobO, bob;              // walk-bob amplitude inputs
+		float         tickMs;                 // milliseconds per tick (50 unless /tick rate changed)
 		std::uint32_t tickPad;
 
 		// Minecraft's camera (F5): 0 first person, 1 third person behind, 2 third person in front
@@ -216,23 +216,23 @@ namespace halfcraft::proto
 		kInOpenMenu = 8,     // open Minecraft's pause/options menu
 		kInHeal = 9,         // the host healed the player: code = HealKind, a = host points * 100 (Minecraft divides by 5, like damage)
 		kInCheckpoint = 10,  // the host saved its game: a/b = the save's checkpoint id (low/high 32 bits); Minecraft
-		                     // keeps its world's changed blocks and its player as they are now under that id
+							 // keeps its world's changed blocks and its player as they are now under that id
 		kInRestore = 11,     // the host loaded a save: a/b = its checkpoint id; Minecraft goes back to that checkpoint
 		kInString = 12,      // a piece of a UTF-8 string for one of Minecraft's StringChannels: code = channel
-		                     // | (bytes in this piece << 8) | kStringEnd on the last piece, a/b/c = up to 12 bytes
-		                     // (little-endian, a's low byte first)
+							 // | (bytes in this piece << 8) | kStringEnd on the last piece, a/b/c = up to 12 bytes
+							 // (little-endian, a's low byte first)
 		kInHurtMob = 13,     // (#13) the host hurt a Minecraft mob: code = HurtKind, a = its Minecraft entity id,
-		                     // b = host damage * 100, c = the attacker's actor id (0: none, kMobAttackerPlayer: the host's player)
+							 // b = host damage * 100, c = the attacker's actor id (0: none, kMobAttackerPlayer: the host's player)
 		kInPush = 22,        // the host pushes its player (a trigger_push, a conveyor, a point_push: Source's base velocity)
-		                     // while Minecraft drives it: a/b/c = Minecraft blocks per second * 1000 along x/y/z, repeated
-		                     // every kPushRepeatMs while it lasts. (0, 0, 0): it stopped, and the player keeps the last
-		                     // push as momentum (as Source does); nothing for kPushStaleMs: it's over, without momentum
+							 // while Minecraft drives it: a/b/c = Minecraft blocks per second * 1000 along x/y/z, repeated
+							 // every kPushRepeatMs while it lasts. (0, 0, 0): it stopped, and the player keeps the last
+							 // push as momentum (as Source does); nothing for kPushStaleMs: it's over, without momentum
 		kInImpulse = 23,     // the host shoved its player while Minecraft drives it, a shove that's over at once (a
-		                     // trigger_push that pushes once, an antlion guard: Source's velocity impulses): a/b/c =
-		                     // Minecraft blocks per second * 1000 along x/y/z, which the player takes as momentum
+							 // trigger_push that pushes once, an antlion guard: Source's velocity impulses): a/b/c =
+							 // Minecraft blocks per second * 1000 along x/y/z, which the player takes as momentum
 		// 26-27: kept for the world group (C)
 		kInHurtFrom = 24,    // where the next kInHurt came from, for Minecraft's shield: a/b/c = Minecraft x/y/z (float bits)
-		                     // of the blast's centre or of what dealt it; only that one kInHurt uses it
+							 // of the blast's centre or of what dealt it; only that one kInHurt uses it
 	};
 	inline constexpr std::uint32_t kPushRepeatMs = 200;
 	inline constexpr std::uint32_t kPushStaleMs = 500;
@@ -242,10 +242,10 @@ namespace halfcraft::proto
 	{
 		kStrCommand = 1,     // (#11) run as the player, like a command typed into chat (without the '/')
 		kStrScreenshot = 2,  // (#6) the answer to Minecraft's kEvScreenshot, or the host's own (request 0), as text:
-		                     //   "ok <request> <width> <height> <path>": the frame in a temporary file named
-		                     //   halfcraft-screenshot-*.rgb, width * height RGB8 pixels, top row first, nothing else;
-		                     //   Minecraft saves it as its own screenshot and deletes the file
-		                     //   "fail <request> <reason>": the host had no frame to give (loading, ...)
+							 //   "ok <request> <width> <height> <path>": the frame in a temporary file named
+							 //   halfcraft-screenshot-*.rgb, width * height RGB8 pixels, top row first, nothing else;
+							 //   Minecraft saves it as its own screenshot and deletes the file
+							 //   "fail <request> <reason>": the host had no frame to give (loading, ...)
 		// 6: kept for the puppet group (A), 8 for the world group (C)
 	};
 	inline constexpr std::uint16_t kStringChannelMask = 0xFF;
@@ -323,15 +323,15 @@ namespace halfcraft::proto
 		kEvHitActor = 1,    // actorId, a = MC damage (after MC's own modifiers), b/c = knockback dir x/z (MC), d = knockback strength
 		kEvPlayerDied = 2,  // the Minecraft player died: kill the host's player
 		kEvExplosion = 3,   // a Minecraft explosion (TNT, creeper, ...): a/b/c = centre (MC coords), d = radius (blocks),
-		                    // attackerId = the Minecraft entity id of the mob that set it off (a creeper); 0: nobody (TNT)
+							// attackerId = the Minecraft entity id of the mob that set it off (a creeper); 0: nobody (TNT)
 		kEvArrowStuck = 4,  // an arrow stuck in a host actor: actorId, a/b/c = where it hit (MC coords), d = flight yaw,
-		                    // flags = flight pitch (float bits), weapon = arrow texture (0 plain, 1 tipped, 2 spectral)
+							// flags = flight pitch (float bits), weapon = arrow texture (0 plain, 1 tipped, 2 spectral)
 		kEvScreenshot = 5,  // (#6) Minecraft's screenshot key: actorId = Minecraft's request number (1+); the host saves its
-		                    // own finished frame (its world, its hud and Minecraft's overlay) and answers on kStrScreenshot
+							// own finished frame (its world, its hud and Minecraft's overlay) and answers on kStrScreenshot
 		// 6-7: kept for #12 (the host's weapons), 8-9 for #13 (Minecraft's mobs), 12-13 for the puppet group (A),
 		// 17 for the world group (C)
 		kEvCollisionWanted = 16,  // a projectile waits at a/b/c (MC coords), under the space described around the player:
-		                          // the host streams its collision below there too
+								  // the host streams its collision below there too
 	};
 
 	enum HitFlags : std::uint32_t
@@ -361,7 +361,7 @@ namespace halfcraft::proto
 		std::uint32_t flags;
 		std::uint32_t weapon;      // HitWeapon for kEvHitActor
 		std::uint32_t attackerId;  // (#13) kEvHitActor: the Minecraft entity id of the mob that landed it; 0: the player.
-		                           // kEvExplosion: the mob that set it off
+								   // kEvExplosion: the mob that set it off
 		std::uint32_t reserved[3];
 	};
 	static_assert(sizeof(McEvent) == 48);
@@ -455,12 +455,12 @@ namespace halfcraft::proto
 		std::int32_t  maxHealth;
 		float         distance;      // from the player's eye, host units
 		std::int32_t  relation;      // how a character feels about the player: Source's Disposition_t (1 hate,
-		                             // 2 fear, 3 like, 4 neutral); 0: not a character
-		std::int32_t  npcState;      // Source's NPC_STATE (1 idle, 2 alert, 3 combat, 4 script, 5 play dead,
-		                             // 6 held by a barnacle, 7 dead); 0: not an npc
-		char          targetClass[48];  // empty: nothing under the crosshair (the world doesn't count)
-		char          targetName[48];   // its map name; empty: none
-		char          schedule[48];     // what an npc is doing (its AI schedule)
+									 // 2 fear, 3 like, 4 neutral); 0: not a character
+		std::int32_t npcState;      // Source's NPC_STATE (1 idle, 2 alert, 3 combat, 4 script, 5 play dead,
+									 // 6 held by a barnacle, 7 dead); 0: not an npc
+		char targetClass[48];  // empty: nothing under the crosshair (the world doesn't count)
+		char targetName[48];   // its map name; empty: none
+		char schedule[48];     // what an npc is doing (its AI schedule)
 	};
 	static_assert(sizeof(HostDebugServer) == 0xB0);
 	static_assert(sizeof(HostDebug) <= kHostDebugServerOff);
@@ -632,18 +632,18 @@ namespace halfcraft::proto
 		kRenClearAll = 3,     // drop every section (world change)
 		kRenTexture = 4,      // RenTexture + RGBA8 pixels: an entity texture (player skin, armour, ...)
 		kRenAvatar = 5,       // RenAvatar + RenBatch[batchCount] + RenVertex[vertexCount]: the player's
-		                      // model this frame; 0 batches = not shown (first person)
+							  // model this frame; 0 batches = not shown (first person)
 		kRenScene = 6,        // RenScene + RenBatch[batchCount] + RenVertex[vertexCount]: every other
-		                      // entity and all particles this frame, relative to RenScene's origin
+							  // entity and all particles this frame, relative to RenScene's origin
 		kRenAtlasRegion = 7,  // RenAtlasRegion + RGBA8 pixels: an animated sprite's current frame
 		kRenLights = 8,       // RenLights + RenLight[count]: a section's light-emitting blocks (sent
-		                      // after its kRenSection; 0 = none)
+							  // after its kRenSection; 0 = none)
 		kRenRagdoll = 9,      // RenAvatar + RenBatch[] + RenVertex[]: the player's body standing still,
-		                      // relative to the feet and facing +Z, split into its parts (RenBatch
-		                      // flags bits 8-11: RagdollPart). Sent about once a second while alive,
-		                      // for a host that hangs the parts on a ragdoll when the player dies.
+							  // relative to the feet and facing +Z, split into its parts (RenBatch
+							  // flags bits 8-11: RagdollPart). Sent about once a second while alive,
+							  // for a host that hangs the parts on a ragdoll when the player dies.
 		kRenSolids = 10,      // RenSolids + 512-byte bitset (bit x + 16z + 256y): which blocks of a
-		                      // section the host's characters collide with (sent after its kRenSection; 0 = none)
+							  // section the host's characters collide with (sent after its kRenSection; 0 = none)
 	};
 
 	struct RenSolids
@@ -747,7 +747,7 @@ namespace halfcraft::proto
 		std::uint32_t color;    // RGBA8 (tint * ambient occlusion; Minecraft's fixed face shading is left out)
 		std::uint32_t light;    // low byte: block light 0-15, next byte: sky light 0-15
 		std::uint32_t flags;    // bit0: cutout (alpha test), bit1: translucent,
-		                        // bits 4-6: face normal as MC Direction ordinal + 1 (0 = none: lit without a normal)
+								// bits 4-6: face normal as MC Direction ordinal + 1 (0 = none: lit without a normal)
 	};
 	static_assert(sizeof(RenVertex) == 32);
 

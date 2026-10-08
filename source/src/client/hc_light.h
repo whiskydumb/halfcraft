@@ -30,7 +30,7 @@ namespace halfcraft
 		Vector at(const float point[3]);
 
 	private:
-		float                                    scale_;
+		float                                     scale_;
 		std::unordered_map<std::uint64_t, Vector> cache_;
 	};
 

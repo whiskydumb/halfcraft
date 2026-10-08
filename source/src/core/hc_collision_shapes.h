@@ -49,14 +49,20 @@ namespace halfcraft
 		inline constexpr float STEEP_MAX = 0.643f;  // |n.y| below this (steeper than ~50 deg) gets block-coarsened
 		inline constexpr float PRIM_MARGIN = 0.5f;  // voxels; lets thin convex shapes still register
 
-		inline void sub(const float* a, const float* b, float* o) { o[0] = a[0] - b[0], o[1] = a[1] - b[1], o[2] = a[2] - b[2]; }
+		inline void sub(const float* a, const float* b, float* o)
+		{
+			o[0] = a[0] - b[0], o[1] = a[1] - b[1], o[2] = a[2] - b[2];
+		}
 		inline void cross(const float* a, const float* b, float* o)
 		{
 			o[0] = a[1] * b[2] - a[2] * b[1];
 			o[1] = a[2] * b[0] - a[0] * b[2];
 			o[2] = a[0] * b[1] - a[1] * b[0];
 		}
-		inline float dot(const float* a, const float* b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+		inline float dot(const float* a, const float* b)
+		{
+			return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+		}
 
 		// ---- triangle / box overlap (akenine-moller SAT), voxel units ------------------------------
 		inline bool axis_test(const float* v0, const float* v1, const float* v2, const float* axis, float h)
@@ -203,7 +209,7 @@ namespace halfcraft
 				}
 				for (std::size_t v = 1; v + 1 < poly.size(); ++v) {
 					ColPrimitives::Tri t{ { poly[0][0], poly[0][1], poly[0][2], poly[v][0], poly[v][1], poly[v][2], poly[v + 1][0], poly[v + 1][1], poly[v + 1][2] }, cvx.flags };
-					float e1[3], e2[3], tn[3];
+					float              e1[3], e2[3], tn[3];
 					sub(t.v + 3, t.v, e1);
 					sub(t.v + 6, t.v, e2);
 					cross(e1, e2, tn);
@@ -274,8 +280,10 @@ namespace halfcraft
 			auto&       grid = flat ? solid : steep;
 
 			int dom = 0;
-			if (std::fabs(n[1]) > std::fabs(n[dom])) dom = 1;
-			if (std::fabs(n[2]) > std::fabs(n[dom])) dom = 2;
+			if (std::fabs(n[1]) > std::fabs(n[dom]))
+				dom = 1;
+			if (std::fabs(n[2]) > std::fabs(n[dom]))
+				dom = 2;
 			const int   u = (dom + 1) % 3, v = (dom + 2) % 3;
 			const float d = dot(n, a);
 			const float r = 0.5f * (std::fabs(n[0]) + std::fabs(n[1]) + std::fabs(n[2]));

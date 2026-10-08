@@ -33,7 +33,7 @@ namespace halfcraft
 	namespace
 	{
 		// asked, and no frame finished since: source isn't drawing a world (no map, a loading screen)
-		constexpr double        FRAME_TIMEOUT_SECONDS = 2.0;
+		constexpr double FRAME_TIMEOUT_SECONDS = 2.0;
 		// read back and still not done: a wedged render thread, or a call queue that was dropped. both
 		// timeouts together stay under minecraft's 5 s, so it prints the reason rather than its own
 		constexpr double        CAPTURE_TIMEOUT_SECONDS = 2.0;
@@ -89,7 +89,7 @@ namespace halfcraft
 			double                     captured_at_ = 0.0;
 			// given up on, but the render thread may still write them: freed once it has
 			std::vector<std::unique_ptr<Capture>> abandoned_;
-			std::uint32_t              files_ = 0;
+			std::uint32_t                         files_ = 0;
 		};
 
 		Screenshots g_screenshots;
@@ -169,7 +169,7 @@ namespace halfcraft
 			}
 			for (const auto request : waiting_) {
 				// a file each: minecraft deletes it once it has saved the png
-				const auto path = folder / ("halfcraft-screenshot-" + std::to_string(qpc_now()) + "-" + std::to_string(++files_) + ".rgb");
+				const auto    path = folder / ("halfcraft-screenshot-" + std::to_string(qpc_now()) + "-" + std::to_string(++files_) + ".rgb");
 				std::ofstream file(path, std::ios::binary | std::ios::trunc);
 				file.write(reinterpret_cast<const char*>(capture->pixels.data()), static_cast<std::streamsize>(capture->pixels.size()));
 				file.close();
@@ -251,13 +251,12 @@ extern "C" __declspec(dllexport) void HalfCraft_RequestScreenshot(std::uint32_t 
 	halfcraft::g_screenshots.request(request);
 }
 
-CON_COMMAND( hc_screenshot, "halfcraft: save the next finished frame as a minecraft screenshot, like minecraft's screenshot key (F2)" )
+CON_COMMAND(hc_screenshot, "halfcraft: save the next finished frame as a minecraft screenshot, like minecraft's screenshot key (F2)")
 {
-	auto &s = halfcraft::client_session();
-	if ( !s.link_ready || !s.link.mc_alive() )
-	{
-		halfcraft::log_warning( "hc_screenshot: minecraft isn't connected, so nothing would save the frame" );
+	auto& s = halfcraft::client_session();
+	if (!s.link_ready || !s.link.mc_alive()) {
+		halfcraft::log_warning("hc_screenshot: minecraft isn't connected, so nothing would save the frame");
 		return;
 	}
-	halfcraft::g_screenshots.request( halfcraft::HOST_REQUEST );
+	halfcraft::g_screenshots.request(halfcraft::HOST_REQUEST);
 }

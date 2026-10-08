@@ -37,7 +37,7 @@ namespace halfcraft
 
 			/// forwards what half-life added since the last frame and returns the value to give source's
 			/// player now.
-			int update(int current, float minecraft, int kind, float frametime);
+			int  update(int current, float minecraft, int kind, float frametime);
 			void reset() { *this = Mirror{}; }
 		};
 

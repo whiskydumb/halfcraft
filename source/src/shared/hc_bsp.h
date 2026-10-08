@@ -46,7 +46,7 @@ namespace halfcraft
 			bool open()
 			{
 				return file_ && filesystem->Read(&header_, sizeof(header_), file_) == sizeof(header_) && header_.ident == IDBSPHEADER &&
-					   header_.version >= MINBSPVERSION && header_.version <= BSPVERSION;
+					header_.version >= MINBSPVERSION && header_.version <= BSPVERSION;
 			}
 
 			/// a lump as an array of T. false when it's compressed (consoles' maps) or cut short.

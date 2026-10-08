@@ -39,12 +39,12 @@ namespace halfcraft
 		/// so what's under them is out in the open. a roof with sky only on top stays a roof.
 		std::vector<bool> read_sky_brushes(const char* map_name)
 		{
-			const std::string     path = "maps/" + map_base_name(map_name) + ".bsp";
-			bsp::BspFile          file(path.c_str());
-			std::vector<dbrush_t> brushes;
+			const std::string         path = "maps/" + map_base_name(map_name) + ".bsp";
+			bsp::BspFile              file(path.c_str());
+			std::vector<dbrush_t>     brushes;
 			std::vector<dbrushside_t> sides;
-			std::vector<dplane_t>  planes;
-			std::vector<texinfo_t> texinfos;
+			std::vector<dplane_t>     planes;
+			std::vector<texinfo_t>    texinfos;
 			if (!file.open() || !file.lump(LUMP_BRUSHES, brushes) || !file.lump(LUMP_BRUSHSIDES, sides) || !file.lump(LUMP_PLANES, planes) ||
 				!file.lump(LUMP_TEXINFO, texinfos)) {
 				log_warning("sky: can't read %s: half-life's sky counts as a roof there", path.c_str());
@@ -66,7 +66,7 @@ namespace halfcraft
 					}
 					seen_from_under = true;
 					all_sky = side.texinfo >= 0 && static_cast<std::size_t>(side.texinfo) < texinfos.size() &&
-							  (texinfos[side.texinfo].flags & (SURF_SKY | SURF_SKY2D));
+						(texinfos[side.texinfo].flags & (SURF_SKY | SURF_SKY2D));
 				}
 				if (seen_from_under && all_sky) {
 					sky[b] = true;
@@ -487,11 +487,17 @@ namespace halfcraft
 	{
 		// the box as a hull of 12 triangles
 		const Vector c[8] = {
-			Vector(mins.x, mins.y, mins.z), Vector(maxs.x, mins.y, mins.z), Vector(maxs.x, maxs.y, mins.z), Vector(mins.x, maxs.y, mins.z),
-			Vector(mins.x, mins.y, maxs.z), Vector(maxs.x, mins.y, maxs.z), Vector(maxs.x, maxs.y, maxs.z), Vector(mins.x, maxs.y, maxs.z),
+			Vector(mins.x, mins.y, mins.z),
+			Vector(maxs.x, mins.y, mins.z),
+			Vector(maxs.x, maxs.y, mins.z),
+			Vector(mins.x, maxs.y, mins.z),
+			Vector(mins.x, mins.y, maxs.z),
+			Vector(maxs.x, mins.y, maxs.z),
+			Vector(maxs.x, maxs.y, maxs.z),
+			Vector(mins.x, maxs.y, maxs.z),
 		};
 		static constexpr int FACES[6][4] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 }, { 0, 1, 5, 4 }, { 1, 2, 6, 5 }, { 2, 3, 7, 6 }, { 3, 0, 4, 7 } };
-		Hull hull;
+		Hull                 hull;
 		for (const auto& f : FACES) {
 			hull.insert(hull.end(), { c[f[0]], c[f[1]], c[f[2]], c[f[0]], c[f[2]], c[f[3]] });
 		}

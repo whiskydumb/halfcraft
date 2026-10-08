@@ -210,7 +210,7 @@ namespace halfcraft
 
 	bool client_key_event(int down, ButtonCode_t code, const char* binding)
 	{
-		auto& s = client_session();
+		auto&      s = client_session();
 		const bool pressed = down != 0;
 		if (source_keeps(code, s) || (!s.minecraft_owns_input && !minecraft_keeps(code, pressed, s))) {
 			return true;
@@ -231,7 +231,7 @@ namespace halfcraft
 		if (const int button = sdl_button(code)) {
 			// carrying a prop: left throws it, right drops it (half-life's attack buttons). holding a
 			// half-life weapon in minecraft: they fire it, and minecraft never breaks or places with it
-			const int bit = 1 << button;
+			const int  bit = 1 << button;
 			const bool to_source = pressed ? ((s.holding || weapon_in_hand(s)) && !s.mc_screen_open && (button == 1 || button == 3))
 										   : (g_source_buttons & bit) != 0;
 			if (to_source) {
@@ -308,30 +308,29 @@ namespace halfcraft
 
 // developer helpers: synthetic input (remote desktop, automation) reaches source's raw mouse as
 // absolute positions, which make useless look deltas.
-CON_COMMAND( hc_look, "halfcraft: point minecraft's look: hc_look <pitch> <yaw> (minecraft degrees)" )
+CON_COMMAND(hc_look, "halfcraft: point minecraft's look: hc_look <pitch> <yaw> (minecraft degrees)")
 {
-	if ( args.ArgC() < 3 )
-	{
-		Msg( "usage: hc_look <pitch> <yaw>\n" );
+	if (args.ArgC() < 3) {
+		Msg("usage: hc_look <pitch> <yaw>\n");
 		return;
 	}
-	auto &s = halfcraft::client_session();
-	s.pitch = std::clamp( static_cast<float>( atof( args[1] ) ), -90.0f, 90.0f );
-	s.yaw = halfcraft::wrap_degrees( static_cast<float>( atof( args[2] ) ) );
+	auto& s = halfcraft::client_session();
+	s.pitch = std::clamp(static_cast<float>(atof(args[1])), -90.0f, 90.0f);
+	s.yaw = halfcraft::wrap_degrees(static_cast<float>(atof(args[2])));
 }
 
-CON_COMMAND( hc_click, "halfcraft: click a minecraft mouse button: hc_click <1 left | 2 middle | 3 right>" )
+CON_COMMAND(hc_click, "halfcraft: click a minecraft mouse button: hc_click <1 left | 2 middle | 3 right>")
 {
-	const int nButton = args.ArgC() > 1 ? atoi( args[1] ) : 1;
-	if ( nButton < 1 || nButton > 5 )
+	const int nButton = args.ArgC() > 1 ? atoi(args[1]) : 1;
+	if (nButton < 1 || nButton > 5)
 		return;
-	auto &s = halfcraft::client_session();
-	s.link.push_input( halfcraft::proto::kInMouseButton, static_cast<std::uint16_t>( nButton ), 1 );
-	s.link.push_input( halfcraft::proto::kInMouseButton, static_cast<std::uint16_t>( nButton ), 0 );
+	auto& s = halfcraft::client_session();
+	s.link.push_input(halfcraft::proto::kInMouseButton, static_cast<std::uint16_t>(nButton), 1);
+	s.link.push_input(halfcraft::proto::kInMouseButton, static_cast<std::uint16_t>(nButton), 0);
 }
 
-CON_COMMAND( hc_scroll, "halfcraft: turn minecraft's mouse wheel: hc_scroll <notches> (positive = up, the hotbar slot before)" )
+CON_COMMAND(hc_scroll, "halfcraft: turn minecraft's mouse wheel: hc_scroll <notches> (positive = up, the hotbar slot before)")
 {
-	const int nNotches = args.ArgC() > 1 ? atoi( args[1] ) : -1;
-	halfcraft::client_session().link.push_input( halfcraft::proto::kInScroll, 0, nNotches * 120 );
+	const int nNotches = args.ArgC() > 1 ? atoi(args[1]) : -1;
+	halfcraft::client_session().link.push_input(halfcraft::proto::kInScroll, 0, nNotches * 120);
 }

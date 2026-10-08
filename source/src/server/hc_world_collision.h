@@ -46,13 +46,13 @@ namespace halfcraft
 		using Hull = std::vector<Vector>;  // a convex piece as triangles (3 corners each), model space
 
 		const std::vector<Hull>& model_hulls(const model_t* model);
-		void add_hulls(const std::vector<Hull>& hulls, const matrix3x4_t& to_world, std::uint32_t flags, ColPrimitives& out) const;
-		void add_box(const Vector& mins, const Vector& maxs, const matrix3x4_t& to_world, ColPrimitives& out) const;
-		void add_brushes(const Vector& mins, const Vector& maxs, ColPrimitives& out) const;
-		void add_displacements(const Vector& mins, const Vector& maxs, ColPrimitives& out) const;
-		void add_static_props(const Vector& mins, const Vector& maxs, ColPrimitives& out);
-		void add_entities(const Vector& mins, const Vector& maxs, ColPrimitives& out);
-		void add_entity(CBaseEntity* entity, ColPrimitives& out);
+		void                     add_hulls(const std::vector<Hull>& hulls, const matrix3x4_t& to_world, std::uint32_t flags, ColPrimitives& out) const;
+		void                     add_box(const Vector& mins, const Vector& maxs, const matrix3x4_t& to_world, ColPrimitives& out) const;
+		void                     add_brushes(const Vector& mins, const Vector& maxs, ColPrimitives& out) const;
+		void                     add_displacements(const Vector& mins, const Vector& maxs, ColPrimitives& out) const;
+		void                     add_static_props(const Vector& mins, const Vector& maxs, ColPrimitives& out);
+		void                     add_entities(const Vector& mins, const Vector& maxs, ColPrimitives& out);
+		void                     add_entity(CBaseEntity* entity, ColPrimitives& out);
 
 		/// minecraft box -> source box
 		void to_source_box(const float lo[3], const float hi[3], Vector& mins, Vector& maxs) const;
@@ -67,10 +67,10 @@ namespace halfcraft
 			int    frame;
 		};
 
-		MapSlot                                             slot_;
-		std::vector<bool>                                   sky_brushes_;  // by brush index
+		MapSlot                                               slot_;
+		std::vector<bool>                                     sky_brushes_;  // by brush index
 		std::unordered_map<const model_t*, std::vector<Hull>> hulls_;
-		std::unordered_map<int, Mover>                      movers_;  // by entity serial-qualified index
-		int                                                 frame_ = 0;
+		std::unordered_map<int, Mover>                        movers_;  // by entity serial-qualified index
+		int                                                   frame_ = 0;
 	};
 }

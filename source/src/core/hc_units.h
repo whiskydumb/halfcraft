@@ -73,8 +73,14 @@ namespace halfcraft
 
 	// source yaw: 0 = +x, counter-clockwise from above. minecraft yaw: 0 = +z (south), clockwise.
 	// the mapping is its own inverse. pitch is positive looking down in both games.
-	inline float source_yaw_to_mc(float yaw) { return wrap_degrees(-yaw - 90.0f); }
-	inline float mc_yaw_to_source(float yaw) { return wrap_degrees(-yaw - 90.0f); }
+	inline float source_yaw_to_mc(float yaw)
+	{
+		return wrap_degrees(-yaw - 90.0f);
+	}
+	inline float mc_yaw_to_source(float yaw)
+	{
+		return wrap_degrees(-yaw - 90.0f);
+	}
 
 	/// minecraft's fov is vertical; source's view fov is horizontal at 4:3 (the engine widens it for
 	/// the real aspect ratio afterwards).

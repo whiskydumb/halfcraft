@@ -13,13 +13,13 @@ namespace halfcraft
 	{
 		using namespace std::chrono_literals;
 
-		constexpr int   BELOW = 3;   // regions below the player
-		constexpr int   ABOVE = 2;   // regions above the player
-		constexpr int   GRID = REGION_VOXELS;  // voxels per region edge (64)
-		constexpr auto  REFRESH_NEAR = 1000ms;   // re-send regions next to the player this often
-		constexpr auto  FRAME_BUDGET = 2500us;
-		constexpr int   MAX_HARVESTS_PER_FRAME = 3;
-		constexpr int   WANTED_DEPTH = 6;     // regions want_below sends under its point (48 blocks)
+		constexpr int         BELOW = 3;   // regions below the player
+		constexpr int         ABOVE = 2;   // regions above the player
+		constexpr int         GRID = REGION_VOXELS;  // voxels per region edge (64)
+		constexpr auto        REFRESH_NEAR = 1000ms;   // re-send regions next to the player this often
+		constexpr auto        FRAME_BUDGET = 2500us;
+		constexpr int         MAX_HARVESTS_PER_FRAME = 3;
+		constexpr int         WANTED_DEPTH = 6;     // regions want_below sends under its point (48 blocks)
 		constexpr std::size_t MAX_WANTED = 64;  // queued at once: a handful of projectiles
 
 		bool finite(const float* v, int n)
@@ -265,8 +265,8 @@ namespace halfcraft
 
 	void CollisionStreamer::send_triangles(const Job& job, const std::vector<ColPrimitives::Tri>& solid)
 	{
-		const float lo[3] = { float(job.rx * REGION_SIZE) - 0.5f, float(job.ry * REGION_SIZE) - 0.5f, float(job.rz * REGION_SIZE) - 0.5f };
-		const float hi[3] = { lo[0] + REGION_SIZE + 1.0f, lo[1] + REGION_SIZE + 1.0f, lo[2] + REGION_SIZE + 1.0f };
+		const float                lo[3] = { float(job.rx * REGION_SIZE) - 0.5f, float(job.ry * REGION_SIZE) - 0.5f, float(job.rz * REGION_SIZE) - 0.5f };
+		const float                hi[3] = { lo[0] + REGION_SIZE + 1.0f, lo[1] + REGION_SIZE + 1.0f, lo[2] + REGION_SIZE + 1.0f };
 		std::vector<proto::ColTri> out;
 		out.reserve(solid.size());
 		for (const auto& tri : solid) {

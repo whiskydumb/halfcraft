@@ -45,17 +45,43 @@ namespace halfcraft
 
 		// what to call half-life's npcs over a minecraft stand-in (the rest lose their "npc_")
 		constexpr const char* NPC_NAMES[][2] = {
-			{ "npc_metropolice", "Civil Protection" }, { "npc_combine_s", "Combine Soldier" }, { "npc_zombie", "Zombie" },
-			{ "npc_fastzombie", "Fast Zombie" }, { "npc_poisonzombie", "Poison Zombie" }, { "npc_zombine", "Zombine" },
-			{ "npc_headcrab", "Headcrab" }, { "npc_headcrab_fast", "Fast Headcrab" }, { "npc_headcrab_black", "Poison Headcrab" },
-			{ "npc_headcrab_poison", "Poison Headcrab" }, { "npc_antlion", "Antlion" }, { "npc_antlionguard", "Antlion Guard" },
-			{ "npc_manhack", "Manhack" }, { "npc_cscanner", "City Scanner" }, { "npc_clawscanner", "Shield Scanner" },
-			{ "npc_rollermine", "Rollermine" }, { "npc_turret_floor", "Turret" }, { "npc_combinegunship", "Gunship" },
-			{ "npc_helicopter", "Hunter-Chopper" }, { "npc_strider", "Strider" }, { "npc_barnacle", "Barnacle" },
-			{ "npc_citizen", "Citizen" }, { "npc_alyx", "Alyx" }, { "npc_barney", "Barney" }, { "npc_vortigaunt", "Vortigaunt" },
-			{ "npc_dog", "Dog" }, { "npc_eli", "Eli" }, { "npc_kleiner", "Dr. Kleiner" }, { "npc_mossman", "Dr. Mossman" },
-			{ "npc_breen", "Dr. Breen" }, { "npc_monk", "Father Grigori" }, { "npc_gman", "G-Man" }, { "npc_stalker", "Stalker" },
-			{ "npc_hunter", "Hunter" }, { "npc_crow", "Crow" }, { "npc_pigeon", "Pigeon" }, { "npc_seagull", "Seagull" },
+			{ "npc_metropolice", "Civil Protection" },
+			{ "npc_combine_s", "Combine Soldier" },
+			{ "npc_zombie", "Zombie" },
+			{ "npc_fastzombie", "Fast Zombie" },
+			{ "npc_poisonzombie", "Poison Zombie" },
+			{ "npc_zombine", "Zombine" },
+			{ "npc_headcrab", "Headcrab" },
+			{ "npc_headcrab_fast", "Fast Headcrab" },
+			{ "npc_headcrab_black", "Poison Headcrab" },
+			{ "npc_headcrab_poison", "Poison Headcrab" },
+			{ "npc_antlion", "Antlion" },
+			{ "npc_antlionguard", "Antlion Guard" },
+			{ "npc_manhack", "Manhack" },
+			{ "npc_cscanner", "City Scanner" },
+			{ "npc_clawscanner", "Shield Scanner" },
+			{ "npc_rollermine", "Rollermine" },
+			{ "npc_turret_floor", "Turret" },
+			{ "npc_combinegunship", "Gunship" },
+			{ "npc_helicopter", "Hunter-Chopper" },
+			{ "npc_strider", "Strider" },
+			{ "npc_barnacle", "Barnacle" },
+			{ "npc_citizen", "Citizen" },
+			{ "npc_alyx", "Alyx" },
+			{ "npc_barney", "Barney" },
+			{ "npc_vortigaunt", "Vortigaunt" },
+			{ "npc_dog", "Dog" },
+			{ "npc_eli", "Eli" },
+			{ "npc_kleiner", "Dr. Kleiner" },
+			{ "npc_mossman", "Dr. Mossman" },
+			{ "npc_breen", "Dr. Breen" },
+			{ "npc_monk", "Father Grigori" },
+			{ "npc_gman", "G-Man" },
+			{ "npc_stalker", "Stalker" },
+			{ "npc_hunter", "Hunter" },
+			{ "npc_crow", "Crow" },
+			{ "npc_pigeon", "Pigeon" },
+			{ "npc_seagull", "Seagull" },
 		};
 
 		/// breakable things minecraft weapons should be able to smash
@@ -69,7 +95,7 @@ namespace halfcraft
 			}
 			const char* name = entity->GetClassname();
 			return !Q_strncmp(name, "prop_", 5) || !Q_strcmp(name, "item_item_crate") || !Q_strcmp(name, "func_breakable") ||
-				   !Q_strcmp(name, "func_physbox");
+				!Q_strcmp(name, "func_physbox");
 		}
 
 		void display_name(CBaseEntity* entity, char* out, std::size_t size)
@@ -312,7 +338,8 @@ namespace halfcraft
 		// a minecraft mob's hit comes from its stand-in, so the character fights that mob; one with no
 		// stand-in (an animal) blames nobody, and only the player's own hits are the player's
 		CBaseEntity* stand_in = event.attackerId != 0 ? mob_stand_in(event.attackerId) : nullptr;
-		CBaseEntity* attacker = event.attackerId == 0 ? player : stand_in ? stand_in : GetWorldEntity();
+		CBaseEntity* attacker = event.attackerId == 0 ? player : stand_in ? stand_in
+																		  : GetWorldEntity();
 		if (event.attackerId != 0) {
 			log_info("minecraft's mob %u hit %s for %.1f%s", event.attackerId, target->GetClassname(), damage, stand_in ? "" : " (it has no stand-in: nobody to blame)");
 		}

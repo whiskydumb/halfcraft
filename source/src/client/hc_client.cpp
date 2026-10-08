@@ -33,13 +33,13 @@ namespace halfcraft
 {
 	namespace
 	{
-		constexpr float PI = 3.14159265f;
-		constexpr float TELEPORT_THRESHOLD = 160.0f;  // units; bigger jumps are source moving the player
-		constexpr float HOLD_MISMATCH_BLOCKS = 8.0f;   // minecraft waiting this far away is waiting in the wrong place
-		constexpr float IDLE_GAME_HOUR = 12.0f;        // half-life has no day: minecraft keeps noon
+		constexpr float         PI = 3.14159265f;
+		constexpr float         TELEPORT_THRESHOLD = 160.0f;  // units; bigger jumps are source moving the player
+		constexpr float         HOLD_MISMATCH_BLOCKS = 8.0f;   // minecraft waiting this far away is waiting in the wrong place
+		constexpr float         IDLE_GAME_HOUR = 12.0f;        // half-life has no day: minecraft keeps noon
 		constexpr std::uint64_t RENDER_DRAIN_BYTES = 32ull << 20;  // per frame; the atlas alone is ~20 MB
-		constexpr float CAMERA_EASE_SECONDS = 0.2f;  // the F5 camera easing back out after something pushed it in
-		constexpr float CAMERA_HULL_UNITS = 4.0f;    // the F5 camera's half size against walls (minecraft's 0.1 block)
+		constexpr float         CAMERA_EASE_SECONDS = 0.2f;  // the F5 camera easing back out after something pushed it in
+		constexpr float         CAMERA_HULL_UNITS = 4.0f;    // the F5 camera's half size against walls (minecraft's 0.1 block)
 
 		void console_sink(int severity, const char* line)
 		{
@@ -73,9 +73,9 @@ namespace halfcraft
 					ground_ = ground;
 					moved_at_ = -1.0f;
 				} else if ((ground->GetAbsOrigin() - origin_).LengthSqr() > MOVE_EPSILON * MOVE_EPSILON ||
-						   std::fabs(AngleDiff(ground->GetAbsAngles().y, angles_.y)) > MOVE_EPSILON ||
-						   std::fabs(AngleDiff(ground->GetAbsAngles().x, angles_.x)) > MOVE_EPSILON ||
-						   std::fabs(AngleDiff(ground->GetAbsAngles().z, angles_.z)) > MOVE_EPSILON) {
+					std::fabs(AngleDiff(ground->GetAbsAngles().y, angles_.y)) > MOVE_EPSILON ||
+					std::fabs(AngleDiff(ground->GetAbsAngles().x, angles_.x)) > MOVE_EPSILON ||
+					std::fabs(AngleDiff(ground->GetAbsAngles().z, angles_.z)) > MOVE_EPSILON) {
 					moved_at_ = now;
 				}
 				origin_ = ground->GetAbsOrigin();
@@ -484,11 +484,11 @@ namespace halfcraft
 		/// whatever of half-life's is in the way besides the vehicle.
 		float seated_camera_reach(C_BasePlayer* player, const float* eye, const Vector& forward, float blocks)
 		{
-			IClientVehicle*            vehicle = player->GetVehicle();
+			IClientVehicle*             vehicle = player->GetVehicle();
 			CTraceFilterSkipTwoEntities filter(player, vehicle ? vehicle->GetVehicleEnt() : nullptr, COLLISION_GROUP_NONE);
-			const Vector               from(eye[0], eye[1], eye[2]);
-			const Vector               hull(CAMERA_HULL_UNITS, CAMERA_HULL_UNITS, CAMERA_HULL_UNITS);
-			trace_t                    trace;
+			const Vector                from(eye[0], eye[1], eye[2]);
+			const Vector                hull(CAMERA_HULL_UNITS, CAMERA_HULL_UNITS, CAMERA_HULL_UNITS);
+			trace_t                     trace;
 			UTIL_TraceHull(from, from - forward * (blocks * static_cast<float>(UNITS_PER_BLOCK)), -hull, hull, MASK_SOLID & ~CONTENTS_MONSTER, &filter, &trace);
 			return blocks * trace.fraction;
 		}

@@ -124,7 +124,7 @@ namespace halfcraft
 		const std::uint32_t out = live ? table.active : proto::kHostWeaponNone;
 		// a player_speedmod keeps the weapons away: the hand asks for none
 		const bool suppressed = live && (table.flags & proto::kWeaponTableSuppressed);
-		const bool          matched = held != proto::kHostWeaponNone && held == out;
+		const bool matched = held != proto::kHostWeaponNone && held == out;
 		g_ready = matched && !session.mc_screen_open;
 
 		// half-life's viewmodel stands in for minecraft's hand, so only in minecraft's first person

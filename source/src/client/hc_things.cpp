@@ -151,10 +151,10 @@ namespace halfcraft
 			const float cx = min[0] + size[0] * 0.5f, cz = min[2] + size[2] * 0.5f;
 			const float c = std::cos(yaw), s = std::sin(yaw);
 			auto        corner = [&](int i, float p[3]) {
-                const float lx = ((i & 1) ? 0.5f : -0.5f) * size[0], lz = ((i & 4) ? 0.5f : -0.5f) * size[2];
-                p[0] = cx + lx * c - lz * s;
-                p[1] = min[1] + ((i & 2) ? size[1] : 0.0f);
-                p[2] = cz + lx * s + lz * c;
+				const float lx = ((i & 1) ? 0.5f : -0.5f) * size[0], lz = ((i & 4) ? 0.5f : -0.5f) * size[2];
+				p[0] = cx + lx * c - lz * s;
+				p[1] = min[1] + ((i & 2) ? size[1] : 0.0f);
+				p[2] = cz + lx * s + lz * c;
 			};
 			// corner bits: 1 = +x, 2 = +y, 4 = +z; each face TL, TR, BR, BL seen from outside
 			static constexpr int FACES[6][4] = {
@@ -174,7 +174,9 @@ namespace halfcraft
 				}
 				std::uint8_t color[4];
 				lit_white(light, shaded ? FACE_SHADE[SHADE_OF[f]] : 1.0f, f == 4 ? top_tint : 0, color);
-				out.quad(p, f == 4 ? top : f == 5 ? bottom : side, color);
+				out.quad(p, f == 4 ? top : f == 5 ? bottom
+												  : side,
+					color);
 			}
 		}
 
@@ -193,9 +195,9 @@ namespace halfcraft
 			constexpr float r = 0.70710678f;
 			const float     fins[2][3] = { { (u[0] + s[0]) * r, (u[1] + s[1]) * r, (u[2] + s[2]) * r }, { (u[0] - s[0]) * r, (u[1] - s[1]) * r, (u[2] - s[2]) * r } };
 			auto            at = [&](float along, const float* q, float across, const float* q2, float across2, float p[3]) {
-                for (int k = 0; k < 3; ++k) {
-                    p[k] = d[k] * along + q[k] * across + (q2 ? q2[k] * across2 : 0.0f);
-                }
+				for (int k = 0; k < 3; ++k) {
+					p[k] = d[k] * along + q[k] * across + (q2 ? q2[k] * across2 : 0.0f);
+				}
 			};
 			if (!trident) {
 				// minecraft's ArrowModel (1/16 block units, scaled 0.9): two fins 16 long and 4 wide from
@@ -310,8 +312,8 @@ namespace halfcraft
 				Vector                   last_origin;  // the entity's, to find its ragdoll by
 			};
 
-			void              pin(const Pending& pending);
-			C_BaseAnimating*  ragdoll_of(const Arrow& arrow, C_BaseAnimating* entity) const;
+			void             pin(const Pending& pending);
+			C_BaseAnimating* ragdoll_of(const Arrow& arrow, C_BaseAnimating* entity) const;
 
 			static constexpr float  SEARCH_DEPTH = 30.0f;  // units along the path past the hit to look for a hitbox
 			static constexpr float  MAX_MISS = 34.0f;      // a path further than this from every hitbox missed the body
@@ -327,9 +329,9 @@ namespace halfcraft
 
 		void StuckArrows::pin(const Pending& pending)
 		{
-			C_BaseEntity*    base = ClientEntityList().GetBaseEntity(pending.entindex);
-			C_BaseAnimating* entity = base ? base->GetBaseAnimating() : nullptr;
-			CStudioHdr*      model = entity ? entity->GetModelPtr() : nullptr;
+			C_BaseEntity*       base = ClientEntityList().GetBaseEntity(pending.entindex);
+			C_BaseAnimating*    entity = base ? base->GetBaseAnimating() : nullptr;
+			CStudioHdr*         model = entity ? entity->GetModelPtr() : nullptr;
 			mstudiohitboxset_t* set = model ? model->pHitboxSet(entity->GetHitboxSet()) : nullptr;
 			matrix3x4_t         bones[MAXSTUDIOBONES];
 			if (!set || !bone_matrices(entity, bones)) {
@@ -535,10 +537,10 @@ namespace halfcraft
 			/// drops the scene and the entity textures.
 			void clear();
 			/// once per frame before rendering: this frame's geometry and bounds.
-			void update();
-			void level_init() { level_loaded_ = true; }
-			void level_shutdown();
-			void shutdown();
+			void         update();
+			void         level_init() { level_loaded_ = true; }
+			void         level_shutdown();
+			void         shutdown();
 			StuckArrows& stuck_arrows() { return arrows_; }
 
 			// IClientRenderable
@@ -565,8 +567,8 @@ namespace halfcraft
 			void draw_outline();
 			void set_bounds(const Vector& lo, const Vector& hi);
 
-			proto::WorldEntities                                               entities_{};
-			DrawList                                                           entity_list_, scene_list_, avatar_list_;
+			proto::WorldEntities                                              entities_{};
+			DrawList                                                          entity_list_, scene_list_, avatar_list_;
 			std::unordered_map<std::uint32_t, std::unique_ptr<EntityTexture>> textures_;
 
 			// the scene as minecraft sent it (positions relative to its origin), and the player's own
@@ -761,7 +763,7 @@ namespace halfcraft
 			}
 			ensure_materials(atlas);
 
-			LightCache   light(light_scale());
+			LightCache light(light_scale());
 			// the camera (last frame's), which shading turns triangles towards: in third person it's well
 			// away from minecraft's eye
 			const Vector& view = MainViewOrigin();
@@ -915,7 +917,7 @@ namespace halfcraft
 			list.clear();
 			const float eye[3] = { static_cast<float>(eye_mc[0] - origin[0]), static_cast<float>(eye_mc[1] - origin[1]),
 				static_cast<float>(eye_mc[2] - origin[2]) };
-			Emitter out{ list, slot, { origin[0], origin[1], origin[2] }, 1.0f, 1.0f };
+			Emitter     out{ list, slot, { origin[0], origin[1], origin[2] }, 1.0f, 1.0f };
 			for (const auto& batch : mesh.batches) {
 				IMaterial* cutout = atlas.cutout;
 				IMaterial* translucent = atlas.translucent;
@@ -999,7 +1001,7 @@ namespace halfcraft
 			// each edge a thin strip facing the camera, about two pixels wide at any distance
 			const Vector& eye = CurrentViewOrigin();
 			auto          corner = [&](int i) {
-                return Vector((i & 1) ? selection_hi_.x : selection_lo_.x, (i & 2) ? selection_hi_.y : selection_lo_.y, (i & 4) ? selection_hi_.z : selection_lo_.z);
+				return Vector((i & 1) ? selection_hi_.x : selection_lo_.x, (i & 2) ? selection_hi_.y : selection_lo_.y, (i & 4) ? selection_hi_.z : selection_lo_.z);
 			};
 			static constexpr int EDGES[12][2] = { { 0, 1 }, { 2, 3 }, { 4, 5 }, { 6, 7 }, { 0, 2 }, { 1, 3 }, { 4, 6 }, { 5, 7 }, { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 } };
 			DrawVertex           strips[12 * 6];

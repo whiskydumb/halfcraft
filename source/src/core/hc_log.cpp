@@ -21,7 +21,7 @@ namespace halfcraft
 
 		void write(int severity, const char* format, std::va_list args)
 		{
-			char line[1024];
+			char      line[1024];
 			const int prefix = std::snprintf(line, sizeof(line), "[halfcraft] ");
 			std::vsnprintf(line + prefix, sizeof(line) - prefix, format, args);
 			g_sink.load(std::memory_order_acquire)(severity, line);

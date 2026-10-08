@@ -56,7 +56,7 @@ namespace halfcraft
 				folder_ = folder.substr(folder.find_last_of("/\\") + 1);
 				FileFindHandle_t handle = FILESYSTEM_INVALID_FIND_HANDLE;
 				for (const char* file = filesystem->FindFirstEx(CHAPTER_CFGS, "MOD", &handle); file; file = filesystem->FindNext(handle)) {
-					const std::string name = file;
+					const std::string     name = file;
 					constexpr std::size_t PREFIX = sizeof("chapter") - 1;
 					constexpr std::size_t SUFFIX = sizeof(".cfg") - 1;
 					if (name.size() <= PREFIX + SUFFIX) {
@@ -157,7 +157,7 @@ namespace halfcraft
 			{
 				proto::HostDebug debug{};
 				debug.flags = (s.puppeting ? proto::kDebugPuppet : 0u) | (s.minecraft_owns_input ? proto::kDebugMinecraftInput : 0u) |
-							  (s.minecraft_hud ? proto::kDebugMinecraftHud : 0u);
+					(s.minecraft_hud ? proto::kDebugMinecraftHud : 0u);
 				C_BasePlayer* player = C_BasePlayer::GetLocalPlayer();
 				const bool    in_game = player && engine->IsInGame() && !engine->IsLevelMainMenuBackground();
 				std::string   map, chapter, title;

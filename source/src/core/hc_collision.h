@@ -74,21 +74,21 @@ namespace halfcraft
 
 		using Clock = std::chrono::steady_clock;
 
-		Link&                                          link_;
-		std::mutex                                     mutex_;
-		std::condition_variable                        cv_;
-		std::deque<Job>                                queue_;
-		std::thread                                    worker_;
-		std::atomic<bool>                              stop_{ false };
-		std::atomic<std::uint32_t>                     epoch_{ 0 };
+		Link&                                                link_;
+		std::mutex                                           mutex_;
+		std::condition_variable                              cv_;
+		std::deque<Job>                                      queue_;
+		std::thread                                          worker_;
+		std::atomic<bool>                                    stop_{ false };
+		std::atomic<std::uint32_t>                           epoch_{ 0 };
 		std::unordered_map<std::uint64_t, Clock::time_point> harvested_;
-		std::vector<std::array<int, 3>>                urgent_;
-		std::vector<std::array<int, 3>>                wanted_;  // want_below's, sent once each
-		std::vector<std::array<int, 3>>                offsets_;
+		std::vector<std::array<int, 3>>                      urgent_;
+		std::vector<std::array<int, 3>>                      wanted_;  // want_below's, sent once each
+		std::vector<std::array<int, 3>>                      offsets_;
 		// regions new to the stream since it last had them all (a teleport, a map load): logged once
 		// they're all out, with what gathering them cost the main thread
-		Clock::time_point                              settle_start_{};
-		Clock::duration                                settle_cost_{};
-		std::size_t                                    settle_regions_ = 0;
+		Clock::time_point settle_start_{};
+		Clock::duration   settle_cost_{};
+		std::size_t       settle_regions_ = 0;
 	};
 }

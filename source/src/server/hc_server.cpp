@@ -39,7 +39,7 @@ namespace halfcraft
 		// half-life's hud parts minecraft replaces while it owns the player's health (also on ladders
 		// and rides): its health/suit, weapon selection and crosshair. the flashlight meter stays (V
 		// still toggles the flashlight).
-		constexpr int HIDDEN_HUD = HIDEHUD_HEALTH | HIDEHUD_WEAPONSELECTION | HIDEHUD_CROSSHAIR;
+		constexpr int   HIDDEN_HUD = HIDEHUD_HEALTH | HIDEHUD_WEAPONSELECTION | HIDEHUD_CROSSHAIR;
 		constexpr float PUPPET_GRACE_SECONDS = 0.5f;
 
 		ConVar hc_debug_use("hc_debug_use", "0", 0, "halfcraft: log what half-life's use finds whenever it's pressed");

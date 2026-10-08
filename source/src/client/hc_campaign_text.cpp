@@ -194,7 +194,7 @@ namespace halfcraft
 		const Titles& campaign_titles(Campaign campaign)
 		{
 			static std::array<std::unique_ptr<Titles>, 3> loaded;
-			auto& titles = loaded[static_cast<std::size_t>(campaign)];
+			auto&                                         titles = loaded[static_cast<std::size_t>(campaign)];
 			if (!titles) {
 				titles = std::make_unique<Titles>();
 				CUtlBuffer file(0, 0, CUtlBuffer::TEXT_BUFFER);

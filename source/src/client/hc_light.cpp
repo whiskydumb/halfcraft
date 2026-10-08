@@ -34,10 +34,10 @@ namespace halfcraft
 
 	Vector LightCache::at(const float point[3])
 	{
-		const auto qx = static_cast<std::int64_t>(std::floor(point[0] / CACHE_STEP)), qy = static_cast<std::int64_t>(std::floor(point[1] / CACHE_STEP)),
-				   qz = static_cast<std::int64_t>(std::floor(point[2] / CACHE_STEP));
+		const auto          qx = static_cast<std::int64_t>(std::floor(point[0] / CACHE_STEP)), qy = static_cast<std::int64_t>(std::floor(point[1] / CACHE_STEP)),
+							qz = static_cast<std::int64_t>(std::floor(point[2] / CACHE_STEP));
 		const std::uint64_t key = (std::uint64_t(qx & 0x1FFFFF) << 42) | (std::uint64_t(qy & 0x1FFFFF) << 21) | std::uint64_t(qz & 0x1FFFFF);
-		const auto it = cache_.find(key);
+		const auto          it = cache_.find(key);
 		if (it != cache_.end()) {
 			return it->second;
 		}

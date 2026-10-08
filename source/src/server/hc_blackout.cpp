@@ -23,7 +23,12 @@ namespace
 {
 	constexpr const char* MODEL = "models/blackout.mdl";
 	constexpr const char* MODEL_FILES[] = {
-		"models/blackout.mdl", "models/blackout.vvd", "models/blackout.dx90.vtx", "models/blackout.dx80.vtx", "models/blackout.sw.vtx", "models/blackout.phy",
+		"models/blackout.mdl",
+		"models/blackout.vvd",
+		"models/blackout.dx90.vtx",
+		"models/blackout.dx80.vtx",
+		"models/blackout.sw.vtx",
+		"models/blackout.phy",
 	};
 	constexpr const char* EPISODE_ONE_PAK = "hc_ep1";           // its pak's own path id (gameinfo.txt)
 	constexpr const char* GAME_FOLDER = "DEFAULT_WRITE_PATH";  // the game folder: first on GAME

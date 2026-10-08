@@ -27,7 +27,7 @@ namespace halfcraft
 		const bool           has_normal = (format & VERTEX_NORMAL) != 0;
 		const bool           compressed = CompressionType(format) == VERTEX_COMPRESSION_ON;
 		CMatRenderContextPtr context(materials);
-		IMesh* mesh = context->CreateStaticMesh(format, TEXTURE_GROUP_STATIC_VERTEX_BUFFER_WORLD, material);
+		IMesh*               mesh = context->CreateStaticMesh(format, TEXTURE_GROUP_STATIC_VERTEX_BUFFER_WORLD, material);
 		if (!mesh) {
 			return nullptr;
 		}

@@ -17,12 +17,15 @@ namespace halfcraft::prism
 	{
 		constexpr wchar_t INSTANCE[] = L"HalfCraft";
 
-		std::filesystem::path launcher_exe(const std::filesystem::path& bundle) { return bundle / L"Prism" / L"prismlauncher.exe"; }
+		std::filesystem::path launcher_exe(const std::filesystem::path& bundle)
+		{
+			return bundle / L"Prism" / L"prismlauncher.exe";
+		}
 
 		std::wstring error_text(DWORD code)
 		{
-			wchar_t* text = nullptr;
-			const DWORD length = ::FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, code, 0,
+			wchar_t*     text = nullptr;
+			const DWORD  length = ::FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, code, 0,
 				reinterpret_cast<wchar_t*>(&text), 0, nullptr);
 			std::wstring result = length ? std::wstring(text, length) : L"error " + std::to_wstring(code);
 			::LocalFree(text);

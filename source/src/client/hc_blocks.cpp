@@ -80,15 +80,15 @@ namespace halfcraft
 			int DrawModel(int flags) override;
 
 		private:
-			int                      sx_, sy_, sz_;
+			int                           sx_, sy_, sz_;
 			std::vector<proto::RenVertex> vertices_;
-			bool                     dirty_ = true;
-			std::vector<IMesh*>      opaque_, translucent_;
-			IMaterial*               cutout_material_ = nullptr;
-			IMaterial*               translucent_material_ = nullptr;
-			Vector                   origin_{ 0.0f, 0.0f, 0.0f };
-			Vector                   mins_{ 0.0f, 0.0f, 0.0f }, maxs_{ 0.0f, 0.0f, 0.0f };
-			matrix3x4_t              transform_;
+			bool                          dirty_ = true;
+			std::vector<IMesh*>           opaque_, translucent_;
+			IMaterial*                    cutout_material_ = nullptr;
+			IMaterial*                    translucent_material_ = nullptr;
+			Vector                        origin_{ 0.0f, 0.0f, 0.0f };
+			Vector                        mins_{ 0.0f, 0.0f, 0.0f }, maxs_{ 0.0f, 0.0f, 0.0f };
+			matrix3x4_t                   transform_;
 		};
 
 		void Section::build(const McTexture& atlas, IMaterial* cutout, IMaterial* translucent, MapSlot slot, float light_scale)
@@ -102,9 +102,9 @@ namespace halfcraft
 			}
 
 			// half-life's light where the faces are, shared by the corners that meet there
-			LightCache light(light_scale);
-			const double ox = sx_ * SECTION_BLOCKS, oy = sy_ * SECTION_BLOCKS, oz = sz_ * SECTION_BLOCKS;
-			const float  u_scale = atlas.u_scale(), v_scale = atlas.v_scale();
+			LightCache              light(light_scale);
+			const double            ox = sx_ * SECTION_BLOCKS, oy = sy_ * SECTION_BLOCKS, oz = sz_ * SECTION_BLOCKS;
+			const float             u_scale = atlas.u_scale(), v_scale = atlas.v_scale();
 			std::vector<DrawVertex> solid, see_through;
 			solid.reserve(vertices_.size());
 			Vector lo(FLT_MAX, FLT_MAX, FLT_MAX), hi(-FLT_MAX, -FLT_MAX, -FLT_MAX);
@@ -113,7 +113,7 @@ namespace halfcraft
 				face = face <= 6 ? face : 0;
 				const double x = ox + v.x, y = oy + v.y, z = oz + v.z;
 				const float* n = FACE_NORMAL[face];
-				float probe[3];
+				float        probe[3];
 				mc_to_source(x + n[0] * LIGHT_PROBE_BLOCKS, y + n[1] * LIGHT_PROBE_BLOCKS, z + n[2] * LIGHT_PROBE_BLOCKS, slot, probe);
 
 				DrawVertex out;
@@ -175,7 +175,7 @@ namespace halfcraft
 			if (flags & STUDIO_SHADOWDEPTHTEXTURE) {
 				return 0;
 			}
-			const bool translucent_pass = (flags & STUDIO_TRANSPARENCY) != 0;
+			const bool  translucent_pass = (flags & STUDIO_TRANSPARENCY) != 0;
 			const auto& meshes = translucent_pass ? translucent_ : opaque_;
 			if (meshes.empty()) {
 				return 0;
@@ -263,7 +263,7 @@ namespace halfcraft
 		{
 			auto&                       b = blocks();
 			std::lock_guard<std::mutex> lock(b.solids_lock);
-			auto& entry = b.solids[SectionKey{ sx, sy, sz }];
+			auto&                       entry = b.solids[SectionKey{ sx, sy, sz }];
 			if (!bits && entry.first.count == 0 && entry.second != 0) {
 				return;  // empty already
 			}
@@ -446,10 +446,10 @@ namespace halfcraft
 
 	bool blocks_solid(int x, int y, int z)
 	{
-		auto floor_div = [](int v) { return v >= 0 ? v / SECTION_BLOCKS : (v - SECTION_BLOCKS + 1) / SECTION_BLOCKS; };
+		auto                        floor_div = [](int v) { return v >= 0 ? v / SECTION_BLOCKS : (v - SECTION_BLOCKS + 1) / SECTION_BLOCKS; };
 		auto&                       b = blocks();
 		std::lock_guard<std::mutex> lock(b.solids_lock);
-		const auto it = b.solids.find(SectionKey{ floor_div(x), floor_div(y), floor_div(z) });
+		const auto                  it = b.solids.find(SectionKey{ floor_div(x), floor_div(y), floor_div(z) });
 		if (it == b.solids.end() || it->second.first.count == 0) {
 			return false;
 		}

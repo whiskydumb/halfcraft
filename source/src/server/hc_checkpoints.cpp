@@ -46,11 +46,11 @@ private:
 LINK_ENTITY_TO_CLASS(halfcraft_checkpoint, CHalfCraftCheckpoint);
 
 BEGIN_DATADESC(CHalfCraftCheckpoint)
-	DEFINE_FIELD(m_iLow, FIELD_INTEGER),
+DEFINE_FIELD(m_iLow, FIELD_INTEGER),
 	DEFINE_FIELD(m_iHigh, FIELD_INTEGER),
-END_DATADESC()
+	END_DATADESC()
 
-namespace halfcraft
+		namespace halfcraft
 {
 	namespace
 	{

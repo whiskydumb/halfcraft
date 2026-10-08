@@ -68,7 +68,7 @@ namespace halfcraft
 	{
 		proto::McState mc{};
 		g_minecraft_owns_health = player && player->IsAlive() && link.mc_alive() && link.read_mc_state(mc) && (mc.flags & proto::kMcInWorld) &&
-								  !(mc.flags & proto::kMcDead) && mc.maxHealth > 0.0f;
+			!(mc.flags & proto::kMcDead) && mc.maxHealth > 0.0f;
 		if (!g_minecraft_owns_health) {
 			health_.reset();
 			armor_.reset();

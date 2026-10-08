@@ -86,8 +86,8 @@ namespace halfcraft
 		if (vtf->Format() != IMAGE_FORMAT_BGRA8888 || vtf->Width() != texture_wide_ || vtf->Height() != texture_tall_) {
 			return;
 		}
-		const int x0 = rect ? rect->x : 0, y0 = rect ? rect->y : 0;
-		const int w = rect ? rect->width : texture_wide_, h = rect ? rect->height : texture_tall_;
+		const int     x0 = rect ? rect->x : 0, y0 = rect ? rect->y : 0;
+		const int     w = rect ? rect->width : texture_wide_, h = rect ? rect->height : texture_tall_;
 		std::uint8_t* dst = vtf->ImageData(0, 0, 0);
 		const int     row = texture_wide_ * 4;
 		for (int y = y0; y < y0 + h; ++y) {

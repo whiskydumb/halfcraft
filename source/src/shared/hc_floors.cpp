@@ -49,7 +49,12 @@ namespace halfcraft
 
 		// what characters stand on: npcs' ground nodes, and where players spawn (campaign and deathmatch)
 		constexpr const char* GROUND_CLASSES[] = {
-			"info_node", "info_node_hint", "info_player_start", "info_player_deathmatch", "info_player_combine", "info_player_rebel",
+			"info_node",
+			"info_node_hint",
+			"info_player_start",
+			"info_player_deathmatch",
+			"info_player_combine",
+			"info_player_rebel",
 		};
 
 		using bsp::BspFile;
@@ -220,13 +225,13 @@ namespace halfcraft
 					is_value = false;
 				} else if (ch == '}') {
 					if (is_ground_class(classname)) {
-						char*        end = nullptr;
-						const char*  at = origin.c_str();
-						const float  x = std::strtof(at, &end);
-						const char*  after_x = end;
-						const float  y = std::strtof(after_x, &end);
-						const char*  after_y = end;
-						const float  z = std::strtof(after_y, &end);
+						char*       end = nullptr;
+						const char* at = origin.c_str();
+						const float x = std::strtof(at, &end);
+						const char* after_x = end;
+						const float y = std::strtof(after_x, &end);
+						const char* after_y = end;
+						const float z = std::strtof(after_y, &end);
 						if (after_x != at && after_y != after_x && end != after_y) {
 							out.emplace_back(x, y, z);
 						}
@@ -334,10 +339,10 @@ namespace halfcraft
 			return 0.0f;
 		}
 
-		FloorVotes  votes;
-		int         standing = 0;
-		const auto  points = ground_points(entities);
-		FloorIndex  index(tris);
+		FloorVotes votes;
+		int        standing = 0;
+		const auto points = ground_points(entities);
+		FloorIndex index(tris);
 		for (const Vector& point : points) {
 			float      height = 0.0f;
 			const Tri* floor = index.under(point, height);

@@ -86,11 +86,11 @@ namespace
 			int uploaded = 0;
 			for (int row = 0; row < rows_; ++row) {
 				for (int column = 0; column < columns_; ++column) {
-					Tile&        tile = tiles_[static_cast<std::size_t>(row) * columns_ + column];
-					const int    x0 = column * TILE, y0 = row * TILE;
-					const int    tile_wide = std::min(TILE, width - x0), tile_tall = std::min(TILE, height - y0);
+					Tile&             tile = tiles_[static_cast<std::size_t>(row) * columns_ + column];
+					const int         x0 = column * TILE, y0 = row * TILE;
+					const int         tile_wide = std::min(TILE, width - x0), tile_tall = std::min(TILE, height - y0);
 					const std::size_t row_bytes = static_cast<std::size_t>(tile_wide) * 4;
-					const auto   source_row = [&](int y) {
+					const auto        source_row = [&](int y) {
 						const int frame_row = bottom_up ? height - 1 - (y0 + y) : y0 + y;
 						return pixels + (static_cast<std::size_t>(frame_row) * width + x0) * 4;
 					};
@@ -232,80 +232,78 @@ namespace
 
 class CHudHalfCraftOverlay : public vgui::Panel, public CHudElement
 {
-	DECLARE_CLASS_SIMPLE( CHudHalfCraftOverlay, vgui::Panel );
+	DECLARE_CLASS_SIMPLE(CHudHalfCraftOverlay, vgui::Panel);
 
 public:
-	explicit CHudHalfCraftOverlay( const char *pElementName );
+	explicit CHudHalfCraftOverlay(const char* pElementName);
 
-	bool ShouldDraw( void ) override;
+	bool ShouldDraw(void) override;
 
 protected:
-	void ApplySchemeSettings( vgui::IScheme *pScheme ) override;
-	void OnThink( void ) override;
-	void Paint( void ) override;
+	void ApplySchemeSettings(vgui::IScheme* pScheme) override;
+	void OnThink(void) override;
+	void Paint(void) override;
 
 private:
-	OverlayTiles	m_Tiles;
+	OverlayTiles m_Tiles;
 };
 
-DECLARE_HUDELEMENT( CHudHalfCraftOverlay );
+DECLARE_HUDELEMENT(CHudHalfCraftOverlay);
 
-CHudHalfCraftOverlay::CHudHalfCraftOverlay( const char *pElementName ) : CHudElement( pElementName ), BaseClass( NULL, "HudHalfCraftOverlay" )
+CHudHalfCraftOverlay::CHudHalfCraftOverlay(const char* pElementName) : CHudElement(pElementName), BaseClass(NULL, "HudHalfCraftOverlay")
 {
-	SetParent( g_pClientMode->GetViewport() );
-	SetHiddenBits( 0 );  // minecraft's hud shows whatever source's hud is doing
+	SetParent(g_pClientMode->GetViewport());
+	SetHiddenBits(0);  // minecraft's hud shows whatever source's hud is doing
 }
 
-void CHudHalfCraftOverlay::ApplySchemeSettings( vgui::IScheme *pScheme )
+void CHudHalfCraftOverlay::ApplySchemeSettings(vgui::IScheme* pScheme)
 {
-	BaseClass::ApplySchemeSettings( pScheme );
-	SetPaintBackgroundEnabled( false );
-	SetMouseInputEnabled( false );
-	SetKeyBoardInputEnabled( false );
-	SetZPos( 1000 );
+	BaseClass::ApplySchemeSettings(pScheme);
+	SetPaintBackgroundEnabled(false);
+	SetMouseInputEnabled(false);
+	SetKeyBoardInputEnabled(false);
+	SetZPos(1000);
 }
 
-void CHudHalfCraftOverlay::OnThink( void )
+void CHudHalfCraftOverlay::OnThink(void)
 {
 	int nWide, nTall;
-	engine->GetScreenSize( nWide, nTall );
-	SetBounds( 0, 0, nWide, nTall );
+	engine->GetScreenSize(nWide, nTall);
+	SetBounds(0, 0, nWide, nTall);
 }
 
-bool CHudHalfCraftOverlay::ShouldDraw( void )
+bool CHudHalfCraftOverlay::ShouldDraw(void)
 {
-	const auto &session = halfcraft::client_session();
+	const auto& session = halfcraft::client_session();
 	return session.link_ready && session.minecraft_hud && CHudElement::ShouldDraw();
 }
 
-void CHudHalfCraftOverlay::Paint( void )
+void CHudHalfCraftOverlay::Paint(void)
 {
-	auto &session = halfcraft::client_session();
+	auto&        session = halfcraft::client_session();
 	const double flUploadStart = Plat_FloatTime();
-	int nUploads = 0;
-	if ( session.link.acquire_overlay_frame() )
-	{
-		const auto *pHeader = session.link.front_header();
-		const int nWidth = static_cast<int>( pHeader->width );
-		const int nHeight = static_cast<int>( pHeader->height );
-		if ( nWidth > 0 && nHeight > 0 && nWidth <= static_cast<int>( halfcraft::proto::kMaxOverlayW ) && nHeight <= static_cast<int>( halfcraft::proto::kMaxOverlayH ) )
-		{
-			nUploads = m_Tiles.update( session.link.front_pixels(), nWidth, nHeight, ( pHeader->flags & 1 ) != 0 );
+	int          nUploads = 0;
+	if (session.link.acquire_overlay_frame()) {
+		const auto* pHeader = session.link.front_header();
+		const int   nWidth = static_cast<int>(pHeader->width);
+		const int   nHeight = static_cast<int>(pHeader->height);
+		if (nWidth > 0 && nHeight > 0 && nWidth <= static_cast<int>(halfcraft::proto::kMaxOverlayW) && nHeight <= static_cast<int>(halfcraft::proto::kMaxOverlayH)) {
+			nUploads = m_Tiles.update(session.link.front_pixels(), nWidth, nHeight, (pHeader->flags & 1) != 0);
 		}
 	}
-	g_perf.frame( gpGlobals->absoluteframetime, static_cast<float>( ( Plat_FloatTime() - flUploadStart ) * 1000.0 ), nUploads );
+	g_perf.frame(gpGlobals->absoluteframetime, static_cast<float>((Plat_FloatTime() - flUploadStart) * 1000.0), nUploads);
 
 	int nWide, nTall;
-	GetSize( nWide, nTall );
-	m_Tiles.draw( nWide, nTall );
+	GetSize(nWide, nTall);
+	m_Tiles.draw(nWide, nTall);
 }
 
-CON_COMMAND( hc_perf, "halfcraft: the frame rate and what minecraft's overlay costs, over the last 300 frames" )
+CON_COMMAND(hc_perf, "halfcraft: the frame rate and what minecraft's overlay costs, over the last 300 frames")
 {
 	g_perf.report();
 }
 
-float halfcraft::overlay_cost_ms( int frames )
+float halfcraft::overlay_cost_ms(int frames)
 {
-	return g_perf.recent_upload_ms( static_cast<std::size_t>( std::max( frames, 0 ) ) );
+	return g_perf.recent_upload_ms(static_cast<std::size_t>(std::max(frames, 0)));
 }

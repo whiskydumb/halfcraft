@@ -69,9 +69,15 @@ namespace
 		{ L"hl2dm", DEATHMATCH, L"hl2mp_win64.exe", L"Half-Life 2: Deathmatch engine (64-bit, more memory)" },
 	};
 
-	void tell(const std::wstring& text, UINT icon = MB_ICONINFORMATION) { ::MessageBoxW(nullptr, text.c_str(), TITLE, MB_OK | icon); }
+	void tell(const std::wstring& text, UINT icon = MB_ICONINFORMATION)
+	{
+		::MessageBoxW(nullptr, text.c_str(), TITLE, MB_OK | icon);
+	}
 
-	bool ask(const std::wstring& text) { return ::MessageBoxW(nullptr, text.c_str(), TITLE, MB_YESNO | MB_ICONWARNING) == IDYES; }
+	bool ask(const std::wstring& text)
+	{
+		return ::MessageBoxW(nullptr, text.c_str(), TITLE, MB_YESNO | MB_ICONWARNING) == IDYES;
+	}
 
 	int fail(const std::wstring& text)
 	{
@@ -261,12 +267,15 @@ namespace
 
 	fs::path exe_dir()
 	{
-		wchar_t path[MAX_PATH * 2];
+		wchar_t     path[MAX_PATH * 2];
 		const DWORD length = ::GetModuleFileNameW(nullptr, path, static_cast<DWORD>(std::size(path)));
 		return fs::path(std::wstring(path, length)).parent_path();
 	}
 
-	fs::path game_dir(const fs::path& here, const Engine& engine) { return here / (std::wstring(L"game-") + engine.id); }
+	fs::path game_dir(const fs::path& here, const Engine& engine)
+	{
+		return here / (std::wstring(L"game-") + engine.id);
+	}
 
 	bool is_game_dir(const fs::path& dir)
 	{
@@ -362,7 +371,7 @@ namespace
 		if (!::WritePrivateProfileStringW(SETTINGS_SECTION, SETTINGS_ENGINE, remember ? chosen->id : nullptr, settings.c_str())) {
 			const DWORD error = ::GetLastError();
 			tell(L"Couldn't save your choice in " + settings.wstring() + L" (error " + std::to_wstring(error) + L"), so HalfCraft asks again next time.",
-				 MB_ICONWARNING);
+				MB_ICONWARNING);
 		}
 		return chosen;
 	}
@@ -383,7 +392,7 @@ namespace
 			return;
 		}
 		if (ask(L"Steam hasn't installed:" + names + L"\n\nThey come with Half-Life 2. Their chapters won't load without them; "
-				L"Half-Life 2's will.\n\nOpen Steam to install them?")) {
+													 L"Half-Life 2's will.\n\nOpen Steam to install them?")) {
 			for (const int id : missing) {
 				::ShellExecuteW(nullptr, L"open", (L"steam://install/" + std::to_wstring(id)).c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 			}
@@ -403,7 +412,7 @@ namespace
 		}
 		if (!fits_ansi_code_page(here.wstring()) &&
 			!ask(L"HalfCraft's folder has characters in its path that Half-Life 2 may not read:\n" + here.wstring() +
-				 L"\n\nIf the game doesn't start, move the HalfCraft folder somewhere with a plain English path, like C:\\Games\\HalfCraft.\n\nStart anyway?")) {
+				L"\n\nIf the game doesn't start, move the HalfCraft folder somewhere with a plain English path, like C:\\Games\\HalfCraft.\n\nStart anyway?")) {
 			return 1;
 		}
 
@@ -423,7 +432,7 @@ namespace
 		for (const auto& running : ENGINES) {
 			if (process_running(running.exe)) {
 				return fail(std::wstring(running.app.name) + L" (" + running.exe +
-							L") is already running, and only one Source game can run at a time. Close it, then start HalfCraft again.");
+					L") is already running, and only one Source game can run at a time. Close it, then start HalfCraft again.");
 			}
 		}
 
@@ -439,7 +448,7 @@ namespace
 		std::error_code ec;
 		if (!fs::exists(exe, ec)) {
 			return fail(std::wstring(engine->app.name) + L" has no " + engine->exe +
-						L". Let Steam update it, or check its files (Properties, Installed Files, Verify integrity).");
+				L". Let Steam update it, or check its files (Properties, Installed Files, Verify integrity).");
 		}
 
 		if (!ensure_steam() || !ensure_minecraft(game)) {

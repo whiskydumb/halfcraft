@@ -31,7 +31,7 @@ namespace halfcraft
 		// a step this long between two commands is one source's guard (160) may refuse
 		constexpr float FAST_STEP_UNITS = 120.0f;
 		// a frame covers up to about two of minecraft's ticks at a low frame rate
-		constexpr float FAST_TICKS = 2.0f;
+		constexpr float  FAST_TICKS = 2.0f;
 		constexpr double FAST_LOG_SECONDS = 1.0;
 
 		bool          g_counted = false;
@@ -44,13 +44,13 @@ namespace halfcraft
 		double        g_fast_logged = -1.0;
 		// where source landed a jump that didn't fit where minecraft put its player (or kept the player,
 		// refusing it), and until when minecraft's player is still to go there (-1: none)
-		float         g_elsewhere[3] = {};
-		bool          g_elsewhere_refused = false;
-		double        g_elsewhere_until = -1.0;
+		float  g_elsewhere[3] = {};
+		bool   g_elsewhere_refused = false;
+		double g_elsewhere_until = -1.0;
 		// the landing minecraft's player went to last: prediction runs the commands before it again
 		// for a while, and they'd land there again
-		float         g_went[3] = {};
-		double        g_went_until = -1.0;
+		float  g_went[3] = {};
+		double g_went_until = -1.0;
 
 		float distance(const float a[3], const float b[3])
 		{

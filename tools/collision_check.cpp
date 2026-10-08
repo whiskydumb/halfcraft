@@ -40,7 +40,7 @@ namespace
 	constexpr int LUMP_PLANES = 1, LUMP_VERTEXES = 3, LUMP_NODES = 5, LUMP_FACES = 7, LUMP_LEAFS = 10, LUMP_EDGES = 12, LUMP_SURFEDGES = 13,
 				  LUMP_MODELS = 14, LUMP_LEAFBRUSHES = 17, LUMP_BRUSHES = 18, LUMP_BRUSHSIDES = 19, LUMP_DISPINFO = 26, LUMP_DISP_VERTS = 33;
 	// what source's player collides with (hc_world_collision.cpp's PLAYER_SOLID_BRUSHES)
-	constexpr int PLAYER_SOLID = 0x1 | 0x2 | 0x8 | 0x4000 | 0x10000;
+	constexpr int   PLAYER_SOLID = 0x1 | 0x2 | 0x8 | 0x4000 | 0x10000;
 	constexpr float WALKABLE_NY = 0.7f;      // HostTri.WALKABLE_NY
 	constexpr float SAMPLE_STEP = 1.0f / 16;  // blocks between the spots looked at: two to a voxel
 	constexpr float ON_BOUNDARY = 1e-3f;     // voxels
@@ -318,7 +318,7 @@ namespace
 	/// (x, z) lies inside the triangle seen from above (its edges included).
 	bool covers(const float* v, float x, float z)
 	{
-		auto side = [&](int a, int b) { return (v[b * 3] - v[a * 3]) * (z - v[a * 3 + 2]) - (v[b * 3 + 2] - v[a * 3 + 2]) * (x - v[a * 3]); };
+		auto        side = [&](int a, int b) { return (v[b * 3] - v[a * 3]) * (z - v[a * 3 + 2]) - (v[b * 3 + 2] - v[a * 3 + 2]) * (x - v[a * 3]); };
 		const float d0 = side(0, 1), d1 = side(1, 2), d2 = side(2, 0);
 		return !((d0 < 0.0f || d1 < 0.0f || d2 < 0.0f) && (d0 > 0.0f || d1 > 0.0f || d2 > 0.0f));
 	}
@@ -362,14 +362,14 @@ int main(int argc, char** argv)
 			std::swap(mc_lo[k], mc_hi[k]);
 		}
 	}
-	auto region_of = [](float v) { return static_cast<int>(std::floor(v / COLLISION_REGION_SIZE)); };
+	auto      region_of = [](float v) { return static_cast<int>(std::floor(v / COLLISION_REGION_SIZE)); };
 	const int rx0 = region_of(mc_lo[0]), rx1 = region_of(mc_hi[0]);
 	const int ry0 = region_of(mc_lo[1]), ry1 = region_of(mc_hi[1]);
 	const int rz0 = region_of(mc_lo[2]), rz1 = region_of(mc_hi[2]);
 
-	std::uint64_t                               spots = 0, holes = 0, flat_on_boundary = 0;
-	std::map<std::array<int, 3>, Hole>          holes_by_block;  // minecraft block -> its holes
-	std::vector<ColPrimitives::Tri>             tris;
+	std::uint64_t                      spots = 0, holes = 0, flat_on_boundary = 0;
+	std::map<std::array<int, 3>, Hole> holes_by_block;  // minecraft block -> its holes
+	std::vector<ColPrimitives::Tri>    tris;
 	using Clock = std::chrono::steady_clock;
 	Clock::duration worker{}, slowest{};
 	std::uint64_t   timed = 0;

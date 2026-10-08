@@ -98,7 +98,7 @@ namespace halfcraft
 				if (g_releases.empty()) {
 					return;
 				}
-				auto&        link = client_session().link;
+				auto& link = client_session().link;
 				for (const auto& release : g_releases) {
 					if (release.at <= now) {
 						link.push_input(release.type, release.code, 0);

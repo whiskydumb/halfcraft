@@ -209,7 +209,7 @@ namespace halfcraft
 		int hostile = 0, pets = 0;
 		for (std::uint32_t i = 0; i < table_.count; ++i) {
 			const proto::MobRecord& record = table_.mobs[i];
-			float feet[3];
+			float                   feet[3];
 			mc_to_source(record.x, record.y, record.z, slot, feet);
 			if (!(record.flags & (proto::kMobHostile | proto::kMobPet)) || !inside_world(feet)) {
 				continue;

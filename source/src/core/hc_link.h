@@ -35,14 +35,14 @@ namespace halfcraft
 		/// maps the same memory without resetting anything, up to the end of the collision ring: the
 		/// overlay and the render ring stay unmapped. server.dll only.
 		/// @return true when the mapping is usable
-		bool attach();
+		bool               attach();
 		[[nodiscard]] bool valid() const { return base_ != nullptr; }
 
 		/// minecraft wrote its heartbeat within the last few seconds.
 		[[nodiscard]] bool mc_alive() const;
 		/// process id minecraft wrote when it opened the mapping (changes when it restarts).
 		[[nodiscard]] std::uint32_t mc_pid() const;
-		void heartbeat();
+		void                        heartbeat();
 
 		// host <-> minecraft state (seqlocks)
 		void write_host_state(const proto::HostState& state);
@@ -97,7 +97,7 @@ namespace halfcraft
 		/// @return true when the front slot changed
 		bool acquire_overlay_frame();
 		/// minecraft (re)connected: its writer starts over, so the swap does too.
-		void reset_overlay();
+		void                                       reset_overlay();
 		[[nodiscard]] const std::uint8_t*          front_pixels() const;
 		[[nodiscard]] const proto::OverlaySlotHdr* front_header() const;
 
@@ -110,7 +110,10 @@ namespace halfcraft
 		[[nodiscard]] bool maps(std::uint64_t end) const { return base_ && end <= view_bytes_; }
 
 		template <class T>
-		T* at(std::uint64_t offset) const { return reinterpret_cast<T*>(base_ + offset); }
+		T* at(std::uint64_t offset) const
+		{
+			return reinterpret_cast<T*>(base_ + offset);
+		}
 
 		void*         mapping_{ nullptr };
 		std::uint8_t* base_{ nullptr };

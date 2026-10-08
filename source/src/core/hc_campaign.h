@@ -26,7 +26,8 @@ namespace halfcraft
 		}
 		const char* slash = std::strrchr(map, '/');
 		const char* backslash = std::strrchr(map, '\\');
-		const char* name = slash && slash > backslash ? slash + 1 : backslash ? backslash + 1 : map;
+		const char* name = slash && slash > backslash ? slash + 1 : backslash ? backslash + 1
+																			  : map;
 		const auto  starts = [name](const char* prefix) {
 			for (std::size_t i = 0; prefix[i]; ++i) {
 				if (std::tolower(static_cast<unsigned char>(name[i])) != prefix[i]) {
@@ -35,7 +36,8 @@ namespace halfcraft
 			}
 			return true;
 		};
-		return starts("ep1_") ? Campaign::kEpisodeOne : starts("ep2_") ? Campaign::kEpisodeTwo : Campaign::kHalfLife2;
+		return starts("ep1_") ? Campaign::kEpisodeOne : starts("ep2_") ? Campaign::kEpisodeTwo
+																	   : Campaign::kHalfLife2;
 	}
 
 	/// the search path id gameinfo.txt mounts that campaign's own content under (hc_hl2, hc_ep1, hc_ep2),
