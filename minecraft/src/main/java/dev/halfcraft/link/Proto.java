@@ -50,6 +50,9 @@ public final class Proto {
 	public static final int IN_HURT_MOB = 13; // (#13)
 	public static final int IN_BLAST = 14; // code = radius (blocks * 100), a/b/c = centre x/y/z (float bits) (HostBlockDamage)
 	public static final int IN_BULLET_HIT = 15; // a/b/c = the block's x/y/z (HostBlockDamage)
+	public static final int IN_MAP_ENTERED = 16; // code = ENTRY_*, a = the map's slot, b/c = its west and east edge x (Rollback)
+	public static final int ENTRY_NEW_GAME = 1;
+	public static final int ENTRY_TRANSITION = 2;
 	public static final int IN_PUSH = 22; // a/b/c = blocks per second * 1000 (HostPush)
 	public static final int PUSH_REPEAT_MS = 200;
 	public static final int PUSH_STALE_MS = 500;

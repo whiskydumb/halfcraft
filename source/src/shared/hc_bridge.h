@@ -17,6 +17,8 @@
 //            them on the npc's bones
 //   landings - one of minecraft's jumps source took next to where minecraft put its player, or
 //            refused (the player movement, hc_movement.cpp); the client sends minecraft's player there
+//   new games - the menu's chapter cfgs run the client's hc_new_game before their map; the server
+//            asks as the map loads, which tells a new game from a `map` typed into the console
 
 #include <cstdint>
 
@@ -94,4 +96,13 @@ namespace halfcraft
 	using JumpLandedFn = void (*)(const float feet[3], int refused);
 
 	inline constexpr char HC_JUMP_LANDED_EXPORT[] = "HalfCraft_JumpLanded";
+
+	/// server.dll -> client.dll, as a map loads: whether the menu's chapter cfg ran hc_new_game since the
+	/// last call (a new game from the menu, not a `map` typed into the console); the call clears it. the
+	/// command is client.dll's: the menu disconnects first, and server.dll's commands don't run without
+	/// a server.
+	/// @return nonzero: it did
+	using TakeNewGameFn = int (*)();
+
+	inline constexpr char HC_TAKE_NEW_GAME_EXPORT[] = "HalfCraft_TakeNewGame";
 }

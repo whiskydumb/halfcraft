@@ -30,6 +30,8 @@ public final class HalfCraft implements ModInitializer {
 		ServerLifecycleEvents.SERVER_STARTED.register(dev.halfcraft.world.Rollback::load);
 		ServerLifecycleEvents.SERVER_STOPPING.register(dev.halfcraft.world.Rollback::unload);
 		net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents.CHUNK_UNLOAD.register(dev.halfcraft.world.Rollback::chunkUnloading);
+		// a map a new game's playthrough clears loses what lies about there too, once the player is in it
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(dev.halfcraft.world.Rollback::tick);
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			giveStarterKit(handler.getPlayer());
 			giveBuilderKit(handler.getPlayer());

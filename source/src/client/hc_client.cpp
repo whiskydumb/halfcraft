@@ -624,3 +624,23 @@ extern "C" __declspec(dllexport) void HalfCraft_SetHolding(int holding)
 	}
 	session.holding = holding != 0;
 }
+
+namespace
+{
+	// the menu's chapter cfg ran hc_new_game: the next map to load is a new game from the menu
+	bool g_new_game_asked = false;
+}
+
+// the menu's chapter cfgs run this before their map (tools/engines.ps1)
+CON_COMMAND(hc_new_game, "halfcraft: the next map to load is a new game from the menu (the chapter cfgs run this before their map)")
+{
+	g_new_game_asked = true;
+}
+
+// server.dll, as a map loads: whether hc_new_game ran since it last asked (hc_bridge.h)
+extern "C" __declspec(dllexport) int HalfCraft_TakeNewGame()
+{
+	const bool asked = g_new_game_asked;
+	g_new_game_asked = false;
+	return asked ? 1 : 0;
+}

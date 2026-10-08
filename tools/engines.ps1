@@ -97,7 +97,9 @@ function Write-Campaigns([string]$sdk, [string]$Destination, [string]$folder) {
 			$number = [regex]::Match($chapter, '^\d+').Value
 			$name = if ($offset -eq 0) { $chapter } else { "$([int]$number + $offset)$($chapter.Substring($number.Length))" }
 			$last = [Math]::Max($last, [int]$number + $offset)
-			Copy-Item (Join-Path $mod "cfg\chapter$chapter.cfg") (Join-Path $Destination "cfg\chapter$name.cfg") -Force
+			# the menu's new game runs the chapter's cfg: hc_new_game first tells halfcraft it's no console `map`
+			$cfg = [IO.File]::ReadAllText((Join-Path $mod "cfg\chapter$chapter.cfg"))
+			[IO.File]::WriteAllText((Join-Path $Destination "cfg\chapter$name.cfg"), "hc_new_game`n$cfg")
 			$picture = Join-Path $Destination "materials\vgui\chapters\chapter$name.vmt"
 			New-Item -ItemType Directory (Split-Path $picture) -Force | Out-Null
 			Set-Content $picture -Encoding ascii @"

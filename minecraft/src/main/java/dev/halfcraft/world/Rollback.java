@@ -1,6 +1,7 @@
 package dev.halfcraft.world;
 
 import dev.halfcraft.HalfCraft;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import java.io.IOException;
@@ -9,6 +10,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderGetter;
@@ -28,10 +30,14 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ExperienceOrb;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.decoration.BlockAttachedEntity;
 import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
+import net.minecraft.world.entity.vehicle.VehicleEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -56,6 +62,13 @@ import org.jspecify.annotations.Nullable;
  * hunger, experience and effects (not the position: Half-Life puts the player where the save has
  * them).
  *
+ * <p>A new game from Half-Life's menu starts a playthrough: each map it enters for the first time
+ * (the new game's own, then each one a level transition brings up) goes back to how it was before
+ * anything changed it, and the things lying about there go once the player is there. The maps a
+ * playthrough entered are kept with the block log and with every checkpoint, so a save brings back
+ * its own playthrough. A world without one (older than this, or a checkpoint from before it) clears
+ * nothing until the next new game.
+ *
  * <p>Server thread only.
  */
 public final class Rollback {
@@ -72,6 +85,13 @@ public final class Rollback {
 	private static final Long2ObjectOpenHashMap<Snapshot> ORIGINALS = new Long2ObjectOpenHashMap<>();
 	private static final Long2ObjectOpenHashMap<Snapshot> LATEST = new Long2ObjectOpenHashMap<>();
 
+	// Ticks the player spends in a map just cleared before what lies about there goes (its chunks load meanwhile).
+	private static final int SWEEP_TICKS = 40;
+	// The map slots the current playthrough entered; null: no playthrough (nothing gets cleared).
+	private static @Nullable IntOpenHashSet visited;
+	// The map just cleared (Minecraft x, east exclusive), and how many more ticks the player must spend in it before its sweep.
+	private static int sweepWest, sweepEast, sweepTicks;
+
 	private Rollback() {
 	}
 
@@ -81,6 +101,8 @@ public final class Rollback {
 	public static void load(MinecraftServer opened) {
 		ORIGINALS.clear();
 		LATEST.clear();
+		visited = null;
+		sweepTicks = 0;
 		Path file = dir(opened).resolve("blocks.nbt");
 		if (!Files.exists(file)) {
 			return;
@@ -90,7 +112,8 @@ public final class Rollback {
 			HolderGetter<Block> blocks = opened.overworld().registryAccess().lookupOrThrow(Registries.BLOCK);
 			readSnapshots(root.getListOrEmpty("originals"), blocks, ORIGINALS);
 			readSnapshots(root.getListOrEmpty("latest"), blocks, LATEST);
-			HalfCraft.LOG.info("HalfCraft: rollback tracks {} blocks", ORIGINALS.size());
+			visited = readVisited(root);
+			HalfCraft.LOG.info("HalfCraft: rollback tracks {} blocks; {}", ORIGINALS.size(), describe(visited));
 		} catch (IOException | RuntimeException e) {
 			HalfCraft.LOG.warn("HalfCraft: couldn't read the rollback block log {}", file, e);
 		}
@@ -108,6 +131,8 @@ public final class Rollback {
 		writeBlockLog(closing);
 		ORIGINALS.clear();
 		LATEST.clear();
+		visited = null;
+		sweepTicks = 0;
 	}
 
 	/** LevelChunk.setBlockState, before: the first change to a block remembers how it was. */
@@ -168,6 +193,7 @@ public final class Rollback {
 		}
 		CompoundTag root = new CompoundTag();
 		root.put("blocks", blocks);
+		writeVisited(root);
 		if (player != null) {
 			root.put("player", savePlayer(player));
 		}
@@ -207,42 +233,152 @@ public final class Rollback {
 		int changed = 0;
 		for (long key : keys) {
 			Snapshot want = target.containsKey(key) ? target.get(key) : ORIGINALS.get(key);
-			if (want == null) {
-				continue;
+			if (want != null && putBack(level, key, want)) {
+				changed++;
 			}
-			Snapshot have = LATEST.get(key);
-			if (have != null && have.state() == want.state() && want.blockEntity() == null) {
-				continue;  // already so (nothing to load, and its chunk can stay where it is)
-			}
-			BlockPos pos = BlockPos.of(key);
-			level.setBlock(pos, want.state(), RESTORE_FLAGS);
-			if (want.blockEntity() != null) {
-				BlockEntity blockEntity = level.getBlockEntity(pos);
-				if (blockEntity != null) {
-					blockEntity.loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, level.registryAccess(), want.blockEntity()));
-					blockEntity.setChanged();
-					level.sendBlockUpdated(pos, want.state(), want.state(), Block.UPDATE_CLIENTS);
-				}
-			}
-			LATEST.put(key, want);
-			changed++;
 		}
 
 		// What was flying or lying about since is gone (and whatever a removed chest held).
-		List<Entity> transient_ = new ArrayList<>();
-		for (Entity entity : level.getAllEntities()) {
-			if (entity instanceof ItemEntity || entity instanceof AbstractArrow || entity instanceof PrimedTnt || entity instanceof FallingBlockEntity
-				|| entity instanceof ExperienceOrb) {
-				transient_.add(entity);
-			}
-		}
-		transient_.forEach(Entity::discard);
+		int removed = discard(level, Rollback::isTransient);
+		visited = readVisited(root);
+		sweepTicks = 0;
 
 		if (player != null && root.contains("player")) {
 			loadPlayer(player, root.getCompoundOrEmpty("player"));
 		}
-		HalfCraft.LOG.info("HalfCraft: rolled back to checkpoint {}: {} blocks, {} things removed{}", Long.toHexString(id), changed, transient_.size(),
-			player != null ? ", the player" : "");
+		HalfCraft.LOG.info("HalfCraft: rolled back to checkpoint {}: {} blocks, {} things removed{}; {}", Long.toHexString(id), changed, removed,
+			player != null ? ", the player" : "", describe(visited));
+	}
+
+	/** The block at key back to want, unless it's so already (nothing to load, and its chunk can stay where it is). */
+	private static boolean putBack(ServerLevel level, long key, Snapshot want) {
+		Snapshot have = LATEST.get(key);
+		if (have != null && have.state() == want.state() && want.blockEntity() == null) {
+			return false;
+		}
+		BlockPos pos = BlockPos.of(key);
+		level.setBlock(pos, want.state(), RESTORE_FLAGS);
+		if (want.blockEntity() != null) {
+			BlockEntity blockEntity = level.getBlockEntity(pos);
+			if (blockEntity != null) {
+				blockEntity.loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, level.registryAccess(), want.blockEntity()));
+				blockEntity.setChanged();
+				level.sendBlockUpdated(pos, want.state(), want.state(), Block.UPDATE_CLIENTS);
+			}
+		}
+		LATEST.put(key, want);
+		return true;
+	}
+
+	/** Removes the level's loaded entities that match. @return how many went */
+	private static int discard(ServerLevel level, Predicate<Entity> which) {
+		List<Entity> gone = new ArrayList<>();
+		for (Entity entity : level.getAllEntities()) {
+			if (which.test(entity)) {
+				gone.add(entity);
+			}
+		}
+		gone.forEach(Entity::discard);
+		return gone.size();
+	}
+
+	/** Something flying or lying about: dropped items, arrows, lit TNT, falling blocks, experience. */
+	private static boolean isTransient(Entity entity) {
+		return entity instanceof ItemEntity || entity instanceof AbstractArrow || entity instanceof PrimedTnt || entity instanceof FallingBlockEntity
+			|| entity instanceof ExperienceOrb;
+	}
+
+	// ---- playthroughs --------------------------------------------------------------------------
+
+	/**
+	 * Half-Life's player entered a map afresh (Proto.IN_MAP_ENTERED): a new game from the menu starts a
+	 * playthrough, and the first time a playthrough enters a map, the map's tracked blocks go back to how
+	 * they were before anything changed them. Its loose things go once the player has been there a moment
+	 * ({@link #tick}).
+	 *
+	 * @param newGame - a new game from Half-Life's menu; otherwise a level transition
+	 * @param slot - the map's slot
+	 * @param west - the slot's west edge (Minecraft x)
+	 * @param east - its east edge (exclusive)
+	 * @param player - healed and fed for a new game, keeping everything they carry
+	 */
+	public static void mapEntered(MinecraftServer server, boolean newGame, int slot, int west, int east, @Nullable ServerPlayer player) {
+		if (newGame) {
+			visited = new IntOpenHashSet();
+			if (player != null) {
+				freshStart(player);
+			}
+		} else if (visited == null || visited.contains(slot)) {
+			return;
+		}
+		visited.add(slot);
+		ServerLevel level = server.overworld();
+		int changed = 0;
+		for (long key : ORIGINALS.keySet().toLongArray()) {
+			int x = BlockPos.getX(key);
+			if (x >= west && x < east && putBack(level, key, ORIGINALS.get(key))) {
+				changed++;
+			}
+		}
+		sweepWest = west;
+		sweepEast = east;
+		sweepTicks = SWEEP_TICKS;
+		writeBlockLog(server);
+		HalfCraft.LOG.info("HalfCraft: {} map slot {}: {} blocks back as they were before anything was built; {}", newGame ? "new game in" : "first time in",
+			slot, changed, describe(visited));
+	}
+
+	/** Server tick: a map just cleared loses what lies about in it once the player has been there a moment. */
+	public static void tick(MinecraftServer server) {
+		if (sweepTicks <= 0 || server.getPlayerList().getPlayers().isEmpty()) {
+			return;
+		}
+		ServerLevel level = server.overworld();
+		ServerPlayer player = server.getPlayerList().getPlayers().getFirst();
+		if (player.level() != level || player.getX() < sweepWest || player.getX() >= sweepEast) {
+			sweepTicks = SWEEP_TICKS;  // not there yet
+			return;
+		}
+		if (--sweepTicks > 0) {
+			return;
+		}
+		int removed = discard(level, entity -> entity.getX() >= sweepWest && entity.getX() < sweepEast && isLeftBehind(entity));
+		HalfCraft.LOG.info("HalfCraft: {} things left lying about in the cleared map removed", removed);
+	}
+
+	/**
+	 * What a cleared map loses besides its blocks: what lies about, and what was built of entities
+	 * (frames, paintings, armour stands, empty boats and minecarts, end crystals). Pets and mobs stay.
+	 */
+	private static boolean isLeftBehind(Entity entity) {
+		return isTransient(entity) || entity instanceof BlockAttachedEntity || entity instanceof ArmorStand || entity instanceof EndCrystal
+			|| entity instanceof VehicleEntity && !entity.isVehicle();
+	}
+
+	/** A new game: the player comes in healthy and fed, with everything they carry. */
+	private static void freshStart(ServerPlayer player) {
+		if (!player.isAlive()) {
+			return;
+		}
+		player.setHealth(player.getMaxHealth());
+		player.getFoodData().setFoodLevel(20);
+		player.getFoodData().setSaturation(5.0F);
+		player.clearFire();
+		player.setAirSupply(player.getMaxAirSupply());
+	}
+
+	private static @Nullable IntOpenHashSet readVisited(CompoundTag root) {
+		return root.getIntArray("visited").map(IntOpenHashSet::new).orElse(null);
+	}
+
+	private static void writeVisited(CompoundTag root) {
+		if (visited != null) {
+			root.putIntArray("visited", visited.toIntArray());
+		}
+	}
+
+	private static String describe(@Nullable IntOpenHashSet slots) {
+		return slots == null ? "no playthrough" : "the playthrough has entered map slots " + slots;
 	}
 
 	// ---- the player ----------------------------------------------------------------------------
@@ -302,6 +438,7 @@ public final class Rollback {
 		CompoundTag root = new CompoundTag();
 		root.put("originals", writeSnapshots(ORIGINALS));
 		root.put("latest", writeSnapshots(LATEST));
+		writeVisited(root);
 		Path file = dir(of).resolve("blocks.nbt");
 		try {
 			Files.createDirectories(file.getParent());

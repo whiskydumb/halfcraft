@@ -66,16 +66,40 @@ DEFINE_FIELD(m_iLow, FIELD_INTEGER),
 			return (std::uint64_t(std::time(nullptr)) << 20) | (++counter & 0xFFFFFu);
 		}
 
-		void push(proto::InputType type, std::uint64_t id)
+		/// client.dll's way onto minecraft's input ring, nullptr while it isn't there.
+		PushInputFn input()
 		{
 			static PushInputFn push_input = nullptr;
 			if (!push_input) {
 				push_input = reinterpret_cast<PushInputFn>(find_export("client.dll", HC_PUSH_INPUT_EXPORT));
-				if (!push_input) {
-					return;
-				}
 			}
-			push_input(type, 0, static_cast<int>(id & 0xFFFFFFFFu), static_cast<int>(id >> 32), 0);
+			return push_input;
+		}
+
+		void push(proto::InputType type, std::uint64_t id)
+		{
+			if (PushInputFn push_input = input()) {
+				push_input(type, 0, static_cast<int>(id & 0xFFFFFFFFu), static_cast<int>(id >> 32), 0);
+			}
+		}
+
+		/// whether the menu's chapter cfg ran hc_new_game (client.dll) since the last map loaded.
+		bool take_new_game()
+		{
+			static TakeNewGameFn take = nullptr;
+			if (!take) {
+				take = reinterpret_cast<TakeNewGameFn>(find_export("client.dll", HC_TAKE_NEW_GAME_EXPORT));
+			}
+			return take && take() != 0;
+		}
+
+		/// proto::kInMapEntered for the map just loaded.
+		void push_entry(proto::MapEntry entry, MapSlot slot)
+		{
+			if (PushInputFn push_input = input()) {
+				const double half = MAP_SLOT_BLOCKS / 2.0;
+				push_input(proto::kInMapEntered, entry, slot.index, static_cast<int>(slot.x_blocks() - half), static_cast<int>(slot.x_blocks() + half));
+			}
 		}
 	}
 
@@ -92,8 +116,16 @@ DEFINE_FIELD(m_iLow, FIELD_INTEGER),
 		log_info("checkpoint %llx", static_cast<unsigned long long>(id));
 	}
 
-	void Checkpoints::on_level_loaded()
+	void Checkpoints::on_level_loaded(MapSlot slot)
 	{
+		// ahead of a transition's autosave (its checkpoint), which then has the map as minecraft clears it
+		const bool new_game = take_new_game() && gpGlobals->eLoadType == MapLoad_NewGame;
+		if (new_game || gpGlobals->eLoadType == MapLoad_Transition) {
+			push_entry(new_game ? proto::kEntryNewGame : proto::kEntryTransition, slot);
+			log_info("%s %s: minecraft clears its builds there if this playthrough hasn't been there yet", new_game ? "new game on" : "transition to",
+				STRING(gpGlobals->mapname));
+		}
+
 		CHalfCraftCheckpoint* checkpoint = find_checkpoint();
 		if (gpGlobals->eLoadType == MapLoad_LoadGame) {
 			if (checkpoint && checkpoint->id() != 0) {

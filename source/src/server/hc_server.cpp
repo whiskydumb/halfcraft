@@ -85,7 +85,7 @@ namespace halfcraft
 				combat_.reset(slot_);
 				half_life_blasts_reset(slot_);
 				vitals_.reset();
-				checkpoints_.on_level_loaded();
+				checkpoints_.on_level_loaded(slot_);
 				g_last_puppet_move = -1.0f;  // the clock starts over with the map
 			}
 

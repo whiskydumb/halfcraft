@@ -14,6 +14,7 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
+import org.jspecify.annotations.Nullable;
 import org.lwjgl.sdl.SDLKeyboard;
 
 /**
@@ -28,6 +29,8 @@ public final class InputBridge {
 	private static int clickLogs;
 	// A restore that came before Minecraft's world was open (Half-Life loaded a save first thing).
 	private static long pendingRestore;
+	// A map entered (Proto.IN_MAP_ENTERED: code, slot, west, east) before Minecraft's world was open.
+	private static int @Nullable [] pendingEntry;
 	// Where the next hurt came from (Proto.IN_HURT_FROM comes right before its IN_HURT).
 	private static Vec3 hurtFrom;
 
@@ -81,6 +84,7 @@ public final class InputBridge {
 			case Proto.IN_BULLET_HIT -> HostBlockDamage.bulletHit(minecraft.getSingleplayerServer(), new BlockPos(a, b, c));
 			case Proto.IN_CHECKPOINT -> rollback(minecraft, checkpointId(a, b), false);
 			case Proto.IN_RESTORE -> rollback(minecraft, checkpointId(a, b), true);
+			case Proto.IN_MAP_ENTERED -> mapEntered(minecraft, new int[] { code, a, b, c });
 			case Proto.IN_STRING -> HostStrings.accept(code, a, b, c);
 			case Proto.IN_PUSH -> HostPush.INSTANCE.accept(a, b, c, System.currentTimeMillis());
 			case Proto.IN_IMPULSE -> HostPush.INSTANCE.impulse(a, b, c);
@@ -121,12 +125,32 @@ public final class InputBridge {
 		});
 	}
 
-	/** Every client tick: a restore that was waiting for the world. */
+	/** Half-Life's player entered a map afresh (code, slot, west, east): Rollback, on the integrated server. */
+	private static void mapEntered(Minecraft minecraft, int[] entry) {
+		var server = minecraft.getSingleplayerServer();
+		if (minecraft.player == null || server == null) {
+			pendingEntry = entry;
+			return;
+		}
+		var uuid = minecraft.player.getUUID();
+		server.execute(() -> dev.halfcraft.world.Rollback.mapEntered(server, entry[0] == Proto.ENTRY_NEW_GAME, entry[1], entry[2], entry[3],
+			server.getPlayerList().getPlayer(uuid)));
+	}
+
+	/** Every client tick: a restore, then a map entered, that were waiting for the world. */
 	public static void tick(Minecraft minecraft) {
-		if (pendingRestore != 0 && minecraft.player != null && minecraft.getSingleplayerServer() != null) {
+		if (minecraft.player == null || minecraft.getSingleplayerServer() == null) {
+			return;
+		}
+		if (pendingRestore != 0) {
 			long id = pendingRestore;
 			pendingRestore = 0;
 			rollback(minecraft, id, true);
+		}
+		if (pendingEntry != null) {
+			int[] entry = pendingEntry;
+			pendingEntry = null;
+			mapEntered(minecraft, entry);
 		}
 	}
 

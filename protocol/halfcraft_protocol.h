@@ -227,7 +227,11 @@ namespace halfcraft::proto
 							 // (Minecraft x/y/z, float bits). Minecraft breaks its blocks there the way TNT would; the host
 							 // already hurt Minecraft's player and the mobs it has stand-ins for (kInHurt, kInHurtMob)
 		kInBulletHit = 15,   // a host bullet went into a Minecraft block: a/b/c = the block's x/y/z. Glass, panes and ice break
-		kInPush = 22,       // the host pushes its player (a trigger_push, a conveyor, a point_push: Source's base velocity)
+		kInMapEntered = 16,  // the host's player entered a map afresh: code = MapEntry, a = the map's slot (its stretch of
+							 // Minecraft's world along x), b/c = the slot's west and east edges (Minecraft x, east exclusive).
+							 // A new game starts a playthrough, and each map the playthrough enters for the first time
+							 // goes back to how it was before anything was built there (saves keep rolling back as before)
+		kInPush = 22,        // the host pushes its player (a trigger_push, a conveyor, a point_push: Source's base velocity)
 							 // while Minecraft drives it: a/b/c = Minecraft blocks per second * 1000 along x/y/z, repeated
 							 // every kPushRepeatMs while it lasts. (0, 0, 0): it stopped, and the player keeps the last
 							 // push as momentum (as Source does); nothing for kPushStaleMs: it's over, without momentum
@@ -240,6 +244,13 @@ namespace halfcraft::proto
 	};
 	inline constexpr std::uint32_t kPushRepeatMs = 200;
 	inline constexpr std::uint32_t kPushStaleMs = 500;
+
+	// How the host's player entered a map (kInMapEntered).
+	enum MapEntry : std::uint16_t
+	{
+		kEntryNewGame = 1,     // a new game from the host's menu (its chapter list): a new playthrough begins here
+		kEntryTransition = 2,  // a level transition: the map is the playthrough's own the first time it comes up
+	};
 
 	// What a kInString is for; Minecraft collects the pieces of each channel until kStringEnd.
 	enum StringChannel : std::uint16_t
